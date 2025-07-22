@@ -1,0 +1,46 @@
+[debug] [2025-07-22T20:19:35.038Z] ----------------------------------------------------------------------
+[debug] [2025-07-22T20:19:35.040Z] Command:       C:\nvm4w\nodejs\node.exe C:\Users\james\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init firestore
+[debug] [2025-07-22T20:19:35.041Z] CLI Version:   13.29.1
+[debug] [2025-07-22T20:19:35.041Z] Platform:      win32
+[debug] [2025-07-22T20:19:35.041Z] Node Version:  v20.18.2
+[debug] [2025-07-22T20:19:35.041Z] Time:          Tue Jul 22 2025 15:19:35 GMT-0500 (Central Daylight Time)
+[debug] [2025-07-22T20:19:35.041Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-07-22T20:19:35.046Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-07-22T20:19:35.046Z] > authorizing via signed-in user (jgui@rondevuevents.com)
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  D:\ElectronicDataCapture
+
+[info] 
+=== Account Setup
+[info] 
+[info] Which account do you want to use for this project? Choose an account or add a new one now
+[info] 
+[debug] [2025-07-22T20:26:06.171Z] setProjectAccount(D:\ElectronicDataCapture, jamesgui111@gmail.com)
+[info] 
+[info] +  Using account: jamesgui111@gmail.com 
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] but for now we'll just set up a default project.
+[info] 
+[debug] [2025-07-22T20:26:09.315Z] No OAuth tokens found
+[debug] [2025-07-22T20:26:09.316Z] No OAuth tokens found
+[debug] [2025-07-22T20:26:09.316Z] > refreshing access token with scopes: []
+[debug] [2025-07-22T20:26:09.317Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-07-22T20:26:09.317Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-22T20:26:09.573Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-07-22T20:26:09.573Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-07-22T20:26:09.577Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/availableProjects pageSize=100
+[debug] [2025-07-22T20:26:10.038Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/availableProjects 200
+[debug] [2025-07-22T20:26:10.038Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/availableProjects [omitted]
