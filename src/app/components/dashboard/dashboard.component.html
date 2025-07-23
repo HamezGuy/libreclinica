@@ -1,0 +1,385 @@
+<!-- EDC Dashboard with Three-Panel Layout -->
+<div class="edc-dashboard" *ngIf="userProfile$ | async as userProfile">
+  
+  <!-- Top Navigation Bar -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <h1 class="app-title">
+        <i class="material-icons">medical_services</i>
+        EDC System
+      </h1>
+    </div>
+    
+    <div class="top-bar-center">
+      <div class="search-container">
+        <i class="material-icons">search</i>
+        <input 
+          type="text" 
+          placeholder="Search patients, forms, or studies..."
+          [(ngModel)]="searchQuery"
+          class="search-input">
+      </div>
+    </div>
+    
+    <div class="top-bar-right">
+      <!-- Form Template Actions (Only for ADMIN/INVESTIGATOR) -->
+      <div class="template-actions" *ngIf="permissions.canCreate || permissions.canEdit">
+        <button 
+          class="btn btn-primary"
+          (click)="openTemplateModal()"
+          title="Manage Templates">
+          <i class="material-icons">description</i>
+          Templates
+        </button>
+        
+        <button 
+          class="btn btn-success"
+          (click)="createNewTemplate()"
+          *ngIf="permissions.canCreate"
+          title="Create New Template">
+          <i class="material-icons">add</i>
+          Create Template
+        </button>
+      </div>
+      
+      <!-- User Profile -->
+      <div class="user-profile">
+        <img 
+          [src]="userProfile.photoURL || '/assets/default-avatar.png'" 
+          [alt]="userProfile.displayName"
+          class="user-avatar">
+        <div class="user-info">
+          <span class="user-name">{{ userProfile.displayName }}</span>
+          <span class="user-role">{{ userProfile.accessLevel }}</span>
+        </div>
+        <button class="btn btn-link" (click)="signOut()" title="Sign Out">
+          <i class="material-icons">logout</i>
+        </button>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Main Content Area -->
+  <div class="main-content">
+    
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul class="nav-list">
+          <li 
+            *ngFor="let item of sidebarItems" 
+            class="nav-item"
+            [class.active]="item.active"
+            (click)="selectSidebarItem(item.id)">
+            <i class="material-icons">{{ item.icon }}</i>
+            <span>{{ item.label }}</span>
+          </li>
+        </ul>
+      </nav>
+      
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="compliance-badges">
+          <span class="badge hipaa">HIPAA</span>
+          <span class="badge cfr21">21 CFR Part 11</span>
+          <span class="badge gdpr">GDPR</span>
+          <span class="badge dpdp">DPDP Act</span>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Panel -->
+    <main class="main-panel">
+      
+      <!-- Patients View -->
+      <div class="content-section" *ngIf="activeSidebarItem === 'patients'">
+        <div class="section-header">
+          <h2>Patients</h2>
+          <div class="section-actions">
+            <button class="btn btn-primary" title="Add New Patient">
+              <i class="material-icons">person_add</i>
+              Add Patient
+            </button>
+          </div>
+        </div>
+        
+        <!-- Patient List -->
+        <div class="patient-list">
+          <div class="list-header">
+            <span>Patient ID</span>
+            <span>Name</span>
+            <span>Study</span>
+            <span>Forms</span>
+            <span>Last Visit</span>
+            <span>Status</span>
+            <span>Actions</span>
+          </div>
+          
+          <div 
+            *ngFor="let patient of filteredPatients" 
+            class="patient-item"
+            [class.selected]="selectedPatient?.id === patient.id"
+            (click)="selectPatient(patient)">
+            <span class="patient-id">{{ patient.identifier }}</span>
+            <span class="patient-name">
+              {{ patient.displayName }}
+              <i class="material-icons phi-icon" *ngIf="!patient.canViewPhi" title="PHI Restricted">lock</i>
+            </span>
+            <span class="patient-study">{{ patient.studyId || 'N/A' }}</span>
+            <span class="patient-forms">{{ patient.formsCount }}</span>
+            <span class="patient-visit">{{ patient.lastVisit ? (patient.lastVisit | date:'short') : 'N/A' }}</span>
+            <span class="patient-status">
+              <span class="status-badge" [class]="patient.status">{{ patient.status }}</span>
+            </span>
+            <span class="patient-actions">
+              <button class="btn btn-sm btn-link" title="View Details">
+                <i class="material-icons">visibility</i>
+              </button>
+              <button class="btn btn-sm btn-link" title="Edit">
+                <i class="material-icons">edit</i>
+              </button>
+            </span>
+          </div>
+          
+          <div *ngIf="filteredPatients.length === 0" class="empty-state">
+            <i class="material-icons">people_outline</i>
+            <p>No patients found</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Forms View -->
+      <div class="content-section" *ngIf="activeSidebarItem === 'forms'">
+        <div class="section-header">
+          <h2>Form Templates</h2>
+          <div class="section-actions">
+            <button 
+              class="btn btn-primary" 
+              (click)="createNewTemplate()"
+              *ngIf="permissions.canCreate"
+              title="Create New Template">
+              <i class="material-icons">add</i>
+              Create Template
+            </button>
+          </div>
+        </div>
+        
+        <!-- Template List -->
+        <div class="template-list">
+          <div class="template-grid" *ngIf="(filteredTemplates | async) as templates">
+            <div 
+              *ngFor="let template of templates" 
+              class="template-card"
+              [class]="template.status">
+              <div class="template-header">
+                <h3>{{ template.name }}</h3>
+                <span class="template-version">v{{ template.version }}</span>
+              </div>
+              
+              <div class="template-body">
+                <p class="template-description">{{ template.description }}</p>
+                <div class="template-meta">
+                  <span class="field-count">{{ template.fields.length }} fields</span>
+                  <span class="template-status" [class]="template.status">{{ template.status }}</span>
+                </div>
+              </div>
+              
+              <div class="template-actions">
+                <button 
+                  class="btn btn-sm btn-secondary"
+                  (click)="editTemplate(template)"
+                  *ngIf="permissions.canEdit"
+                  title="Edit Template">
+                  <i class="material-icons">edit</i>
+                </button>
+                
+                <button 
+                  class="btn btn-sm btn-success"
+                  (click)="publishTemplate(template)"
+                  *ngIf="permissions.canPublish && template.status === 'draft'"
+                  title="Publish Template">
+                  <i class="material-icons">publish</i>
+                </button>
+                
+                <button 
+                  class="btn btn-sm btn-danger"
+                  (click)="deleteTemplate(template)"
+                  *ngIf="permissions.canDelete"
+                  title="Delete Template">
+                  <i class="material-icons">delete</i>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div *ngIf="(templates$ | async)?.length === 0" class="empty-state">
+            <i class="material-icons">description</i>
+            <p>No form templates found</p>
+            <button 
+              class="btn btn-primary"
+              (click)="createNewTemplate()"
+              *ngIf="permissions.canCreate">
+              Create Your First Template
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Other sections (Studies, Reports, Audit) -->
+      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms'">
+        <div class="section-header">
+          <h2>{{ activeSidebarItem | titlecase }}</h2>
+        </div>
+        <div class="coming-soon">
+          <i class="material-icons">construction</i>
+          <p>{{ activeSidebarItem | titlecase }} section coming soon...</p>
+        </div>
+      </div>
+      
+    </main>
+    
+    <!-- Right Panel (Patient Details) -->
+    <aside class="right-panel" *ngIf="selectedPatient">
+      <div class="panel-header">
+        <h3>Patient Details</h3>
+        <button class="btn btn-link" (click)="selectedPatient = null" title="Close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <div class="panel-content">
+        <!-- Non-PHI Information -->
+        <div class="patient-summary">
+          <h4>{{ selectedPatient.displayName }}</h4>
+          <p><strong>ID:</strong> {{ selectedPatient.identifier }}</p>
+          <p><strong>Study:</strong> {{ selectedPatient.studyId || 'N/A' }}</p>
+          <p><strong>Status:</strong> 
+            <span class="status-badge" [class]="selectedPatient.status">{{ selectedPatient.status }}</span>
+          </p>
+        </div>
+        
+        <!-- PHI Information (if accessible) -->
+        <div class="phi-section" *ngIf="selectedPatientPhiData">
+          <h4>Clinical Information</h4>
+          <div class="phi-warning">
+            <i class="material-icons">security</i>
+            <span>Protected Health Information</span>
+          </div>
+          
+          <div class="phi-data">
+            <p *ngIf="selectedPatientPhiData.gender"><strong>Gender:</strong> {{ selectedPatientPhiData.gender }}</p>
+            <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>Birth Date:</strong> {{ selectedPatientPhiData.dateOfBirth | date }}</p>
+            <!-- Add more PHI fields as needed -->
+          </div>
+        </div>
+        
+        <!-- Patient Forms -->
+        <div class="patient-forms">
+          <h4>Forms ({{ selectedPatientForms.length }})</h4>
+          <div class="form-list">
+            <div 
+              *ngFor="let form of selectedPatientForms" 
+              class="form-item">
+              <div class="form-info">
+                <span class="form-name">{{ form.templateId }}</span>
+                <span class="form-status" [class]="form.status">{{ form.status }}</span>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-sm btn-link" title="View Form">
+                  <i class="material-icons">visibility</i>
+                </button>
+                <button class="btn btn-sm btn-link" title="Edit Form" *ngIf="form.status !== 'locked'">
+                  <i class="material-icons">edit</i>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Create New Form for Patient -->
+          <div class="create-form-section" *ngIf="(templates$ | async) as templates">
+            <h5>Create New Form</h5>
+            <div class="template-selector">
+              <button 
+                *ngFor="let template of templates" 
+                class="btn btn-sm btn-outline"
+                (click)="createFormInstance(template, selectedPatient!)"
+                [disabled]="template.status !== 'published'">
+                {{ template.name }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+  </div>
+  
+</div>
+
+<!-- Template Management Modal -->
+<div class="modal-overlay" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
+  <div class="modal-content template-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Form Templates</h2>
+      <button class="btn btn-link" (click)="closeTemplateModal()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="template-management">
+        <!-- Template list with management options -->
+        <div class="template-list-modal" *ngIf="(templates$ | async) as templates">
+          <div 
+            *ngFor="let template of templates" 
+            class="template-row">
+            <div class="template-info">
+              <h4>{{ template.name }}</h4>
+              <p>{{ template.description }}</p>
+              <div class="template-meta">
+                <span>Version: {{ template.version }}</span>
+                <span>Status: {{ template.status }}</span>
+                <span>Fields: {{ template.fields.length }}</span>
+              </div>
+            </div>
+            
+            <div class="template-actions">
+              <button 
+                class="btn btn-sm btn-secondary"
+                (click)="editTemplate(template)"
+                *ngIf="permissions.canEdit">
+                Edit
+              </button>
+              
+              <button 
+                class="btn btn-sm btn-success"
+                (click)="publishTemplate(template)"
+                *ngIf="permissions.canPublish && template.status === 'draft'">
+                Publish
+              </button>
+              
+              <button 
+                class="btn btn-sm btn-danger"
+                (click)="deleteTemplate(template)"
+                *ngIf="permissions.canDelete">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Form Builder Modal -->
+<div *ngIf="showFormBuilderModal" class="modal-overlay">
+  <div class="modal-content form-builder-modal">
+    <app-form-builder
+      [templateId]="formBuilderTemplateId"
+      [isModal]="true"
+      (templateSaved)="onTemplateSaved($event)"
+      (builderClosed)="closeFormBuilder()">
+    </app-form-builder>
+  </div>
+</div>

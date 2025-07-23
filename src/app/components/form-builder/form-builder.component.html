@@ -1,0 +1,757 @@
+<!-- Form Builder Component -->
+<div class="form-builder" [class.modal-mode]="isModal">
+  
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-spinner">
+      <span class="material-icons rotating">sync</span>
+      <p>Loading template...</p>
+    </div>
+  </div>
+
+  <!-- Builder Header -->
+  <div class="builder-header">
+    <div class="header-left">
+      <h2>
+        <span class="material-icons">build</span>
+        {{ currentTemplate?.name || 'New Form Template' }}
+      </h2>
+      <div class="template-status">
+        <span class="status-badge" [ngClass]="currentTemplate?.status">
+          {{ currentTemplate?.status || 'draft' }}
+        </span>
+        <span class="version-badge">v{{ builderForm.get('version')?.value }}</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="tab-navigation">
+        <button 
+          type="button" 
+          class="tab-btn" 
+          [class.active]="activeTab === 'design'"
+          (click)="activeTab = 'design'">
+          <span class="material-icons">design_services</span>
+          Design
+        </button>
+        <button 
+          type="button" 
+          class="tab-btn" 
+          [class.active]="activeTab === 'preview'"
+          (click)="activeTab = 'preview'">
+          <span class="material-icons">preview</span>
+          Preview
+        </button>
+        <button 
+          type="button" 
+          class="tab-btn" 
+          [class.active]="activeTab === 'settings'"
+          (click)="activeTab = 'settings'">
+          <span class="material-icons">settings</span>
+          Settings
+        </button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="action-buttons">
+        <button 
+          type="button" 
+          class="btn btn-outline btn-sm"
+          (click)="previewTemplate()"
+          [disabled]="isLoading">
+          <span class="material-icons">visibility</span>
+          Preview
+        </button>
+        
+        <button 
+          type="button" 
+          class="btn btn-primary btn-sm"
+          (click)="saveTemplate()"
+          [disabled]="!canSave || isSaving">
+          <span class="material-icons">{{ isSaving ? 'sync' : 'save' }}</span>
+          {{ isSaving ? 'Saving...' : 'Save' }}
+        </button>
+        
+        <button 
+          type="button" 
+          class="btn btn-success btn-sm"
+          (click)="publishTemplate()"
+          [disabled]="!canPublish"
+          *ngIf="currentTemplate?.status === 'draft'">
+          <span class="material-icons">publish</span>
+          Publish
+        </button>
+        
+        <button 
+          type="button" 
+          class="btn btn-link btn-sm"
+          (click)="closeBuilder()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Builder Content -->
+  <div class="builder-content">
+    
+    <!-- Design Tab -->
+    <div *ngIf="activeTab === 'design'" class="design-panel">
+      
+      <!-- Field Toolbox -->
+      <div class="field-toolbox">
+        <div class="toolbox-header">
+          <h3>
+            <span class="material-icons">widgets</span>
+            Field Types
+          </h3>
+        </div>
+        
+        <div class="toolbox-content">
+          <!-- Basic Fields -->
+          <div class="field-category">
+            <h4>
+              <span class="material-icons">text_fields</span>
+              Basic Fields
+            </h4>
+            <div class="field-type-list">
+              <div 
+                *ngFor="let fieldType of basicFields"
+                class="field-type-item"
+                draggable="true"
+                (dragstart)="onFieldTypeDragStart(fieldType.type)"
+                [title]="fieldType.description">
+                <span class="material-icons">{{ fieldType.icon }}</span>
+                <span class="field-label">{{ fieldType.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Fields -->
+          <div class="field-category">
+            <h4>
+              <span class="material-icons">tune</span>
+              Advanced Fields
+            </h4>
+            <div class="field-type-list">
+              <div 
+                *ngFor="let fieldType of advancedFields"
+                class="field-type-item"
+                draggable="true"
+                (dragstart)="onFieldTypeDragStart(fieldType.type)"
+                [title]="fieldType.description">
+                <span class="material-icons">{{ fieldType.icon }}</span>
+                <span class="field-label">{{ fieldType.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clinical Fields -->
+          <div class="field-category">
+            <h4>
+              <span class="material-icons">local_hospital</span>
+              Clinical Fields
+            </h4>
+            <div class="field-type-list">
+              <div 
+                *ngFor="let fieldType of clinicalFields"
+                class="field-type-item"
+                draggable="true"
+                (dragstart)="onFieldTypeDragStart(fieldType.type)"
+                [title]="fieldType.description">
+                <span class="material-icons">{{ fieldType.icon }}</span>
+                <span class="field-label">{{ fieldType.label }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Canvas -->
+      <div class="form-canvas">
+        <div class="canvas-header">
+          <h3>
+            <span class="material-icons">article</span>
+            Form Layout
+          </h3>
+          <div class="canvas-actions">
+            <button type="button" class="btn btn-link btn-sm" title="Clear All Fields">
+              <span class="material-icons">clear_all</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="canvas-content">
+          <!-- Form Fields Drop Zone -->
+          <div 
+            class="form-fields-container"
+            cdkDropList
+            [cdkDropListData]="currentTemplate?.fields || []"
+            (cdkDropListDropped)="onFieldDrop($event)">
+            
+            <!-- Empty State -->
+            <div *ngIf="fieldsArray.length === 0" class="empty-canvas">
+              <span class="material-icons">drag_indicator</span>
+              <p>Drag field types from the toolbox to start building your form</p>
+            </div>
+
+            <!-- Form Fields -->
+            <div 
+              *ngFor="let fieldControl of fieldsArray.controls; let i = index"
+              class="form-field-item"
+              cdkDrag
+              [class.selected]="selectedField?.id === fieldControl.get('id')?.value"
+              (click)="selectField(fieldControl.value)">
+              
+              <div class="field-drag-handle" cdkDragHandle>
+                <span class="material-icons">drag_indicator</span>
+              </div>
+              
+              <div class="field-content">
+                <div class="field-header">
+                  <div class="field-info">
+                    <span class="field-type-icon material-icons">
+                      {{ getFieldIcon(fieldControl.get('type')?.value) }}
+                    </span>
+                    <span class="field-label">{{ fieldControl.get('label')?.value }}</span>
+                    <span *ngIf="fieldControl.get('isRequired')?.value" class="required-indicator">*</span>
+                    <span *ngIf="fieldControl.get('isPhi')?.value" class="phi-indicator" title="Contains PHI">
+                      <span class="material-icons">security</span>
+                    </span>
+                  </div>
+                  
+                  <div class="field-actions">
+                    <button 
+                      type="button" 
+                      class="btn btn-link btn-sm"
+                      (click)="duplicateField(i); $event.stopPropagation()"
+                      title="Duplicate Field">
+                      <span class="material-icons">content_copy</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn btn-link btn-sm text-danger"
+                      (click)="deleteField(i); $event.stopPropagation()"
+                      title="Delete Field">
+                      <span class="material-icons">delete</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="field-preview">
+                  <!-- Field preview based on type -->
+                  <div [ngSwitch]="fieldControl.get('type')?.value" class="field-input-preview">
+                    
+                    <!-- Text Input -->
+                    <input 
+                      *ngSwitchCase="'text'"
+                      type="text" 
+                      class="form-control"
+                      [placeholder]="fieldControl.get('placeholder')?.value"
+                      disabled>
+                    
+                    <!-- Textarea -->
+                    <textarea 
+                      *ngSwitchCase="'textarea'"
+                      class="form-control"
+                      [placeholder]="fieldControl.get('placeholder')?.value"
+                      rows="3"
+                      disabled></textarea>
+                    
+                    <!-- Number Input -->
+                    <input 
+                      *ngSwitchCase="'number'"
+                      type="number" 
+                      class="form-control"
+                      [placeholder]="fieldControl.get('placeholder')?.value"
+                      disabled>
+                    
+                    <!-- Select Dropdown -->
+                    <select 
+                      *ngSwitchCase="'select'"
+                      class="form-control"
+                      disabled>
+                      <option value="">{{ fieldControl.get('placeholder')?.value || 'Select an option' }}</option>
+                      <option 
+                        *ngFor="let option of fieldControl.get('options')?.value"
+                        [value]="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                    
+                    <!-- Radio Buttons -->
+                    <div *ngSwitchCase="'radio'" class="radio-group">
+                      <label 
+                        *ngFor="let option of fieldControl.get('options')?.value"
+                        class="radio-option">
+                        <input type="radio" [name]="fieldControl.get('name')?.value" [value]="option.value" disabled>
+                        <span>{{ option.label }}</span>
+                      </label>
+                    </div>
+                    
+                    <!-- Checkboxes -->
+                    <div *ngSwitchCase="'checkbox'" class="checkbox-group">
+                      <label 
+                        *ngFor="let option of fieldControl.get('options')?.value"
+                        class="checkbox-option">
+                        <input type="checkbox" [value]="option.value" disabled>
+                        <span>{{ option.label }}</span>
+                      </label>
+                    </div>
+                    
+                    <!-- Date Input -->
+                    <input 
+                      *ngSwitchCase="'date'"
+                      type="date" 
+                      class="form-control"
+                      disabled>
+                    
+                    <!-- File Upload -->
+                    <div *ngSwitchCase="'file'" class="file-upload-preview">
+                      <span class="material-icons">upload_file</span>
+                      <span>Choose file or drag here</span>
+                    </div>
+                    
+                    <!-- Default -->
+                    <input 
+                      *ngSwitchDefault
+                      type="text" 
+                      class="form-control"
+                      [placeholder]="fieldControl.get('placeholder')?.value"
+                      disabled>
+                  </div>
+                  
+                  <!-- Help Text -->
+                  <div *ngIf="fieldControl.get('helpText')?.value" class="field-help-text">
+                    {{ fieldControl.get('helpText')?.value }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Field Properties Panel -->
+      <div class="field-properties" [class.show]="showFieldProperties && selectedField">
+        <div class="properties-header">
+          <h3>
+            <span class="material-icons">tune</span>
+            Field Properties
+          </h3>
+          <button 
+            type="button" 
+            class="btn btn-link btn-sm"
+            (click)="showFieldProperties = false">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        
+        <div class="properties-content" *ngIf="selectedField">
+          <form [formGroup]="builderForm">
+            <!-- Find the selected field in the form array and bind to it -->
+            <div *ngFor="let fieldControl of fieldsArray.controls; let i = index">
+              <div *ngIf="fieldControl.get('id')?.value === selectedField.id" [formGroup]="$any(fieldControl)">
+                
+                <!-- Basic Properties -->
+                <div class="property-section">
+                  <h4>Basic Properties</h4>
+                  
+                  <div class="form-group">
+                    <label>Field Label *</label>
+                    <input type="text" class="form-control" formControlName="label">
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Field Name *</label>
+                    <input type="text" class="form-control" formControlName="name">
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Placeholder Text</label>
+                    <input type="text" class="form-control" formControlName="placeholder">
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Help Text</label>
+                    <textarea class="form-control" formControlName="helpText" rows="2"></textarea>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Default Value</label>
+                    <input type="text" class="form-control" formControlName="defaultValue">
+                  </div>
+                </div>
+
+                <!-- Field Options (for select, radio, checkbox) -->
+                <div 
+                  class="property-section"
+                  *ngIf="fieldControl.get('type')?.value === 'select' || 
+                         fieldControl.get('type')?.value === 'multiselect' ||
+                         fieldControl.get('type')?.value === 'radio' || 
+                         fieldControl.get('type')?.value === 'checkbox'">
+                  <h4>Options</h4>
+                  
+                  <div formArrayName="options">
+                    <div 
+                      *ngFor="let optionControl of getOptionsControls(fieldControl); let j = index"
+                      class="option-item"
+                      [formGroupName]="j">
+                      <div class="form-group">
+                        <input type="text" class="form-control" formControlName="label" placeholder="Option Label">
+                      </div>
+                      <div class="form-group">
+                        <input type="text" class="form-control" formControlName="value" placeholder="Option Value">
+                      </div>
+                      <button 
+                        type="button" 
+                        class="btn btn-link btn-sm text-danger"
+                        (click)="removeOption(i, j)">
+                        <span class="material-icons">delete</span>
+                      </button>
+                    </div>
+                    
+                    <button 
+                      type="button" 
+                      class="btn btn-outline btn-sm"
+                      (click)="addOption(i)">
+                      <span class="material-icons">add</span>
+                      Add Option
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Field Settings -->
+                <div class="property-section">
+                  <h4>Field Settings</h4>
+                  
+                  <div class="checkbox-group">
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="isRequired">
+                      <span>Required Field</span>
+                    </label>
+                    
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="isReadonly">
+                      <span>Read Only</span>
+                    </label>
+                    
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="isHidden">
+                      <span>Hidden Field</span>
+                    </label>
+                    
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="isPhi">
+                      <span>Contains PHI Data</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Validation Rules -->
+                <div class="property-section">
+                  <h4>Validation Rules</h4>
+                  
+                  <div formArrayName="validationRules">
+                    <div 
+                      *ngFor="let ruleControl of getValidationRulesControls(fieldControl); let k = index"
+                      class="validation-rule-item"
+                      [formGroupName]="k">
+                      
+                      <div class="form-group">
+                        <select class="form-control" formControlName="type">
+                          <option value="">Select Rule Type</option>
+                          <option 
+                            *ngFor="let rule of validationRules"
+                            [value]="rule.type">
+                            {{ rule.label }}
+                          </option>
+                        </select>
+                      </div>
+                      
+                      <div class="form-group" *ngIf="ruleControl.get('type')?.value && getValidationRule(ruleControl.get('type')?.value)?.hasValue">
+                        <input 
+                          type="text" 
+                          class="form-control" 
+                          formControlName="value"
+                          placeholder="Rule Value">
+                      </div>
+                      
+                      <div class="form-group">
+                        <input 
+                          type="text" 
+                          class="form-control" 
+                          formControlName="message"
+                          placeholder="Error Message">
+                      </div>
+                      
+                      <button 
+                        type="button" 
+                        class="btn btn-link btn-sm text-danger"
+                        (click)="removeValidationRule(i, k)">
+                        <span class="material-icons">delete</span>
+                      </button>
+                    </div>
+                    
+                    <button 
+                      type="button" 
+                      class="btn btn-outline btn-sm"
+                      (click)="addValidationRule(i)">
+                      <span class="material-icons">add</span>
+                      Add Validation Rule
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Audit Trail Settings -->
+                <div class="property-section" formGroupName="auditTrail">
+                  <h4>Audit Trail</h4>
+                  
+                  <div class="checkbox-group">
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="trackChanges">
+                      <span>Track Field Changes</span>
+                    </label>
+                    
+                    <label class="checkbox-option">
+                      <input type="checkbox" formControlName="reasonRequired">
+                      <span>Require Change Reason</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Tab -->
+    <div *ngIf="activeTab === 'preview'" class="preview-panel">
+      <div class="preview-header">
+        <h3>
+          <span class="material-icons">preview</span>
+          Form Preview
+        </h3>
+        <div class="preview-actions">
+          <button type="button" class="btn btn-outline btn-sm">
+            <span class="material-icons">devices</span>
+            Responsive View
+          </button>
+        </div>
+      </div>
+      
+      <div class="preview-content">
+        <div class="form-preview">
+          <div class="form-header">
+            <h2>{{ builderForm.get('name')?.value }}</h2>
+            <p *ngIf="builderForm.get('description')?.value">{{ builderForm.get('description')?.value }}</p>
+            <div *ngIf="builderForm.get('instructions')?.value" class="form-instructions">
+              {{ builderForm.get('instructions')?.value }}
+            </div>
+          </div>
+          
+          <div class="form-body">
+            <!-- Preview of form fields -->
+            <div *ngFor="let fieldControl of fieldsArray.controls" class="preview-field">
+              <label class="field-label">
+                {{ fieldControl.get('label')?.value }}
+                <span *ngIf="fieldControl.get('isRequired')?.value" class="required">*</span>
+              </label>
+              
+              <!-- Field preview (similar to canvas but interactive) -->
+              <div [ngSwitch]="fieldControl.get('type')?.value">
+                <input 
+                  *ngSwitchCase="'text'"
+                  type="text" 
+                  class="form-control"
+                  [placeholder]="fieldControl.get('placeholder')?.value">
+                
+                <textarea 
+                  *ngSwitchCase="'textarea'"
+                  class="form-control"
+                  [placeholder]="fieldControl.get('placeholder')?.value"
+                  rows="3"></textarea>
+                
+                <input 
+                  *ngSwitchCase="'number'"
+                  type="number" 
+                  class="form-control"
+                  [placeholder]="fieldControl.get('placeholder')?.value">
+                
+                <select 
+                  *ngSwitchCase="'select'"
+                  class="form-control">
+                  <option value="">{{ fieldControl.get('placeholder')?.value || 'Select an option' }}</option>
+                  <option 
+                    *ngFor="let option of fieldControl.get('options')?.value"
+                    [value]="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+                
+                <input 
+                  *ngSwitchCase="'date'"
+                  type="date" 
+                  class="form-control">
+                
+                <input 
+                  *ngSwitchDefault
+                  type="text" 
+                  class="form-control"
+                  [placeholder]="fieldControl.get('placeholder')?.value">
+              </div>
+              
+              <div *ngIf="fieldControl.get('helpText')?.value" class="field-help">
+                {{ fieldControl.get('helpText')?.value }}
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-footer">
+            <button type="button" class="btn btn-primary">Submit Form</button>
+            <button type="button" class="btn btn-outline">Save Draft</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div *ngIf="activeTab === 'settings'" class="settings-panel">
+      <div class="settings-header">
+        <h3>
+          <span class="material-icons">settings</span>
+          Template Settings
+        </h3>
+      </div>
+      
+      <div class="settings-content">
+        <form [formGroup]="builderForm">
+          
+          <!-- Basic Settings -->
+          <div class="settings-section">
+            <h4>Basic Information</h4>
+            
+            <div class="form-group">
+              <label>Template Name *</label>
+              <input type="text" class="form-control" formControlName="name">
+            </div>
+            
+            <div class="form-group">
+              <label>Description</label>
+              <textarea class="form-control" formControlName="description" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>Category *</label>
+              <select class="form-control" formControlName="category">
+                <option value="clinical">Clinical</option>
+                <option value="administrative">Administrative</option>
+                <option value="regulatory">Regulatory</option>
+                <option value="safety">Safety</option>
+                <option value="quality">Quality</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Version</label>
+              <input type="text" class="form-control" formControlName="version">
+            </div>
+          </div>
+
+          <!-- Form Behavior -->
+          <div class="settings-section">
+            <h4>Form Behavior</h4>
+            
+            <div class="checkbox-group">
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="isPhiForm">
+                <span>Contains PHI Data</span>
+              </label>
+              
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="requiresSignature">
+                <span>Requires Electronic Signature</span>
+              </label>
+              
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="allowPartialSave">
+                <span>Allow Partial Save</span>
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>Maximum Submissions</label>
+              <input type="number" class="form-control" formControlName="maxSubmissions" min="1">
+              <small class="form-text">Leave empty for unlimited submissions</small>
+            </div>
+            
+            <div class="form-group">
+              <label>Expiration Date</label>
+              <input type="date" class="form-control" formControlName="expirationDate">
+            </div>
+          </div>
+
+          <!-- Instructions -->
+          <div class="settings-section">
+            <h4>Form Instructions</h4>
+            
+            <div class="form-group">
+              <label>Instructions for Users</label>
+              <textarea class="form-control" formControlName="instructions" rows="4" 
+                placeholder="Provide instructions for users filling out this form..."></textarea>
+            </div>
+          </div>
+
+          <!-- Compliance Settings -->
+          <div class="settings-section" formGroupName="metadata">
+            <h4>Compliance & Metadata</h4>
+            
+            <div class="form-group">
+              <label>Study Phase</label>
+              <select class="form-control" formControlName="studyPhase">
+                <option value="">Select Phase</option>
+                <option value="preclinical">Preclinical</option>
+                <option value="phase1">Phase I</option>
+                <option value="phase2">Phase II</option>
+                <option value="phase3">Phase III</option>
+                <option value="phase4">Phase IV</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Therapeutic Area</label>
+              <input type="text" class="form-control" formControlName="therapeuticArea" 
+                placeholder="e.g., Oncology, Cardiology, Neurology">
+            </div>
+            
+            <div class="form-group">
+              <label>Data Retention Period (days)</label>
+              <input type="number" class="form-control" formControlName="dataRetentionPeriod" min="1">
+              <small class="form-text">Default: 2555 days (7 years) for regulatory compliance</small>
+            </div>
+          </div>
+
+          <!-- Custom CSS -->
+          <div class="settings-section">
+            <h4>Custom Styling</h4>
+            
+            <div class="form-group">
+              <label>Custom CSS</label>
+              <textarea class="form-control" formControlName="customCss" rows="6" 
+                placeholder="/* Add custom CSS styles for this form */"></textarea>
+              <small class="form-text">Advanced: Custom CSS will be applied to this form only</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unsaved Changes Warning -->
+  <div *ngIf="hasUnsavedChanges" class="unsaved-changes-warning">
+    <span class="material-icons">warning</span>
+    <span>You have unsaved changes</span>
+  </div>
+</div>

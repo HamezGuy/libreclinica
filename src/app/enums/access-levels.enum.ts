@@ -1,0 +1,20 @@
+export enum AccessLevel {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  INVESTIGATOR = 'INVESTIGATOR',
+  MONITOR = 'MONITOR',
+  DATA_ENTRY = 'DATA_ENTRY',
+  VIEWER = 'VIEWER'
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL'
+}
+
+export enum ComplianceRegion {
+  INDIA = 'INDIA',
+  GLOBAL = 'GLOBAL'
+}

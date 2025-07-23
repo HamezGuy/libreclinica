@@ -1,0 +1,145 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth != null && request.auth.token.email_verified;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/user-profiles/$(request.auth.uid)).data;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+    
+    function hasAnyRole(roles) {
+      return isAuthenticated() && getUserData().role in roles;
+    }
+    
+    function isActive() {
+      return isAuthenticated() && getUserData().status == 'ACTIVE';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // User profiles collection
+    match /user-profiles/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId) || hasAnyRole(['admin', 'manager']);
+      
+      // Only admins can create users (after auth creation)
+      allow create: if hasRole('admin') || 
+                      (isOwner(userId) && request.auth.token.email_verified);
+      
+      // Users can update their own profile, but cannot change their role, status, or access level.
+      // Admins have full update rights.
+      allow update: if hasRole('admin') ||
+                      (isOwner(userId) &&
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.status == resource.data.status &&
+                       request.resource.data.accessLevel == resource.data.accessLevel);
+      
+      // Only admins can delete users
+      allow delete: if hasRole('admin');
+    }
+    
+    // Audit logs - immutable audit trail for 21 CFR Part 11
+    match /audit_logs/{logId} {
+      // Anyone authenticated can read audit logs (for transparency)
+      allow read: if isAuthenticated() && isActive();
+      
+      // Audit logs can only be created, never updated or deleted
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.timestamp == request.time;
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // Authentication logs
+    match /auth_logs/{logId} {
+      // Only admins and the user themselves can read auth logs
+      allow read: if hasRole('admin') || 
+                    (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      // System can create auth logs
+      allow create: if true; // Auth service needs to log failed attempts
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // Studies collection
+    match /studies/{studyId} {
+      // Read access based on role and study assignment
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    (hasAnyRole(['admin', 'manager']) || 
+                     request.auth.uid in resource.data.assignedUsers);
+      
+      // Only admins and managers can create studies
+      allow create: if hasAnyRole(['admin', 'manager']) && isActive();
+      
+      // Only admins and assigned managers can update
+      allow update: if isActive() && 
+                      (hasRole('admin') || 
+                       (hasRole('manager') && request.auth.uid in resource.data.managers));
+      
+      // Only admins can delete studies
+      allow delete: if hasRole('admin');
+    }
+    
+    // Forms collection (eCRFs)
+    match /forms/{formId} {
+      allow read: if isAuthenticated() && isActive();
+      allow create: if hasAnyRole(['admin', 'manager', 'monitor']) && isActive();
+      allow update: if hasAnyRole(['admin', 'manager', 'monitor']) && 
+                      isActive() && 
+                      request.resource.data.version > resource.data.version;
+      allow delete: if hasRole('admin');
+    }
+    
+    // Form submissions
+    match /studies/{studyId}/submissions/{submissionId} {
+      // Users can read their own submissions or based on role
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    (hasAnyRole(['admin', 'manager', 'monitor']) || 
+                     resource.data.submittedBy == request.auth.uid);
+      
+      // Data entry users can create submissions
+      allow create: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyRole(['admin', 'manager', 'monitor', 'data_entry']) &&
+                      request.resource.data.submittedBy == request.auth.uid;
+      
+      // Updates must maintain data integrity
+      allow update: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyRole(['admin', 'manager', 'monitor', 'data_entry']) &&
+                      request.resource.data.previousVersion == resource.data.version;
+      
+      // No deletions allowed (data integrity)
+      allow delete: if false;
+    }
+    
+    // Compliance documents
+    match /compliance/{docId} {
+      allow read: if isAuthenticated() && isActive();
+      allow write: if hasRole('admin');
+    }
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,154 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h2 class="title">Create EDC Account</h2>
+      <p class="subtitle">Join the platform to manage clinical data with full compliance.</p>
+    </div>
+
+    <div *ngIf="successMessage" class="alert alert-success">
+      <i class="fas fa-check-circle"></i>
+      {{ successMessage }}
+      <p class="redirect-message">Redirecting to login page...</p>
+    </div>
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" *ngIf="!successMessage">
+      <div class="form-field">
+        <label for="displayName">Full Name</label>
+        <input 
+          id="displayName" 
+          type="text" 
+          formControlName="displayName" 
+          placeholder="e.g., Dr. Jane Doe"
+          [class.error]="displayNameControl?.invalid && displayNameControl?.touched">
+        <div *ngIf="displayNameControl?.invalid && displayNameControl?.touched" class="error-text">
+          <span *ngIf="displayNameControl?.errors?.['required']">Full name is required.</span>
+          <span *ngIf="displayNameControl?.errors?.['minlength']">Full name must be at least 2 characters.</span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="username">Username</label>
+        <input 
+          id="username" 
+          type="text" 
+          formControlName="username" 
+          placeholder="e.g., janedoe"
+          [class.error]="usernameControl?.invalid && usernameControl?.touched">
+        <div *ngIf="usernameControl?.invalid && usernameControl?.touched" class="error-text">
+          <span *ngIf="usernameControl?.errors?.['required']">Username is required.</span>
+          <span *ngIf="usernameControl?.errors?.['minlength']">Username must be at least 3 characters.</span>
+          <span *ngIf="usernameControl?.errors?.['pattern']">Username can only contain letters, numbers, and underscores.</span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="email">Email Address</label>
+        <input 
+          id="email" 
+          type="email" 
+          formControlName="email" 
+          placeholder="your.email@your-organization.com"
+          [class.error]="emailControl?.invalid && emailControl?.touched">
+        <div *ngIf="emailControl?.invalid && emailControl?.touched" class="error-text">
+          <span *ngIf="emailControl?.errors?.['required']">Email is required.</span>
+          <span *ngIf="emailControl?.errors?.['email']">Please enter a valid email address.</span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="role">Role in Clinical Trials</label>
+        <select 
+          id="role" 
+          formControlName="role"
+          [class.error]="roleControl?.invalid && roleControl?.touched">
+          <option value="">Select your role</option>
+          <option value="investigator">Principal Investigator</option>
+          <option value="sub_investigator">Sub-Investigator</option>
+          <option value="study_coordinator">Study Coordinator</option>
+          <option value="data_entry">Data Entry Operator</option>
+          <option value="monitor">Clinical Research Associate (Monitor)</option>
+          <option value="auditor">Auditor</option>
+          <option value="sponsor">Sponsor Representative</option>
+          <option value="other">Other</option>
+        </select>
+        <div *ngIf="roleControl?.invalid && roleControl?.touched" class="error-text">
+          <span *ngIf="roleControl?.errors?.['required']">Please select your role.</span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="organization">Organization</label>
+        <input 
+          id="organization" 
+          type="text" 
+          formControlName="organization" 
+          placeholder="e.g., Apollo Hospitals"
+          [class.error]="organizationControl?.invalid && organizationControl?.touched">
+        <div *ngIf="organizationControl?.invalid && organizationControl?.touched" class="error-text">
+          <span *ngIf="organizationControl?.errors?.['required']">Organization is required.</span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="password">Password</label>
+        <input 
+          id="password" 
+          type="password" 
+          formControlName="password" 
+          placeholder="Choose a strong password"
+          [class.error]="passwordControl?.invalid && passwordControl?.touched">
+        <div *ngIf="passwordControl?.invalid && passwordControl?.touched" class="error-text">
+          <span *ngIf="passwordControl?.errors?.['required']">Password is required.</span>
+          <span *ngIf="passwordControl?.errors?.['minlength']">Password must be at least 8 characters.</span>
+          <span *ngIf="passwordControl?.errors?.['strongPassword']">
+            Password must contain:
+            <ul class="password-requirements">
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasUpper">One uppercase letter</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasLower">One lowercase letter</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasNumber">One number</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasSpecial">One special character</li>
+            </ul>
+          </span>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="confirmPassword">Confirm Password</label>
+        <input 
+          id="confirmPassword" 
+          type="password" 
+          formControlName="confirmPassword" 
+          placeholder="Confirm your password"
+          [class.error]="confirmPasswordControl?.invalid && confirmPasswordControl?.touched || 
+                         (registerForm.errors?.['passwordMismatch'] && confirmPasswordControl?.touched)">
+        <div *ngIf="confirmPasswordControl?.touched" class="error-text">
+          <span *ngIf="confirmPasswordControl?.errors?.['required']">Please confirm your password.</span>
+          <span *ngIf="registerForm.errors?.['passwordMismatch']">Passwords do not match.</span>
+        </div>
+      </div>
+
+      <div *ngIf="errorMessage" class="alert alert-danger">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ errorMessage }}
+      </div>
+
+      <button type="submit" class="btn btn-primary" [disabled]="isLoading || registerForm.invalid">
+        <span *ngIf="!isLoading">Create Account</span>
+        <span *ngIf="isLoading">
+          <i class="fas fa-spinner fa-spin"></i> Creating...
+        </span>
+      </button>
+    </form>
+
+    <div class="auth-footer" *ngIf="!successMessage">
+      <p>Already have an account? <a [routerLink]="['/login']">Sign In</a></p>
+    </div>
+  </div>
+
+  <div class="compliance-footer">
+    <span><i class="fas fa-shield-alt"></i> HIPAA</span>
+    <span><i class="fas fa-file-contract"></i> 21 CFR Part 11</span>
+    <span><i class="fas fa-globe-europe"></i> GDPR</span>
+    <span><i class="fas fa-flag"></i> DPDP Act</span>
+  </div>
+</div>
