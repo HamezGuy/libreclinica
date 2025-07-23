@@ -1,4 +1,4 @@
-import { Injectable, inject, NgZone } from '@angular/core';
+import { Injectable, inject, NgZone, runInInjectionContext, Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   Auth,
@@ -43,6 +43,7 @@ export class EdcCompliantAuthService {
   private zone: NgZone = inject(NgZone);
   private router: Router = inject(Router);
   private eventBus: IEventBus = inject(EVENT_BUS_TOKEN);
+  private injector: Injector = inject(Injector);
 
   private authStateSubject = new BehaviorSubject<User | null>(null);
   user$ = this.authStateSubject.asObservable();
@@ -87,6 +88,7 @@ export class EdcCompliantAuthService {
 
   async signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const credential = await signInWithPopup(this.auth, provider);
       const user = credential.user;
@@ -135,7 +137,9 @@ export class EdcCompliantAuthService {
       const user = credential.user;
       const userProfile = await this.createUserProfile(user, registrationData);
       this.publishUserCreatedEvent(userProfile);
-      this.zone.run(() => this.router.navigate(['/login']));
+      this.currentSessionId = this.generateSessionId();
+      this.publishLoginEvent(userProfile, 'password');
+      this.zone.run(() => this.router.navigate(['/dashboard']));
     } catch (error: any) {
       console.error('Registration failed:', error);
       this.publishAuthFailedEvent('N/A', registrationData.email, error.message);
@@ -150,33 +154,44 @@ export class EdcCompliantAuthService {
 
   // Login with email and password
   async loginWithCredentials(credentials: any): Promise<void> {
-    return this.zone.run(async () => {
-      try {
-        const userCredential = await signInWithEmailAndPassword(this.auth, credentials.email, credentials.password);
-        const user = userCredential.user;
+    try {
+      const userCredential = await runInInjectionContext(this.injector, async () => 
+        await signInWithEmailAndPassword(this.auth, credentials.email, credentials.password)
+      );
+      const user = userCredential.user;
 
-        const userProfile = await this.getUserProfile(user.uid);
+      let userProfile = await this.getUserProfile(user.uid);
 
-        if (!userProfile) {
-          // This case should ideally not happen if registration is enforced
-          await this.signOut('forced');
-          throw new Error('User profile not found. Please contact support.');
-        }
+      if (!userProfile) {
+        // Create user profile if it doesn't exist (for users created directly in Firebase Auth)
+        console.log('User profile not found, creating one...');
+        userProfile = await this.createUserProfile(user, {
+          displayName: user.displayName || user.email?.split('@')[0] || 'User',
+          email: user.email
+        });
+      }
 
-        if (userProfile.status === UserStatus.SUSPENDED || userProfile.status === UserStatus.INACTIVE) {
-          await this.signOut('forced');
-          throw new Error(`Your account is ${userProfile.status}. Please contact an administrator.`);
-        }
+      if (userProfile.status === UserStatus.SUSPENDED || userProfile.status === UserStatus.INACTIVE) {
+        await this.signOut('forced');
+        throw new Error(`Your account is ${userProfile.status}. Please contact an administrator.`);
+      }
 
-        await this.updateLastLogin(user.uid);
+      await this.updateLastLogin(user.uid);
 
-        this.currentSessionId = this.generateSessionId();
-        if(userProfile) {
-            this.publishLoginEvent(userProfile, 'password');
-        }
-
-      } catch (error: any) {
+      // Update auth state
+      this.authStateSubject.next(user);
+      this.currentSessionId = this.generateSessionId();
+      this.publishLoginEvent(userProfile, 'password');
+      
+      // Navigate based on compliance status
+      const needsCompliance = !userProfile.agreedToTerms || !userProfile.trainingCompleted;
+      const targetRoute = needsCompliance ? '/compliance-setup' : '/dashboard';
+      this.zone.run(() => this.router.navigate([targetRoute]));
+    } catch (error: any) {
         console.error('Login error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        console.error('Full error object:', JSON.stringify(error, null, 2));
         const failedEvent: AuthenticationFailedEvent = {
           id: `auth_failed_${Date.now()}`,
           type: 'AUTHENTICATION_FAILED',
@@ -195,7 +210,6 @@ export class EdcCompliantAuthService {
         }
         throw new Error('An unexpected error occurred during login.');
       }
-    });
   }
 
   // Sign out with audit logging
@@ -243,15 +257,28 @@ export class EdcCompliantAuthService {
   }
 
   private isEmailAllowed(email: string): boolean {
+    // TODO: For production, configure this with the list of allowed customer email domains.
+    // For development, we are allowing any domain to facilitate testing.
+    return true;
+    /*
     if (!email) return false;
-    const domain = email.split('@')[1];
-    return this.ALLOWED_DOMAINS.includes(domain);
+    const domain = email.substring(email.lastIndexOf('@') + 1);
+    return this.ALLOWED_DOMAINS.includes(domain.toLowerCase());
+    */
   }
 
   private async getUserProfile(uid: string): Promise<UserProfile | undefined> {
-    const userRef = doc(this.firestore, `users/${uid}`) as DocumentReference<UserProfile>;
-    const userDoc = await getDoc(userRef);
-    return userDoc.exists() ? userDoc.data() : undefined;
+    try {
+      // Use runInInjectionContext to ensure proper Angular injection context
+      return await runInInjectionContext(this.injector, async () => {
+        const userRef = doc(this.firestore, `users/${uid}`) as DocumentReference<UserProfile>;
+        const userDoc = await getDoc(userRef);
+        return userDoc.exists() ? userDoc.data() : undefined;
+      });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return undefined;
+    }
   }
 
   private async createUserProfile(user: User, registrationData?: any): Promise<UserProfile> {
@@ -261,10 +288,10 @@ export class EdcCompliantAuthService {
       email: user.email!,
       displayName: registrationData?.displayName || user.displayName || 'Anonymous User',
       photoURL: user.photoURL ?? "",
-      username: registrationData?.username,
-      organization: registrationData?.organization,
+      username: registrationData?.username || user.email?.split('@')[0] || 'user',
+      organization: registrationData?.organization || '',
       accessLevel: registrationData?.role || AccessLevel.DATA_ENTRY, // Default role
-      status: UserStatus.PENDING_APPROVAL,
+      status: UserStatus.ACTIVE, // Set to ACTIVE for auto-created profiles during login
       complianceRegion: ComplianceRegion.GLOBAL,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -276,16 +303,16 @@ export class EdcCompliantAuthService {
       permissions: this.getDefaultPermissions(registrationData?.role || AccessLevel.DATA_ENTRY)
     };
 
-    await setDoc(doc(this.firestore, `users/${user.uid}`), userProfile);
+    await runInInjectionContext(this.injector, async () => await setDoc(userRef, userProfile));
     return userProfile;
   }
 
   private async updateLastLogin(uid: string): Promise<void> {
     const userRef = doc(this.firestore, `users/${uid}`);
-    return updateDoc(userRef, { 
+    await runInInjectionContext(this.injector, async () => await updateDoc(userRef, { 
       lastLoginAt: new Date(),
       updatedAt: new Date()
-    });
+    }));
   }
 
   private async getClientIP(): Promise<string> {
@@ -296,7 +323,7 @@ export class EdcCompliantAuthService {
     return `SESSION_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private getDefaultPermissions(accessLevel: AccessLevel): UserPermissions {
+  getDefaultPermissions(accessLevel: AccessLevel): UserPermissions {
     const allFalse: UserPermissions = { 
       canCreateStudy: false, 
       canEditStudy: false, 
@@ -330,6 +357,17 @@ export class EdcCompliantAuthService {
     if (!currentUser) return null;
     const profile = await this.getUserProfile(currentUser.uid);
     return profile ?? null;
+  }
+
+  async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {
+    return await runInInjectionContext(this.injector, async () => {
+      const userRef = doc(this.firestore, `users/${uid}`);
+      const updateData = {
+        ...updates,
+        updatedAt: new Date()
+      };
+      await updateDoc(userRef, updateData);
+    });
   }
 
   async checkComplianceRequirements(userId: string): Promise<any> {

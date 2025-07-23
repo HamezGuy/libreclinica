@@ -1,8 +1,8 @@
 import { ApplicationConfig, provideZoneChangeDetection, importProvidersFrom, APP_INITIALIZER } from '@angular/core';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { provideAuth, getAuth, initializeAuth, browserLocalPersistence, Auth } from '@angular/fire/auth';
+import { provideFirebaseApp, initializeApp, getApp } from '@angular/fire/app';
+import { provideAuth, initializeAuth, browserLocalPersistence } from '@angular/fire/auth';
 import { provideFirestore, getFirestore } from '@angular/fire/firestore';
 import { provideStorage, getStorage } from '@angular/fire/storage';
 import { provideFunctions, getFunctions } from '@angular/fire/functions';
@@ -22,11 +22,6 @@ const registerIcons = (iconRegistry: MatIconRegistry, sanitizer: DomSanitizer) =
   };
 };
 
-// Factory function to set auth persistence
-const initializeAuthPersistence = (auth: Auth) => {
-  return () => initializeAuth(auth.app, { persistence: browserLocalPersistence });
-};
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
@@ -36,7 +31,10 @@ export const appConfig: ApplicationConfig = {
 
     // Firebase providers
     provideFirebaseApp(() => initializeApp(firebaseConfig)),
-    provideAuth(() => getAuth()),
+    provideAuth(() => {
+      const app = getApp();
+      return initializeAuth(app, { persistence: browserLocalPersistence });
+    }),
     provideFirestore(() => getFirestore()),
     provideStorage(() => getStorage()),
     provideFunctions(() => getFunctions()),
@@ -49,14 +47,6 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: registerIcons,
       deps: [MatIconRegistry, DomSanitizer],
-      multi: true,
-    },
-
-    // Firebase Auth persistence initializer
-    {
-      provide: APP_INITIALIZER,
-      useFactory: initializeAuthPersistence,
-      deps: [Auth],
       multi: true,
     },
   ]

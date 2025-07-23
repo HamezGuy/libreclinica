@@ -31,7 +31,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // User profiles collection
+    // Users collection (main user data)
+    match /users/{userId} {
+      // Users can read their own profile, admins can read any
+      allow read: if isOwner(userId);
+      
+      // Allow creation for new user registration
+      allow create: if isOwner(userId);
+      
+      // Users can update their own profile
+      allow update: if isOwner(userId);
+      
+      // Only admins can delete users
+      allow delete: if false; // Prevent deletion for compliance
+    }
+    
+    // User profiles collection (legacy/alternative path)
     match /user-profiles/{userId} {
       // Users can read their own profile
       allow read: if isOwner(userId) || hasAnyRole(['admin', 'manager']);

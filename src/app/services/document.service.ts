@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@angular/core';
 import { Observable, from, of } from 'rxjs';
 import { tap, switchMap } from 'rxjs/operators';
-import { AngularFirestore } from '@angular/fire/compat/firestore';
+import { Firestore, doc, setDoc, updateDoc, getDoc, collection } from '@angular/fire/firestore';
 import { IEventBus, DocumentSavedEvent } from '../core/interfaces';
 import { EVENT_BUS_TOKEN } from '../core/injection-tokens';
 
@@ -15,7 +15,7 @@ import { EVENT_BUS_TOKEN } from '../core/injection-tokens';
 export class DocumentService {
   constructor(
     @Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus,
-    private firestore: AngularFirestore
+    private firestore: Firestore
   ) {}
 
   /**
@@ -29,7 +29,6 @@ export class DocumentService {
     data: any,
     userId: string
   ): Observable<void> {
-    // Create the event
     const event: DocumentSavedEvent = {
       id: this.generateEventId(),
       type: 'DOCUMENT_SAVED',
@@ -44,29 +43,22 @@ export class DocumentService {
       }
     };
 
-    // Publish the event BEFORE saving to allow validation
     this.eventBus.publish(event);
 
-    // Save to Firestore
-    return from(
-      this.firestore
-        .collection(documentType.toLowerCase())
-        .doc(documentId)
-        .set({
-          ...data,
-          _metadata: {
-            createdAt: new Date(),
-            createdBy: userId,
-            lastModifiedAt: new Date(),
-            lastModifiedBy: userId,
-            version: 1
-          }
-        })
-    ).pipe(
-      tap(() => {
-        console.log(`Document saved: ${documentType}/${documentId}`);
-        // Could publish a success event here if needed
-      })
+    const docRef = doc(this.firestore, documentType.toLowerCase(), documentId);
+    const saveData = {
+      ...data,
+      _metadata: {
+        createdAt: new Date(),
+        createdBy: userId,
+        lastModifiedAt: new Date(),
+        lastModifiedBy: userId,
+        version: 1
+      }
+    };
+
+    return from(setDoc(docRef, saveData)).pipe(
+      tap(() => console.log(`Document saved: ${documentType}/${documentId}`))
     );
   }
 
@@ -79,53 +71,42 @@ export class DocumentService {
     updates: any,
     userId: string
   ): Observable<void> {
-    // First get the current document for audit trail
-    return this.firestore
-      .collection(documentType.toLowerCase())
-      .doc(documentId)
-      .get()
-      .pipe(
-        switchMap(doc => {
-          const currentData = doc.data() || {};
-          
-          // Create update event with old and new values
-          const event: DocumentSavedEvent = {
-            id: this.generateEventId(),
-            type: 'DOCUMENT_SAVED',
-            timestamp: new Date(),
-            documentId,
-            documentType,
-            data: { ...currentData, ...updates },
-            userId,
-            metadata: {
-              source: 'DocumentService',
-              version: '1.0',
-              operation: 'UPDATE',
-              oldValue: currentData,
-              newValue: updates
-            }
-          };
+    const docRef = doc(this.firestore, documentType.toLowerCase(), documentId);
 
-          // Publish the event
-          this.eventBus.publish(event);
+    return from(getDoc(docRef)).pipe(
+      switchMap(docSnap => {
+        const currentData = docSnap.exists() ? docSnap.data() : {};
+        
+        const event: DocumentSavedEvent = {
+          id: this.generateEventId(),
+          type: 'DOCUMENT_SAVED',
+          timestamp: new Date(),
+          documentId,
+          documentType,
+          data: { ...currentData, ...updates },
+          userId,
+          metadata: {
+            source: 'DocumentService',
+            version: '1.0',
+            operation: 'UPDATE',
+            oldValue: currentData,
+            newValue: updates
+          }
+        };
 
-          // Perform the update
-          return from(
-            this.firestore
-              .collection(documentType.toLowerCase())
-              .doc(documentId)
-              .update({
-                ...updates,
-                '_metadata.lastModifiedAt': new Date(),
-                '_metadata.lastModifiedBy': userId,
-                '_metadata.version': (currentData as any)?._metadata?.version + 1 || 1
-              })
-          );
-        }),
-        tap(() => {
-          console.log(`Document updated: ${documentType}/${documentId}`);
-        })
-      );
+        this.eventBus.publish(event);
+
+        const updateData = {
+          ...updates,
+          '_metadata.lastModifiedAt': new Date(),
+          '_metadata.lastModifiedBy': userId,
+          '_metadata.version': (currentData as any)?._metadata?.version + 1 || 1
+        };
+
+        return from(updateDoc(docRef, updateData));
+      }),
+      tap(() => console.log(`Document updated: ${documentType}/${documentId}`))
+    );
   }
 
   /**
@@ -136,7 +117,6 @@ export class DocumentService {
     documentId: string,
     userId: string
   ): Observable<void> {
-    // Create delete event
     const event: DocumentSavedEvent = {
       id: this.generateEventId(),
       type: 'DOCUMENT_SAVED',
@@ -152,23 +132,17 @@ export class DocumentService {
       }
     };
 
-    // Publish the event
     this.eventBus.publish(event);
 
-    // Soft delete by marking as deleted
-    return from(
-      this.firestore
-        .collection(documentType.toLowerCase())
-        .doc(documentId)
-        .update({
-          '_metadata.deletedAt': new Date(),
-          '_metadata.deletedBy': userId,
-          '_metadata.isDeleted': true
-        })
-    ).pipe(
-      tap(() => {
-        console.log(`Document deleted: ${documentType}/${documentId}`);
-      })
+    const docRef = doc(this.firestore, documentType.toLowerCase(), documentId);
+    const deleteUpdate = {
+      '_metadata.deletedAt': new Date(),
+      '_metadata.deletedBy': userId,
+      '_metadata.isDeleted': true
+    };
+
+    return from(updateDoc(docRef, deleteUpdate)).pipe(
+      tap(() => console.log(`Document soft-deleted: ${documentType}/${documentId}`))
     );
   }
 

@@ -11,6 +11,7 @@ import { DataSeparationService } from '../../services/data-separation.service';
 import { EventBusService } from '../../core/services/event-bus.service';
 import { HealthcareApiService, Patient as HealthcarePatient } from '../../services/healthcare-api.service';
 import { FormBuilderComponent } from '../form-builder/form-builder.component';
+import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance } from '../../models/form-template.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
@@ -68,7 +69,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, FormBuilderComponent],
+  imports: [CommonModule, FormsModule, FormBuilderComponent, ProfileEditPopupComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -96,9 +97,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Modal state
   showTemplateModal = false;
   showFormBuilderModal = false;
+  showProfileEditModal = false;
   selectedTemplateForEdit: FormTemplate | null = null;
   formBuilderTemplateId: string | undefined = undefined;
   searchQuery = '';
+  currentUserProfile: UserProfile | null = null;
 
   // Permissions
   permissions: FormPermissions = {
@@ -123,6 +126,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadPatients();
     this.setupPermissions();
+    
+    // Subscribe to current user profile changes
+    this.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
+      this.currentUserProfile = profile;
+    });
   }
 
   ngOnDestroy(): void {
@@ -269,7 +277,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Template management methods
   openTemplateModal(): void {
-    this.showTemplateModal = true;
+    if (this.permissions.canEdit || this.permissions.canView) {
+      this.showTemplateModal = true;
+    }
   }
 
   closeTemplateModal(): void {
@@ -427,6 +437,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
         );
       })
     );
+  }
+
+
+
+  // Profile edit methods
+  openProfileEditModal(): void {
+    this.showProfileEditModal = true;
+  }
+
+  closeProfileEditModal(): void {
+    this.showProfileEditModal = false;
+  }
+
+  onProfileUpdated(updatedProfile: UserProfile): void {
+    // Update the current user profile reference
+    this.currentUserProfile = updatedProfile;
+    // The userProfile$ observable will automatically update through the auth service
+    console.log('Profile updated successfully:', updatedProfile);
   }
 
   async signOut() {

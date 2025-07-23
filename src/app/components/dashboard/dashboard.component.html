@@ -22,12 +22,13 @@
     </div>
     
     <div class="top-bar-right">
-      <!-- Form Template Actions (Only for ADMIN/INVESTIGATOR) -->
-      <div class="template-actions" *ngIf="permissions.canCreate || permissions.canEdit">
+      <!-- Form Template Actions -->
+      <div class="template-actions">
         <button 
           class="btn btn-primary"
           (click)="openTemplateModal()"
-          title="Manage Templates">
+          [disabled]="!permissions.canEdit && !permissions.canView"
+          [title]="(permissions.canEdit || permissions.canView) ? 'Manage Templates' : 'Insufficient permissions to manage templates'">
           <i class="material-icons">description</i>
           Templates
         </button>
@@ -35,8 +36,8 @@
         <button 
           class="btn btn-success"
           (click)="createNewTemplate()"
-          *ngIf="permissions.canCreate"
-          title="Create New Template">
+          [disabled]="!permissions.canCreate"
+          [title]="permissions.canCreate ? 'Create New Template' : 'Insufficient permissions to create templates'">
           <i class="material-icons">add</i>
           Create Template
         </button>
@@ -44,13 +45,15 @@
       
       <!-- User Profile -->
       <div class="user-profile">
-        <img 
-          [src]="userProfile.photoURL || '/assets/default-avatar.png'" 
-          [alt]="userProfile.displayName"
-          class="user-avatar">
-        <div class="user-info">
-          <span class="user-name">{{ userProfile.displayName }}</span>
-          <span class="user-role">{{ userProfile.accessLevel }}</span>
+        <div class="profile-info" (click)="openProfileEditModal()" title="Edit Profile">
+          <img 
+            [src]="userProfile.photoURL || '/assets/default-avatar.png'" 
+            [alt]="userProfile.displayName"
+            class="user-avatar">
+          <div class="user-info">
+            <span class="user-name">{{ userProfile.displayName }}</span>
+            <span class="user-role">{{ userProfile.accessLevel }}</span>
+          </div>
         </div>
         <button class="btn btn-link" (click)="signOut()" title="Sign Out">
           <i class="material-icons">logout</i>
@@ -156,8 +159,8 @@
             <button 
               class="btn btn-primary" 
               (click)="createNewTemplate()"
-              *ngIf="permissions.canCreate"
-              title="Create New Template">
+              [disabled]="!permissions.canCreate"
+              [title]="permissions.canCreate ? 'Create New Template' : 'Insufficient permissions to create templates'">
               <i class="material-icons">add</i>
               Create Template
             </button>
@@ -347,21 +350,24 @@
               <button 
                 class="btn btn-sm btn-secondary"
                 (click)="editTemplate(template)"
-                *ngIf="permissions.canEdit">
+                [disabled]="!permissions.canEdit"
+                [title]="permissions.canEdit ? 'Edit Template' : 'Insufficient permissions to edit templates'">
                 Edit
               </button>
               
               <button 
                 class="btn btn-sm btn-success"
                 (click)="publishTemplate(template)"
-                *ngIf="permissions.canPublish && template.status === 'draft'">
+                [disabled]="!permissions.canPublish || template.status !== 'draft'"
+                [title]="permissions.canPublish ? (template.status === 'draft' ? 'Publish Template' : 'Template already published') : 'Insufficient permissions to publish templates'">
                 Publish
               </button>
               
               <button 
                 class="btn btn-sm btn-danger"
                 (click)="deleteTemplate(template)"
-                *ngIf="permissions.canDelete">
+                [disabled]="!permissions.canDelete"
+                [title]="permissions.canDelete ? 'Delete Template' : 'Insufficient permissions to delete templates'">
                 Delete
               </button>
             </div>
@@ -383,3 +389,11 @@
     </app-form-builder>
   </div>
 </div>
+
+<!-- Profile Edit Popup -->
+<app-profile-edit-popup
+  [userProfile]="currentUserProfile"
+  [isVisible]="showProfileEditModal"
+  (closePopup)="closeProfileEditModal()"
+  (profileUpdated)="onProfileUpdated($event)">
+</app-profile-edit-popup>
