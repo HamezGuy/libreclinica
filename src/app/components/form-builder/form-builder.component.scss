@@ -54,6 +54,83 @@
   to { transform: rotate(360deg); }
 }
 
+/* Save Feedback Message */
+.save-message {
+  padding: 12px 24px;
+  margin: 0;
+  border-left: 4px solid;
+  animation: slideDown 0.3s ease-out;
+  z-index: 100;
+  
+  &.success {
+    background-color: #f0f9ff;
+    border-color: #22c55e;
+    color: #065f46;
+    
+    .material-icons {
+      color: #22c55e;
+    }
+  }
+  
+  &.error {
+    background-color: #fef2f2;
+    border-color: #ef4444;
+    color: #991b1b;
+    
+    .material-icons {
+      color: #ef4444;
+    }
+  }
+  
+  .message-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .material-icons {
+      font-size: 20px;
+    }
+    
+    .message-text {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+      
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+      
+      .material-icons {
+        font-size: 18px;
+        color: inherit;
+      }
+    }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Builder Header */
 .builder-header {
   height: 64px;
@@ -188,6 +265,7 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
 }
 
 /* Field Toolbox */
@@ -292,6 +370,12 @@
   display: flex;
   flex-direction: column;
   margin: 0 1px;
+  min-width: 0; /* Allow shrinking when properties panel shows */
+  transition: margin-right 0.3s ease;
+
+  .design-panel.properties-shown & {
+    margin-right: 320px; /* Make room for properties panel */
+  }
 
   .canvas-header {
     padding: 20px;
@@ -328,10 +412,13 @@
 
     .form-fields-container {
       min-height: 400px;
+      height: auto;
+      width: 100%;
       border: 2px dashed #cbd5e1;
       border-radius: 8px;
       padding: 16px;
       background: #fafbfc;
+      box-sizing: border-box;
 
       &.cdk-drop-list-dragging {
         border-color: #2196f3;
@@ -359,17 +446,28 @@
         }
       }
 
+      // Form fields container (simple stacked layout)
+      .form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
       .form-field-item {
+        position: relative;
         background: white;
         border: 1px solid #e1e8ed;
         border-radius: 8px;
-        margin-bottom: 16px;
-        transition: all 0.2s ease;
+        padding: 16px;
+        margin-bottom: 12px;
         cursor: pointer;
+        transition: all 0.2s ease;
+        width: 100%;
+        box-sizing: border-box;
 
         &:hover {
-          border-color: #cbd5e1;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          border-color: #2196f3;
+          box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
         }
 
         &.selected {
@@ -531,16 +629,20 @@
 
 /* Field Properties Panel */
 .field-properties {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 320px;
   background: white;
   border-left: 1px solid #e1e8ed;
-  display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.3s ease;
+  z-index: 10;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
 
   &.show {
-    transform: translateX(0);
+    display: flex;
   }
 
   .properties-header {

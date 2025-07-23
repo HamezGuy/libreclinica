@@ -1,4 +1,4 @@
-import { Injectable, inject, Inject } from '@angular/core';
+import { Injectable, inject, Inject, runInInjectionContext, Injector } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Observable, from } from 'rxjs';
@@ -158,6 +158,7 @@ export class HealthcareApiService {
   private http = inject(HttpClient);
   private functions = inject(Functions);
   private auditService = inject(CloudAuditService);
+  private injector: Injector = inject(Injector);
   
   constructor(@Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus) {}
   
@@ -180,8 +181,10 @@ export class HealthcareApiService {
   async createPatient(patient: Patient): Promise<Patient> {
     try {
       // Call Cloud Function to create patient (handles auth)
-      const createPatientFn = httpsCallable<Patient, Patient>(this.functions, 'createPatient');
-      const result = await createPatientFn(patient);
+      const result = await runInInjectionContext(this.injector, async () => {
+        const createPatientFn = httpsCallable<Patient, Patient>(this.functions, 'createPatient');
+        return await createPatientFn(patient);
+      });
       
       // Publish data access event for audit trail
       const dataAccessEvent: DataAccessEvent = {
@@ -218,8 +221,10 @@ export class HealthcareApiService {
         'Accessing patient record from Healthcare API'
       );
 
-      const getPatientFn = httpsCallable<{patientId: string}, Patient>(this.functions, 'getPatient');
-      const result = await getPatientFn({ patientId });
+      const result = await runInInjectionContext(this.injector, async () => {
+        const getPatientFn = httpsCallable<{patientId: string}, Patient>(this.functions, 'getPatient');
+        return await getPatientFn({ patientId });
+      });
       
       return result.data;
     } catch (error) {

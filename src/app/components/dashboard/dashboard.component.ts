@@ -100,6 +100,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showProfileEditModal = false;
   selectedTemplateForEdit: FormTemplate | null = null;
   formBuilderTemplateId: string | undefined = undefined;
+  
+  // Enhanced template modal properties
+  selectedTemplate: FormTemplate | null = null;
+  viewMode: 'details' | 'preview' = 'details';
+  templateSearchTerm = '';
+  templateFilter: 'all' | 'draft' | 'published' = 'all';
+  filteredTemplates: FormTemplate[] = [];
+  
+  private allTemplates: FormTemplate[] = [];
   searchQuery = '';
   currentUserProfile: UserProfile | null = null;
 
@@ -130,6 +139,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Subscribe to current user profile changes
     this.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
       this.currentUserProfile = profile;
+    });
+    
+    // Initialize template data for the enhanced modal
+    this.templates$.pipe(takeUntil(this.destroy$)).subscribe(templates => {
+      this.allTemplates = templates;
+      this.filterTemplates();
     });
   }
 
@@ -425,18 +440,99 @@ export class DashboardComponent implements OnInit, OnDestroy {
     );
   }
 
-  get filteredTemplates(): Observable<FormTemplate[]> {
-    return this.templates$.pipe(
-      map(templates => {
-        if (!this.searchQuery) return templates;
-        
-        const query = this.searchQuery.toLowerCase();
-        return templates.filter(template => 
-          template.name.toLowerCase().includes(query) ||
-          template.description.toLowerCase().includes(query)
-        );
-      })
-    );
+  // Enhanced template modal methods
+  filterTemplates(): void {
+    let templates = this.allTemplates;
+    
+    // Apply status filter
+    if (this.templateFilter !== 'all') {
+      templates = templates.filter(template => {
+        if (this.templateFilter === 'published') {
+          return template.status === 'published';
+        } else if (this.templateFilter === 'draft') {
+          return template.status === 'draft';
+        }
+        return true;
+      });
+    }
+    
+    // Apply search filter
+    if (this.templateSearchTerm) {
+      const search = this.templateSearchTerm.toLowerCase();
+      templates = templates.filter(template => 
+        template.name.toLowerCase().includes(search) ||
+        template.description.toLowerCase().includes(search) ||
+        (template.category && template.category.toLowerCase().includes(search))
+      );
+    }
+    
+    this.filteredTemplates = templates;
+  }
+  
+  setTemplateFilter(filter: 'all' | 'draft' | 'published'): void {
+    this.templateFilter = filter;
+    this.filterTemplates();
+  }
+  
+  selectTemplate(template: FormTemplate): void {
+    this.selectedTemplate = template;
+    this.viewMode = 'details';
+  }
+  
+  setViewMode(mode: 'details' | 'preview'): void {
+    this.viewMode = mode;
+  }
+
+  isViewMode(mode: 'details' | 'preview'): boolean {
+    return this.viewMode === mode;
+  }
+  
+  previewTemplate(template: FormTemplate): void {
+    this.selectedTemplate = template;
+    this.viewMode = 'preview';
+  }
+  
+  duplicateTemplate(template: FormTemplate): void {
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to duplicate templates');
+      return;
+    }
+    
+    // TODO: Implement template duplication logic
+    console.log('Duplicating template:', template);
+    alert('Template duplication is not yet implemented');
+  }
+  
+  exportTemplate(template: FormTemplate): void {
+    // TODO: Implement template export logic
+    console.log('Exporting template:', template);
+    alert('Template export is not yet implemented');
+  }
+  
+  trackTemplate(index: number, template: FormTemplate): string {
+    return template.id || index.toString();
+  }
+  
+  trackField(index: number, field: any): string {
+    return field.id || index.toString();
+  }
+  
+  getFieldIcon(fieldType: string): string {
+    const iconMap: { [key: string]: string } = {
+      'text': 'text_fields',
+      'email': 'email',
+      'number': 'numbers',
+      'textarea': 'notes',
+      'select': 'arrow_drop_down',
+      'radio': 'radio_button_checked',
+      'checkbox': 'check_box',
+      'date': 'calendar_today',
+      'time': 'access_time',
+      'file': 'attach_file',
+      'signature': 'draw'
+    };
+    
+    return iconMap[fieldType] || 'help_outline';
   }
 
 

@@ -49,10 +49,15 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   hasUnsavedChanges = false;
 
   // UI state
-  activeTab: 'design' | 'preview' | 'settings' = 'design';
+  activeTab: string = 'design';
+  showFieldProperties: boolean = false;
   selectedField: FormField | null = null;
-  showFieldProperties = false;
   draggedFieldType: FieldType | null = null;
+  
+  // Save feedback state
+  saveMessage: string = '';
+  saveMessageType: 'success' | 'error' | '' = '';
+  saveMessageVisible: boolean = false;
 
   // Field types available in the toolbox
   fieldTypes: FieldTypeOption[] = [
@@ -255,6 +260,8 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       isHidden: [field.isHidden || false],
       isPhi: [field.isPhi || false],
       order: [field.order || 0],
+      width: [field.width || 'full'],
+      columnPosition: [field.columnPosition || 'left'],
       groupId: [field.groupId],
       customAttributes: this.fb.group(field.customAttributes || {}),
       auditTrail: this.fb.group({
@@ -307,64 +314,69 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   }
 
   // Drag and drop handlers
-  onFieldTypeDragStart(fieldType: FieldType): void {
-    this.draggedFieldType = fieldType;
-  }
-
-
-
-// Drag and drop handlers
-onFieldDrop(event: CdkDragDrop<FormField[]>): void {
-  const fieldsArray = this.builderForm.get('fields') as FormArray;
-  
-  if (event.previousContainer === event.container) {
-    // Reorder within the same container
-    moveItemInArray(fieldsArray.controls, event.previousIndex, event.currentIndex);
-    this.updateFieldOrders();
-  } else {
-    // Add new field from toolbox
-    if (this.draggedFieldType) {
-      const newField = this.createNewField(this.draggedFieldType, event.currentIndex);
-      const fieldFormGroup = this.createFieldFormGroup(newField);
-      fieldsArray.insert(event.currentIndex, fieldFormGroup);
+  onFieldDrop(event: CdkDragDrop<any>): void {
+    const fieldsArray = this.builderForm.get('fields') as FormArray;
+    
+    if (event.previousContainer === event.container) {
+      // Reorder within the same container
+      moveItemInArray(fieldsArray.controls, event.previousIndex, event.currentIndex);
       this.updateFieldOrders();
-      this.selectField(newField);
+    } else {
+      // Add new field from toolbox
+      const fieldType = event.item.data as FieldType;
+      if (fieldType) {
+        const newField = this.createNewField(fieldType, event.currentIndex);
+        const fieldFormGroup = this.createFieldFormGroup(newField);
+        fieldsArray.insert(event.currentIndex, fieldFormGroup);
+        this.updateFieldOrders();
+        this.selectField(newField);
+        this.hasUnsavedChanges = true;
+      }
     }
   }
-  
-  this.draggedFieldType = null;
-  this.hasUnsavedChanges = true;
-}
 
-private createNewField(type: FieldType, order: number): FormField {
-  const fieldTypeOption = this.fieldTypes.find(ft => ft.type === type);
-  
-  return {
-    id: this.generateFieldId(),
-    name: `field_${Date.now()}`,
-    label: fieldTypeOption?.label || 'New Field',
-    type: type,
-    placeholder: '',
-    helpText: '',
-    required: false,
-    readonly: false,
-    hidden: false,
-    isRequired: false,
-    isReadonly: false,
-    isHidden: false,
-    isPhi: false,
-    order: order,
-    validationRules: [],
-    conditionalLogic: [],
-    options: type === 'select' || type === 'multiselect' || type === 'radio' || type === 'checkbox' 
-      ? [{ value: 'option1', label: 'Option 1' }] 
-      : undefined,
-    auditTrail: {
-      trackChanges: false,
-      reasonRequired: false
-    }
-  };
-}
+  // Click to add field (alternative to drag and drop)
+  addFieldToCanvas(fieldType: FieldType): void {
+    const fieldsArray = this.builderForm.get('fields') as FormArray;
+    const newField = this.createNewField(fieldType, fieldsArray.length);
+    const fieldFormGroup = this.createFieldFormGroup(newField);
+    fieldsArray.push(fieldFormGroup);
+    this.updateFieldOrders();
+    this.selectField(newField);
+    this.hasUnsavedChanges = true;
+  }
+
+  private createNewField(type: FieldType, order: number): FormField {
+    const fieldTypeOption = this.fieldTypes.find(ft => ft.type === type);
+    
+    return {
+      id: this.generateFieldId(),
+      name: `field_${Date.now()}`,
+      label: fieldTypeOption?.label || 'New Field',
+      type: type,
+      placeholder: '',
+      helpText: '',
+      required: false,
+      readonly: false,
+      hidden: false,
+      isRequired: false,
+      isReadonly: false,
+      isHidden: false,
+      isPhi: false,
+      order: order,
+      width: 'full', // Default to full width
+      columnPosition: 'left', // Default to left column
+      validationRules: [],
+      conditionalLogic: [],
+      options: type === 'select' || type === 'multiselect' || type === 'radio' || type === 'checkbox' 
+        ? [{ value: 'option1', label: 'Option 1' }] 
+        : undefined,
+      auditTrail: {
+        trackChanges: false,
+        reasonRequired: false
+      }
+    };
+  }
 
   private updateFieldOrders(): void {
     const fieldsArray = this.builderForm.get('fields') as FormArray;
@@ -413,15 +425,20 @@ private createNewField(type: FieldType, order: number): FormField {
   async saveTemplate(): Promise<void> {
     if (this.builderForm.invalid) {
       this.markFormGroupTouched(this.builderForm);
+      this.showSaveMessage('Please fix validation errors before saving.', 'error');
       return;
     }
 
     this.isSaving = true;
     try {
       const formData = this.builderForm.value;
+      
+      // Clean up undefined values to prevent Firestore errors
+      const cleanedFormData = this.cleanUndefinedValues(formData);
+      
       const template: FormTemplate = {
         ...this.currentTemplate,
-        ...formData,
+        ...cleanedFormData,
         id: this.currentTemplate?.id || this.generateTemplateId(),
         updatedAt: new Date(),
         createdBy: this.currentTemplate?.createdBy || (await this.authService.getCurrentUserProfile())?.uid || '',
@@ -438,11 +455,27 @@ private createNewField(type: FieldType, order: number): FormField {
       this.currentTemplate = savedTemplate;
       this.hasUnsavedChanges = false;
       this.templateSaved.emit(savedTemplate);
+      this.showSaveMessage('Form template saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving template:', error);
+      
+      // Log user profile for debugging
+      try {
+        const userProfile = await this.authService.getCurrentUserProfile();
+        console.log('Current user profile:', {
+          uid: userProfile?.uid,
+          email: userProfile?.email,
+          accessLevel: userProfile?.accessLevel,
+          status: userProfile?.status
+        });
+      } catch (profileError) {
+        console.error('Failed to get user profile for debugging:', profileError);
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      this.showSaveMessage(`Failed to save template: ${errorMessage}`, 'error');
     } finally {
       this.isSaving = false;
-      this.hasUnsavedChanges = false; // Reset on successful save
     }
   }
 
@@ -600,5 +633,64 @@ private createNewField(type: FieldType, order: number): FormField {
 
   get clinicalFields(): FieldTypeOption[] {
     return this.fieldTypes.filter(ft => ft.category === 'clinical');
+  }
+
+  // Tab management
+  switchTab(tab: string): void {
+    this.activeTab = tab;
+  }
+
+  // Helper method for template tab checking
+  isActiveTab(tab: string): boolean {
+    return this.activeTab === tab;
+  }
+
+  // Utility method to clean undefined values from form data
+  private cleanUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanUndefinedValues(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          // Set default values for known fields that shouldn't be null
+          if (key === 'maxSubmissions' && (obj[key] === null || obj[key] === undefined)) {
+            cleaned[key] = 0; // Default to unlimited submissions
+          } else {
+            cleaned[key] = this.cleanUndefinedValues(obj[key]);
+          }
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
+  // Method to show save feedback messages
+  private showSaveMessage(message: string, type: 'success' | 'error'): void {
+    this.saveMessage = message;
+    this.saveMessageType = type;
+    this.saveMessageVisible = true;
+    
+    // Auto-hide success messages after 3 seconds
+    if (type === 'success') {
+      setTimeout(() => {
+        this.hideSaveMessage();
+      }, 3000);
+    }
+  }
+
+  // Method to hide save feedback messages
+  hideSaveMessage(): void {
+    this.saveMessageVisible = false;
+    this.saveMessage = '';
+    this.saveMessageType = '';
   }
 }

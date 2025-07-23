@@ -12,15 +12,23 @@ service cloud.firestore {
     }
     
     function getUserData() {
-      return get(/databases/$(database)/documents/user-profiles/$(request.auth.uid)).data;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     function hasRole(role) {
-      return isAuthenticated() && getUserData().role == role;
+      return isAuthenticated() && getUserData().accessLevel == role;
     }
     
     function hasAnyRole(roles) {
-      return isAuthenticated() && getUserData().role in roles;
+      return isAuthenticated() && getUserData().accessLevel in roles;
+    }
+    
+    function hasAccessLevel(level) {
+      return isAuthenticated() && getUserData().accessLevel == level;
+    }
+    
+    function hasAnyAccessLevel(levels) {
+      return isAuthenticated() && getUserData().accessLevel in levels;
     }
     
     function isActive() {
@@ -49,22 +57,21 @@ service cloud.firestore {
     // User profiles collection (legacy/alternative path)
     match /user-profiles/{userId} {
       // Users can read their own profile
-      allow read: if isOwner(userId) || hasAnyRole(['admin', 'manager']);
+      allow read: if isOwner(userId) || hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
       
       // Only admins can create users (after auth creation)
-      allow create: if hasRole('admin') || 
+      allow create: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
                       (isOwner(userId) && request.auth.token.email_verified);
       
-      // Users can update their own profile, but cannot change their role, status, or access level.
+      // Users can update their own profile, but cannot change their accessLevel, status, or access level.
       // Admins have full update rights.
-      allow update: if hasRole('admin') ||
+      allow update: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) ||
                       (isOwner(userId) &&
-                       request.resource.data.role == resource.data.role &&
-                       request.resource.data.status == resource.data.status &&
-                       request.resource.data.accessLevel == resource.data.accessLevel);
+                       request.resource.data.accessLevel == resource.data.accessLevel &&
+                       request.resource.data.status == resource.data.status);
       
       // Only admins can delete users
-      allow delete: if hasRole('admin');
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Audit logs - immutable audit trail for 21 CFR Part 11
@@ -83,7 +90,7 @@ service cloud.firestore {
     // Authentication logs
     match /auth_logs/{logId} {
       // Only admins and the user themselves can read auth logs
-      allow read: if hasRole('admin') || 
+      allow read: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
                     (isAuthenticated() && resource.data.userId == request.auth.uid);
       
       // System can create auth logs
@@ -94,52 +101,52 @@ service cloud.firestore {
     
     // Studies collection
     match /studies/{studyId} {
-      // Read access based on role and study assignment
+      // Read access based on accessLevel and study assignment
       allow read: if isAuthenticated() && 
                     isActive() && 
-                    (hasAnyRole(['admin', 'manager']) || 
+                    (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) || 
                      request.auth.uid in resource.data.assignedUsers);
       
-      // Only admins and managers can create studies
-      allow create: if hasAnyRole(['admin', 'manager']) && isActive();
+      // Only admins and investigators can create studies
+      allow create: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) && isActive();
       
-      // Only admins and assigned managers can update
+      // Only admins and assigned investigators can update
       allow update: if isActive() && 
-                      (hasRole('admin') || 
-                       (hasRole('manager') && request.auth.uid in resource.data.managers));
+                      (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
+                       (hasAccessLevel('INVESTIGATOR') && request.auth.uid in resource.data.managers));
       
       // Only admins can delete studies
-      allow delete: if hasRole('admin');
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Forms collection (eCRFs)
     match /forms/{formId} {
       allow read: if isAuthenticated() && isActive();
-      allow create: if hasAnyRole(['admin', 'manager', 'monitor']) && isActive();
-      allow update: if hasAnyRole(['admin', 'manager', 'monitor']) && 
+      allow create: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']) && isActive();
+      allow update: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']) && 
                       isActive() && 
                       request.resource.data.version > resource.data.version;
-      allow delete: if hasRole('admin');
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Form submissions
     match /studies/{studyId}/submissions/{submissionId} {
-      // Users can read their own submissions or based on role
+      // Users can read their own submissions or based on accessLevel
       allow read: if isAuthenticated() && 
                     isActive() && 
-                    (hasAnyRole(['admin', 'manager', 'monitor']) || 
+                    (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']) || 
                      resource.data.submittedBy == request.auth.uid);
       
       // Data entry users can create submissions
       allow create: if isAuthenticated() && 
                       isActive() && 
-                      hasAnyRole(['admin', 'manager', 'monitor', 'data_entry']) &&
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']) &&
                       request.resource.data.submittedBy == request.auth.uid;
       
       // Updates must maintain data integrity
       allow update: if isAuthenticated() && 
                       isActive() && 
-                      hasAnyRole(['admin', 'manager', 'monitor', 'data_entry']) &&
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']) &&
                       request.resource.data.previousVersion == resource.data.version;
       
       // No deletions allowed (data integrity)
@@ -149,7 +156,33 @@ service cloud.firestore {
     // Compliance documents
     match /compliance/{docId} {
       allow read: if isAuthenticated() && isActive();
-      allow write: if hasRole('admin');
+      allow write: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+    }
+    
+    // Form Templates collection
+    match /formTemplates/{templateId} {
+      // Read access for all authenticated users
+      allow read: if isAuthenticated() && isActive();
+      
+      // Create access for admin, investigator, and monitor roles
+      allow create: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']) &&
+                      request.resource.data.createdBy == request.auth.uid;
+      
+      // Update access for admin, template creator, and investigators
+      allow update: if isAuthenticated() && 
+                      isActive() && 
+                      (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
+                       resource.data.createdBy == request.auth.uid ||
+                       hasAccessLevel('INVESTIGATOR')) &&
+                      request.resource.data.updatedBy == request.auth.uid;
+      
+      // Delete access for admin and template creator
+      allow delete: if isAuthenticated() && 
+                      isActive() && 
+                      (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
+                       resource.data.createdBy == request.auth.uid);
     }
     
     // Default deny all

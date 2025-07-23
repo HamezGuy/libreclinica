@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, runInInjectionContext, Injector } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { Observable, from } from 'rxjs';
@@ -38,6 +38,7 @@ export interface ComplianceAuditEntry extends AuditLogEntry {
 export class CloudAuditService implements IAuditService {
   private functions = inject(Functions);
   private auth = inject(Auth);
+  private injector: Injector = inject(Injector);
 
   /**
    * Log an event to the audit trail (IAuditService implementation)
@@ -63,23 +64,31 @@ export class CloudAuditService implements IAuditService {
    * Query audit logs (IAuditService implementation)
    */
   queryLogs(filters: AuditFilters): Observable<AuditLog[]> {
-    const queryAuditLogs = httpsCallable<AuditFilters, AuditLog[]>(this.functions, 'queryAuditLogs');
-    return from(queryAuditLogs(filters).then(result => result.data));
+    return from(
+      runInInjectionContext(this.injector, async () => {
+        const queryAuditLogs = httpsCallable<AuditFilters, AuditLog[]>(this.functions, 'queryAuditLogs');
+        const result = await queryAuditLogs(filters);
+        return result.data;
+      })
+    );
   }
 
   /**
    * Export audit logs (IAuditService implementation)
    */
   exportLogs(startDate: Date, endDate: Date): Observable<string> {
-    const exportAuditLogs = httpsCallable<{startDate: string, endDate: string}, {url: string}>(
-      this.functions, 
-      'exportAuditLogs'
-    );
     return from(
-      exportAuditLogs({
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
-      }).then(result => result.data.url)
+      runInInjectionContext(this.injector, async () => {
+        const exportAuditLogs = httpsCallable<{startDate: string, endDate: string}, {url: string}>(
+          this.functions, 
+          'exportAuditLogs'
+        );
+        const result = await exportAuditLogs({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        });
+        return result.data.url;
+      })
     );
   }
 
@@ -115,8 +124,10 @@ export class CloudAuditService implements IAuditService {
       };
 
       // Call the Cloud Function to write to Cloud Logging
-      const logAudit = httpsCallable(this.functions, 'logAuditEvent');
-      await logAudit(auditEntry);
+      await runInInjectionContext(this.injector, async () => {
+        const logAudit = httpsCallable(this.functions, 'logAuditEvent');
+        await logAudit(auditEntry);
+      });
     } catch (error) {
       // Never throw errors from audit logging - log to console instead
       console.error('Failed to log audit event:', error);
@@ -265,8 +276,10 @@ export class CloudAuditService implements IAuditService {
     severity?: string;
   }): Promise<AuditLogEntry[]> {
     try {
-      const queryLogs = httpsCallable<any, AuditLogEntry[]>(this.functions, 'queryAuditLogs');
-      const result = await queryLogs(filters);
+      const result = await runInInjectionContext(this.injector, async () => {
+        const queryLogs = httpsCallable<any, AuditLogEntry[]>(this.functions, 'queryAuditLogs');
+        return await queryLogs(filters);
+      });
       return result.data;
     } catch (error) {
       console.error('Failed to query audit logs:', error);

@@ -8,12 +8,12 @@ import { initializeApp } from 'firebase-admin/app';
 // Initialize Firebase Admin SDK
 initializeApp();
 
-// Export audit logging functions
+// Export audit logging functions (CORS-enabled versions)
 export {
   logAuditEvent,
   queryAuditLogs,
   exportAuditLogs
-} from './audit-logging';
+} from './audit-logging-simple';
 
 // Export comprehensive Healthcare API functions with audit logging
 export {

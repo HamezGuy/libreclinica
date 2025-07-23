@@ -23,7 +23,12 @@ const AUDIT_METADATA = {
  * Cloud Function to write immutable audit logs to Google Cloud Logging
  * This ensures 21 CFR Part 11 compliance for audit trails
  */
-export const logAuditEvent = functions.https.onCall(async (data, context) => {
+export const logAuditEvent = functions
+  .runWith({
+    memory: '256MB',
+    timeoutSeconds: 60
+  })
+  .https.onCall(async (data, context) => {
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(

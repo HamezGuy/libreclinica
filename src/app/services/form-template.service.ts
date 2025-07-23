@@ -99,13 +99,23 @@ export class FormTemplateService {
    * Create a new form template
    * Only ADMIN and INVESTIGATOR can create templates
    */
-  async createTemplate(template: Omit<FormTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<FormTemplate> {
+  async createTemplate(template: FormTemplate): Promise<FormTemplate> {
     const currentUser = await this.authService.getCurrentUserProfile();
+    console.log('Creating template with user:', {
+      uid: currentUser?.uid,
+      email: currentUser?.email,
+      accessLevel: currentUser?.accessLevel,
+      status: currentUser?.status
+    });
+    
     if (!currentUser) throw new Error('User not authenticated');
-
-    // Check permissions
     if (!this.canCreateTemplate(currentUser)) {
-      throw new Error('Insufficient permissions to create form templates');
+      console.error('Permission check failed:', {
+        userStatus: currentUser.status,
+        userAccessLevel: currentUser.accessLevel,
+        requiredLevels: ['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']
+      });
+      throw new Error('Insufficient permissions to create template');
     }
 
     try {

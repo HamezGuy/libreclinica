@@ -47,7 +47,7 @@
       <div class="user-profile">
         <div class="profile-info" (click)="openProfileEditModal()" title="Edit Profile">
           <img 
-            [src]="userProfile.photoURL || '/assets/default-avatar.png'" 
+            [src]="userProfile.photoURL || '/assets/default-avatar.svg'" 
             [alt]="userProfile.displayName"
             class="user-avatar">
           <div class="user-info">
@@ -169,9 +169,9 @@
         
         <!-- Template List -->
         <div class="template-list">
-          <div class="template-grid" *ngIf="(filteredTemplates | async) as templates">
+          <div class="template-grid" *ngIf="filteredTemplates.length > 0">
             <div 
-              *ngFor="let template of templates" 
+              *ngFor="let template of filteredTemplates" 
               class="template-card"
               [class]="template.status">
               <div class="template-header">
@@ -319,57 +319,300 @@
   
 </div>
 
-<!-- Template Management Modal -->
-<div class="modal-overlay" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
-  <div class="modal-content template-modal" (click)="$event.stopPropagation()">
+<!-- Enhanced Template Management Modal -->
+<div class="modal-overlay enhanced-modal-overlay" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
+  <div class="modal-content enhanced-template-modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2>Form Templates</h2>
-      <button class="btn btn-link" (click)="closeTemplateModal()">
-        <i class="material-icons">close</i>
-      </button>
+      <h2><i class="material-icons">description</i> Form Templates</h2>
+      <div class="header-actions">
+        <button class="btn btn-primary" (click)="createNewTemplate()" *ngIf="permissions.canCreate">
+          <i class="material-icons">add</i> New Template
+        </button>
+        <button class="btn btn-link close-btn" (click)="closeTemplateModal()">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
     </div>
     
-    <div class="modal-body">
-      <div class="template-management">
-        <!-- Template list with management options -->
-        <div class="template-list-modal" *ngIf="(templates$ | async) as templates">
-          <div 
-            *ngFor="let template of templates" 
-            class="template-row">
-            <div class="template-info">
-              <h4>{{ template.name }}</h4>
-              <p>{{ template.description }}</p>
-              <div class="template-meta">
-                <span>Version: {{ template.version }}</span>
-                <span>Status: {{ template.status }}</span>
-                <span>Fields: {{ template.fields.length }}</span>
+    <div class="modal-body enhanced-modal-body">
+      <div class="template-container">
+        <!-- Left Sidebar - Template List -->
+        <div class="template-sidebar">
+          <div class="search-filter">
+            <div class="search-box">
+              <i class="material-icons">search</i>
+              <input 
+                type="text" 
+                placeholder="Search templates..." 
+                [(ngModel)]="templateSearchTerm"
+                (input)="filterTemplates()">
+            </div>
+            <div class="filter-buttons">
+              <button 
+                class="filter-btn" 
+                [class.active]="templateFilter === 'all'"
+                (click)="setTemplateFilter('all')">
+                All ({{ filteredTemplates.length }})
+              </button>
+              <button 
+                class="filter-btn" 
+                [class.active]="templateFilter === 'draft'"
+                (click)="setTemplateFilter('draft')">
+                Draft
+              </button>
+              <button 
+                class="filter-btn" 
+                [class.active]="templateFilter === 'published'"
+                (click)="setTemplateFilter('published')">
+                Published
+              </button>
+            </div>
+          </div>
+          
+          <div class="template-list-enhanced">
+            <div 
+              *ngFor="let template of filteredTemplates; trackBy: trackTemplate" 
+              class="template-item"
+              [class.selected]="selectedTemplate?.id === template.id"
+              (click)="selectTemplate(template)">
+              
+              <div class="template-card">
+                <div class="template-header">
+                  <h4>{{ template.name }}</h4>
+                  <span class="status-badge" [class]="'status-' + template.status">{{ template.status }}</span>
+                </div>
+                
+                <p class="template-description">{{ template.description || 'No description' }}</p>
+                
+                <div class="template-stats">
+                  <div class="stat">
+                    <i class="material-icons">input</i>
+                    <span>{{ template.fields.length || 0 }} fields</span>
+                  </div>
+                  <div class="stat">
+                    <i class="material-icons">folder</i>
+                    <span>{{ template.category || 'General' }}</span>
+                  </div>
+                  <div class="stat">
+                    <i class="material-icons">schedule</i>
+                    <span>{{ template.updatedAt | date:'short' }}</span>
+                  </div>
+                </div>
+                
+                <div class="template-actions-quick" (click)="$event.stopPropagation()">
+                  <button 
+                    class="btn-icon" 
+                    (click)="previewTemplate(template)"
+                    title="Preview Template">
+                    <i class="material-icons">visibility</i>
+                  </button>
+                  <button 
+                    class="btn-icon" 
+                    (click)="editTemplate(template)"
+                    [disabled]="!permissions.canEdit"
+                    title="Edit Template">
+                    <i class="material-icons">edit</i>
+                  </button>
+                  <button 
+                    class="btn-icon danger" 
+                    (click)="deleteTemplate(template)"
+                    [disabled]="!permissions.canDelete"
+                    title="Delete Template">
+                    <i class="material-icons">delete</i>
+                  </button>
+                </div>
               </div>
             </div>
             
-            <div class="template-actions">
+            <div *ngIf="filteredTemplates.length === 0" class="empty-state">
+              <i class="material-icons">description</i>
+              <h3>No templates found</h3>
+              <p>{{ templateSearchTerm ? 'Try adjusting your search terms' : 'Create your first template to get started' }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Panel - Preview/Details -->
+        <div class="template-details-panel">
+          <div *ngIf="!selectedTemplate" class="no-selection">
+            <i class="material-icons">description</i>
+            <h3>Select a template to view details</h3>
+            <p>Click on any template from the list to see its preview and details</p>
+          </div>
+          
+          <div *ngIf="selectedTemplate && viewMode === 'details'" class="template-details">
+            <div class="details-header">
+              <div class="template-title">
+                <h2>{{ selectedTemplate.name }}</h2>
+                <span class="status-badge" [class]="'status-' + selectedTemplate.status">
+                  {{ selectedTemplate.status }}
+                </span>
+              </div>
+              
+              <div class="view-controls">
+                <button 
+                  class="btn btn-sm" 
+                  [class.btn-primary]="isViewMode('details')"
+                  [class.btn-secondary]="!isViewMode('details')"
+                  (click)="setViewMode('details')">
+                  <i class="material-icons">info</i> Details
+                </button>
+                <button 
+                  class="btn btn-sm" 
+                  [class.btn-primary]="isViewMode('preview')"
+                  [class.btn-secondary]="!isViewMode('preview')"
+                  (click)="setViewMode('preview')">
+                  <i class="material-icons">preview</i> Preview
+                </button>
+              </div>
+            </div>
+            
+            <!-- Template Information -->
+            <div class="template-info-section">
+              <div class="info-grid">
+                <div class="info-item">
+                  <label>Description</label>
+                  <p>{{ selectedTemplate.description || 'No description provided' }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Category</label>
+                  <p>{{ selectedTemplate.category || 'General' }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Version</label>
+                  <p>{{ selectedTemplate.version || '1.0' }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Status</label>
+                  <p>{{ selectedTemplate.status }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Created</label>
+                  <p>{{ selectedTemplate.createdAt | date:'medium' }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Last Modified</label>
+                  <p>{{ selectedTemplate.updatedAt | date:'medium' }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>Total Fields</label>
+                  <p>{{ selectedTemplate.fields.length || 0 }}</p>
+                </div>
+                
+                <div class="info-item">
+                  <label>PHI Enabled</label>
+                  <p>{{ selectedTemplate.isPhiForm ? 'Yes' : 'No' }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Fields Summary -->
+            <div class="fields-summary" *ngIf="selectedTemplate.fields?.length">
+              <h3>Fields ({{ selectedTemplate.fields.length }})</h3>
+              <div class="fields-list">
+                <div 
+                  *ngFor="let field of selectedTemplate.fields; trackBy: trackField" 
+                  class="field-item">
+                  <div class="field-info">
+                    <i class="material-icons field-icon">{{ getFieldIcon(field.type) }}</i>
+                    <div class="field-details">
+                      <strong>{{ field.label || field.name }}</strong>
+                      <span class="field-type">{{ field.type }}</span>
+                      <span *ngIf="field.required" class="required-badge">Required</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="template-actions-main">
               <button 
-                class="btn btn-sm btn-secondary"
-                (click)="editTemplate(template)"
-                [disabled]="!permissions.canEdit"
-                [title]="permissions.canEdit ? 'Edit Template' : 'Insufficient permissions to edit templates'">
-                Edit
+                class="btn btn-primary"
+                (click)="editTemplate(selectedTemplate)"
+                [disabled]="!permissions.canEdit">
+                <i class="material-icons">edit</i> Edit Template
               </button>
               
               <button 
-                class="btn btn-sm btn-success"
-                (click)="publishTemplate(template)"
-                [disabled]="!permissions.canPublish || template.status !== 'draft'"
-                [title]="permissions.canPublish ? (template.status === 'draft' ? 'Publish Template' : 'Template already published') : 'Insufficient permissions to publish templates'">
-                Publish
+                class="btn btn-success"
+                (click)="publishTemplate(selectedTemplate)"
+                [disabled]="!permissions.canPublish || selectedTemplate.status !== 'draft'">
+                <i class="material-icons">publish</i> 
+                {{ selectedTemplate.status === 'published' ? 'Published' : 'Publish' }}
               </button>
               
               <button 
-                class="btn btn-sm btn-danger"
-                (click)="deleteTemplate(template)"
-                [disabled]="!permissions.canDelete"
-                [title]="permissions.canDelete ? 'Delete Template' : 'Insufficient permissions to delete templates'">
-                Delete
+                class="btn btn-info"
+                (click)="duplicateTemplate(selectedTemplate)"
+                [disabled]="!permissions.canCreate">
+                <i class="material-icons">content_copy</i> Duplicate
               </button>
+              
+              <button 
+                class="btn btn-outline"
+                (click)="exportTemplate(selectedTemplate)">
+                <i class="material-icons">download</i> Export
+              </button>
+              
+              <button 
+                class="btn btn-danger"
+                (click)="deleteTemplate(selectedTemplate)"
+                [disabled]="!permissions.canDelete">
+                <i class="material-icons">delete</i> Delete
+              </button>
+            </div>
+          </div>
+          
+          <!-- Template Preview -->
+          <div *ngIf="selectedTemplate && viewMode === 'preview'" class="template-preview">
+            <div class="preview-header">
+              <div class="template-title">
+                <h2>{{ selectedTemplate.name }}</h2>
+                <span class="preview-label">Preview Mode</span>
+              </div>
+              
+              <div class="view-controls">
+                <button 
+                  class="btn btn-sm btn-secondary"
+                  (click)="setViewMode('details')">
+                  <i class="material-icons">info</i> Details
+                </button>
+                <button 
+                  class="btn btn-sm btn-primary">
+                  <i class="material-icons">preview</i> Preview
+                </button>
+              </div>
+            </div>
+            
+            <div class="preview-content">
+              <div class="form-preview" *ngIf="selectedTemplate">
+                <h4>Form Fields Preview</h4>
+                <div class="field-list">
+                  <div 
+                    *ngFor="let field of selectedTemplate.fields; trackBy: trackField" 
+                    class="preview-field">
+                    <div class="field-info">
+                      <i class="material-icons field-icon">{{ getFieldIcon(field.type) }}</i>
+                      <div class="field-details">
+                        <strong>{{ field.label }}</strong>
+                        <span class="field-type">{{ field.type }}</span>
+                        <p class="field-description" *ngIf="field.description">{{ field.description }}</p>
+                      </div>
+                      <div class="field-properties">
+                        <span *ngIf="field.required" class="required-badge">Required</span>
+                        <span *ngIf="field.isPhi" class="phi-badge">PHI</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -78,6 +78,7 @@ export interface FormField {
   
   // Layout and Display
   width?: 'full' | 'half' | 'third' | 'quarter';
+  columnPosition?: 'left' | 'right' | 'center'; // Column positioning for multi-column layout
   order: number;
   section?: string; // Group fields into sections
   

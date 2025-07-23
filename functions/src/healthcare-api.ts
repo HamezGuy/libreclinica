@@ -69,7 +69,9 @@ const checkUserPermissions = async (userId: string, action: string, resourceType
 /**
  * Create a new patient in FHIR store
  */
-export const createPatient = onCall(async (request: CallableRequest<any>) => {
+export const createPatient = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -102,7 +104,9 @@ export const createPatient = onCall(async (request: CallableRequest<any>) => {
 /**
  * Get patient by ID
  */
-export const getPatient = onCall(async (request: CallableRequest<any>) => {
+export const getPatient = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -131,7 +135,9 @@ export const getPatient = onCall(async (request: CallableRequest<any>) => {
 /**
  * Search patients
  */
-export const searchPatients = onCall(async (request: CallableRequest<any>) => {
+export const searchPatients = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -168,7 +174,9 @@ export const searchPatients = onCall(async (request: CallableRequest<any>) => {
 /**
  * Create observation (lab results, vitals, etc.)
  */
-export const createObservation = onCall(async (request: CallableRequest<any>) => {
+export const createObservation = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -210,7 +218,9 @@ export const createObservation = onCall(async (request: CallableRequest<any>) =>
 /**
  * Get patient observations
  */
-export const getPatientObservations = onCall(async (request: CallableRequest<any>) => {
+export const getPatientObservations = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -242,7 +252,9 @@ export const getPatientObservations = onCall(async (request: CallableRequest<any
 /**
  * Create encounter
  */
-export const createEncounter = onCall(async (request: CallableRequest<any>) => {
+export const createEncounter = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -275,7 +287,9 @@ export const createEncounter = onCall(async (request: CallableRequest<any>) => {
 /**
  * Create consent record
  */
-export const createConsent = onCall(async (request: CallableRequest<any>) => {
+export const createConsent = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -308,7 +322,9 @@ export const createConsent = onCall(async (request: CallableRequest<any>) => {
 /**
  * Export patient data (GDPR/CCPA compliance)
  */
-export const exportPatientData = onCall(async (request: CallableRequest<any>) => {
+export const exportPatientData = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -352,7 +368,9 @@ export const exportPatientData = onCall(async (request: CallableRequest<any>) =>
 /**
  * Delete patient data (restricted operation)
  */
-export const deletePatientData = onCall(async (request: CallableRequest<any>) => {
+export const deletePatientData = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -394,7 +412,9 @@ export const deletePatientData = onCall(async (request: CallableRequest<any>) =>
 /**
  * Validate FHIR resource
  */
-export const validateFhirResource = onCall(async (request: CallableRequest<any>) => {
+export const validateFhirResource = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -425,7 +445,9 @@ export const validateFhirResource = onCall(async (request: CallableRequest<any>)
 /**
  * Bulk import FHIR resources
  */
-export const bulkImportFhir = onCall(async (request: CallableRequest<any>) => {
+export const bulkImportFhir = onCall({
+  cors: ['http://localhost:4200', 'http://localhost:4201', 'http://localhost:4202']
+}, async (request: CallableRequest<any>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
