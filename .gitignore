@@ -48,3 +48,4 @@ Thumbs.db
 # Firebase config
 .firebaserc
 firebase-debug.log
+.vercel
