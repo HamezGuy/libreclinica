@@ -382,7 +382,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     
     this.selectedTemplateForEdit = template;
-    this.formBuilderTemplateId = template.id;
+    this.editingTemplateId = template.id;
     this.showFormBuilderModal = true;
   }
 
