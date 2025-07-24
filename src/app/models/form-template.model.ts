@@ -1,5 +1,23 @@
 import { AccessLevel } from '../enums/access-levels.enum';
 
+// Template Types
+export type TemplateType = 'form' | 'patient' | 'study_subject';
+
+// PHI Field Types (FHIR-compliant)
+export type PhiFieldType = 
+  | 'patient_name'
+  | 'patient_id' 
+  | 'date_of_birth'
+  | 'ssn'
+  | 'address'
+  | 'phone_number'
+  | 'email_address'
+  | 'medical_record_number'
+  | 'insurance_id'
+  | 'emergency_contact'
+  | 'genetic_data'
+  | 'biometric_identifier';
+
 // Form Field Types
 export type FormFieldType = 
   | 'text' 
@@ -25,7 +43,8 @@ export type FormFieldType =
   | 'blood_pressure'
   | 'temperature'
   | 'medication'
-  | 'diagnosis';
+  | 'diagnosis'
+  | PhiFieldType;
 
 // Export alias for compatibility
 export type FieldType = FormFieldType;
@@ -36,6 +55,17 @@ export interface ValidationRule {
   value?: any;
   message: string;
   customValidator?: string; // Function name for custom validation
+}
+
+// PHI Classification
+export interface PhiClassification {
+  isPhiField: boolean;
+  phiType?: PhiFieldType;
+  encryptionRequired: boolean;
+  accessLevel: 'public' | 'internal' | 'restricted' | 'confidential';
+  auditRequired: boolean;
+  dataMinimization: boolean;
+  retentionPeriodDays?: number;
 }
 
 // Form Field Configuration
@@ -63,9 +93,12 @@ export interface FormField {
   placeholder?: string;
   defaultValue?: any;
   
-  // PHI Classification
-  isPhi: boolean;
-  phiCategory?: 'direct' | 'quasi' | 'sensitive'; // DPDP Act categories
+  // PHI and Compliance
+  isPhiField: boolean;
+  phiClassification?: PhiClassification;
+  auditRequired: boolean;
+  linkedFormIds?: string[]; // Forms this field can link to
+  patientDataMapping?: string; // FHIR Patient resource field mapping
   
   // Nested Form Support
   nestedFormId?: string; // Reference to another form template
@@ -98,7 +131,6 @@ export interface FormField {
   customAttributes?: { [key: string]: any };
   
   // Audit and Compliance
-  requiresSignature?: boolean; // 21 CFR Part 11 requirement
   criticalDataPoint?: boolean; // Requires additional verification
   auditTrail?: {
     trackChanges: boolean;
@@ -151,6 +183,17 @@ export interface FormFieldGroup {
   conditionalLogic?: ConditionalLogicRule[];
 }
 
+// Template Link Configuration
+export interface TemplateLink {
+  id: string;
+  templateId: string;
+  templateName: string;
+  linkType: 'parent' | 'child' | 'related';
+  required: boolean;
+  allowMultiple: boolean;
+  description?: string;
+}
+
 // Form Template
 export interface FormTemplate {
   id?: string;
@@ -159,11 +202,33 @@ export interface FormTemplate {
   description: string;
   version: number;
   
+  // Template Type Configuration
+  templateType: TemplateType;
+  isPatientTemplate: boolean; // Quick check for patient templates
+  isStudySubjectTemplate: boolean; // Quick check for study subject templates
+  
   // Template Configuration
   fields: FormField[];
   sections: FormSection[];
   fieldGroups?: FormFieldGroup[];
   conditionalLogic?: ConditionalLogicRule[];
+  
+  // Template Linking
+  parentTemplateId?: string;
+  childTemplateIds: string[];
+  linkedTemplates: TemplateLink[];
+  
+  // PHI and Healthcare Compliance
+  phiDataFields: string[]; // Field IDs containing PHI
+  healthcareApiConfig?: {
+    projectId: string;
+    datasetId: string;
+    fhirStoreId: string;
+    encryptionKeyId?: string;
+  };
+  fhirResourceType?: 'Patient' | 'Observation' | 'Encounter' | 'Condition' | 'MedicationStatement';
+  hipaaCompliant: boolean;
+  gdprCompliant: boolean;
   
   // Status and Lifecycle
   status: 'draft' | 'review' | 'published' | 'deprecated' | 'archived';
@@ -183,16 +248,20 @@ export interface FormTemplate {
   isPhiForm?: boolean;
   dataRetentionPeriod?: number; // in years
   complianceRegions: string[]; // ['INDIA', 'EU', 'US']
-  
-  // Form Behavior
+  phiEncryptionEnabled: boolean;
+  phiAccessLogging: boolean;
+  phiDataMinimization: boolean;
+  phiRetentionPolicy?: {
+    retentionPeriodDays: number;
+    autoDeleteEnabled: boolean;
+    archiveBeforeDelete: boolean;
+  };
   allowSavePartial: boolean; // Allow saving incomplete forms
   allowPartialSave?: boolean; // Alternative property name
   requiresReview: boolean; // Requires review before submission
   allowEditing: boolean; // Allow editing after submission
   maxSubmissions?: number;
   expirationDate?: Date;
-  
-  // Instructions and help
   instructions?: string;
   
   // Nested Forms

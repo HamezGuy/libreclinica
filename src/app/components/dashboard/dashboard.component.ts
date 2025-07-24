@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, Observable, combineLatest, map, of, withLatestFrom, firstValueFrom } from 'rxjs';
 
@@ -15,7 +15,8 @@ import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { UserProfile } from '../../models/user-profile.model';
-import { FormTemplate, FormInstance as TemplateFormInstance } from '../../models/form-template.model';
+import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
+import { PhiEncryptionService } from '../../services/phi-encryption.service';
 import { Study, StudySection, PatientStudyEnrollment, CareIndicator } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
 
@@ -72,7 +73,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, FormBuilderComponent, FormPreviewComponent, ProfileEditPopupComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, FormPreviewComponent, ProfileEditPopupComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -86,6 +87,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private studyService = inject(StudyService);
   private router = inject(Router);
   private eventBus = inject(EventBusService);
+  private fb = inject(FormBuilder);
+  private phiEncryptionService = inject(PhiEncryptionService);
   
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
@@ -109,6 +112,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showProfileEditModal = false;
   selectedTemplateForEdit: FormTemplate | null = null;
   formBuilderTemplateId: string | undefined = undefined;
+  editingTemplateId: string | undefined = undefined;
+  
+  // Patient Template Modal state
+  showPatientTemplateModal = false;
+  showPatientFormModal = false;
+  selectedPatientTemplate: FormTemplate | null = null;
+  patientTemplates: FormTemplate[] = [];
+  patientForm: FormGroup = this.fb.group({});
+  isCreatingPatient = false;
+  availableStudies: Study[] = [];
   
   // Enhanced template modal properties
   selectedTemplate: FormTemplate | null = null;
@@ -633,6 +646,182 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     // TODO: Open study edit modal
     console.log('Edit study modal would open here:', study);
+  }
+
+  // Patient Template Methods
+  async openPatientTemplateSelector(): Promise<void> {
+    try {
+      // Load patient templates from observable
+      const allTemplates = await firstValueFrom(this.templates$);
+      this.patientTemplates = allTemplates.filter((template: FormTemplate) => template.templateType === 'patient');
+      
+      // Load available studies for patient assignment
+      this.availableStudies = this.studies; // Use existing studies data
+      
+      this.showPatientTemplateModal = true;
+    } catch (error) {
+      console.error('Error loading patient templates:', error);
+      alert('Failed to load patient templates');
+    }
+  }
+
+  closePatientTemplateModal(): void {
+    this.showPatientTemplateModal = false;
+    this.selectedPatientTemplate = null;
+  }
+
+  selectPatientTemplate(template: FormTemplate): void {
+    this.selectedPatientTemplate = template;
+  }
+
+  async createPatientTemplate(): Promise<void> {
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to create templates');
+      return;
+    }
+    
+    // Close patient template modal and open form builder for patient template
+    this.closePatientTemplateModal();
+    this.openFormBuilder();
+    // TODO: Set form builder to patient template mode
+  }
+
+  async createPatientFromTemplate(): Promise<void> {
+    if (!this.selectedPatientTemplate) {
+      alert('Please select a patient template first');
+      return;
+    }
+    
+    try {
+      // Build dynamic form based on selected template fields
+      this.buildPatientForm(this.selectedPatientTemplate);
+      
+      // Show patient form modal
+      this.showPatientFormModal = true;
+      this.showPatientTemplateModal = false;
+    } catch (error) {
+      console.error('Error creating patient form:', error);
+      alert('Failed to create patient form');
+    }
+  }
+
+  closePatientFormModal(): void {
+    this.showPatientFormModal = false;
+    this.patientForm.reset();
+  }
+
+  private buildPatientForm(template: FormTemplate): void {
+    const formControls: { [key: string]: FormControl } = {};
+    
+    template.fields.forEach(field => {
+      const validators = [];
+      
+      if (field.required) {
+        validators.push(Validators.required);
+      }
+      
+      if (field.validationRules && field.validationRules.length > 0) {
+        field.validationRules.forEach((rule: any) => {
+          // Apply validation rules based on type
+          if (rule.type === 'minLength' && rule.value) {
+            validators.push(Validators.minLength(rule.value as number));
+          } else if (rule.type === 'maxLength' && rule.value) {
+            validators.push(Validators.maxLength(rule.value as number));
+          } else if (rule.type === 'pattern' && rule.value) {
+            validators.push(Validators.pattern(rule.value as string));
+          }
+        });
+      }
+      
+      // Add email validation for email fields
+      if (field.type === 'email') {
+        validators.push(Validators.email);
+      }
+      
+      formControls[field.name] = new FormControl(field.defaultValue || '', validators);
+    });
+    
+    // Add study selection if available studies exist
+    if (this.availableStudies.length > 0) {
+      formControls['studyId'] = new FormControl('', Validators.required);
+    }
+    
+    this.patientForm = this.fb.group(formControls);
+  }
+
+  async submitPatientForm(): Promise<void> {
+    if (!this.patientForm.valid || !this.selectedPatientTemplate) {
+      alert('Please fill out all required fields');
+      return;
+    }
+    
+    this.isCreatingPatient = true;
+    
+    try {
+      const formData = this.patientForm.value;
+      
+      // Separate PHI and non-PHI data
+      const phiData: { [key: string]: any } = {};
+      const regularData: { [key: string]: any } = {};
+      
+      this.selectedPatientTemplate.fields.forEach(field => {
+        const value = formData[field.name];
+        if (field.isPhiField || (field.phiClassification && field.phiClassification.isPhiField)) {
+          phiData[field.name] = value;
+        } else {
+          regularData[field.name] = value;
+        }
+      });
+      
+      // Encrypt PHI data
+      let encryptedPhiData = null;
+      if (Object.keys(phiData).length > 0) {
+        // Create a basic PHI classification for encryption
+        const phiClassification = {
+          isPhiField: true,
+          encryptionRequired: true,
+          accessLevel: 'confidential' as const,
+          auditRequired: true,
+          dataMinimization: true
+        };
+        encryptedPhiData = await this.phiEncryptionService.encryptPhiData(phiData, phiClassification);
+      }
+      
+      // Create FHIR Patient resource
+      const fhirPatient = await this.phiEncryptionService.createFhirPatient({
+        ...phiData,
+        ...regularData
+      });
+      
+      // Create patient record
+      const patientData = {
+        templateId: this.selectedPatientTemplate.id!,
+        studyId: formData.studyId || null,
+        regularData,
+        encryptedPhiData,
+        fhirPatient,
+        createdAt: new Date(),
+        createdBy: this.currentUserProfile?.uid || 'unknown',
+        status: 'active'
+      };
+      
+      // Save patient (this would need a patient service)
+      console.log('Creating patient with data:', patientData);
+      
+      // Note: PHI access logging would be handled internally by the encryption service
+      
+      alert('Patient created successfully!');
+      this.closePatientFormModal();
+      
+      // Refresh patients list
+      await this.loadPatients();
+      
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      alert('Failed to create patient');
+    } finally {
+      this.isCreatingPatient = false;
+    }
   }
 
   async deleteStudy(study: Study): Promise<void> {

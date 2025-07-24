@@ -468,7 +468,7 @@ export class FormInstanceService {
       const field = template.fields.find(f => f.id === fieldId);
       const serializedValue = this.serializeFieldValue(value, field?.type);
       
-      if (field && field.isPhi) {
+      if (field && field.isPhiField) {
         phiData[fieldId] = serializedValue;
       } else {
         nonPhiData[fieldId] = serializedValue;

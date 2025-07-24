@@ -178,7 +178,20 @@ export class FormPreviewComponent implements OnInit, OnDestroy {
       'blood_pressure': 'favorite',
       'temperature': 'thermostat',
       'medication': 'medication',
-      'diagnosis': 'medical_services'
+      'diagnosis': 'medical_services',
+      // PHI-specific field types (matching PhiFieldType)
+      'patient_name': 'person',
+      'patient_id': 'badge',
+      'date_of_birth': 'cake',
+      'ssn': 'fingerprint',
+      'address': 'home',
+      'phone_number': 'phone',
+      'email_address': 'email',
+      'medical_record_number': 'folder_special',
+      'insurance_id': 'local_hospital',
+      'emergency_contact': 'contact_emergency',
+      'genetic_data': 'biotech',
+      'biometric_identifier': 'fingerprint'
     };
     return iconMap[fieldType] || 'input';
   }

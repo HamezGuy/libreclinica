@@ -99,7 +99,7 @@
         <div class="section-header">
           <h2>Patients</h2>
           <div class="section-actions">
-            <button class="btn btn-primary" title="Add New Patient">
+            <button class="btn btn-primary" title="Add New Patient" (click)="openPatientTemplateSelector()">
               <i class="material-icons">person_add</i>
               Add Patient
             </button>
@@ -541,22 +541,262 @@
   </div>
 </div>
 
-<!-- Form Builder Modal -->
-<div *ngIf="showFormBuilderModal" class="modal-overlay">
-  <div class="modal-content form-builder-modal">
-    <app-form-builder
-      [templateId]="formBuilderTemplateId"
-      [isModal]="true"
-      (templateSaved)="onTemplateSaved($event)"
-      (builderClosed)="closeFormBuilder()">
-    </app-form-builder>
-  </div>
-</div>
+    <!-- Form Builder Modal -->
+    <div *ngIf="showFormBuilderModal" class="modal-overlay">
+      <div class="modal-content form-builder-modal">
+        <app-form-builder
+          [templateId]="editingTemplateId"
+          [isModal]="true"
+          (templateSaved)="onTemplateSaved($event)"
+          (builderClosed)="closeFormBuilder()">
+        </app-form-builder>
+      </div>
+    </div>
 
-<!-- Profile Edit Popup -->
-<app-profile-edit-popup
-  [userProfile]="currentUserProfile"
-  [isVisible]="showProfileEditModal"
-  (closePopup)="closeProfileEditModal()"
-  (profileUpdated)="onProfileUpdated($event)">
-</app-profile-edit-popup>
+    <!-- Patient Template Selection Modal -->
+    <div class="modal-overlay patient-template-modal" *ngIf="showPatientTemplateModal" (click)="closePatientTemplateModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>
+            <i class="material-icons">person_add</i>
+            Create New Patient
+          </h2>
+          <button class="btn btn-link" (click)="closePatientTemplateModal()" title="Close">
+            <i class="material-icons">close</i>
+          </button>
+        </div>
+        
+        <div class="modal-body patient-template-selector">
+          <div class="selection-header">
+            <h3>Select Patient Template</h3>
+            <p>Choose a template to create a new patient record. Patient templates contain PHI data and are encrypted for security.</p>
+          </div>
+          
+          <!-- Template Selection Grid -->
+          <div class="template-grid" *ngIf="patientTemplates.length > 0">
+            <div 
+              *ngFor="let template of patientTemplates" 
+              class="template-card" 
+              [class.selected]="selectedPatientTemplate?.id === template.id"
+              (click)="selectPatientTemplate(template)">
+              
+              <div class="template-icon">
+                <i class="material-icons">person</i>
+                <div class="phi-badge">PHI</div>
+              </div>
+              
+              <div class="template-info">
+                <h4>{{ template.name }}</h4>
+                <p>{{ template.description }}</p>
+                <div class="template-meta">
+                  <span class="field-count">
+                    <i class="material-icons">list</i>
+                    {{ template.fields.length }} fields
+                  </span>
+                  <span class="template-status" [class]="template.status">{{ template.status }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- No Templates Available -->
+          <div class="no-templates" *ngIf="patientTemplates.length === 0">
+            <i class="material-icons">info</i>
+            <h3>No Patient Templates Available</h3>
+            <p>You need to create a patient template before you can add patients.</p>
+            <button class="btn btn-primary" (click)="createPatientTemplate()">
+              <i class="material-icons">add</i>
+              Create Patient Template
+            </button>
+          </div>
+          
+          <!-- Selected Template Preview -->
+          <div class="selected-template-preview" *ngIf="selectedPatientTemplate">
+            <h4>Template Preview: {{ selectedPatientTemplate.name }}</h4>
+            <div class="field-preview-list">
+              <div 
+                *ngFor="let field of selectedPatientTemplate.fields.slice(0, 5)" 
+                class="field-preview-item">
+                <i class="material-icons">{{ getFieldIcon(field.type) }}</i>
+                <span class="field-name">{{ field.label }}</span>
+                <span class="phi-indicator" *ngIf="field.isPhiField">
+                  <i class="material-icons" title="PHI Field">security</i>
+                </span>
+              </div>
+              <div class="more-fields" *ngIf="selectedPatientTemplate.fields.length > 5">
+                +{{ selectedPatientTemplate.fields.length - 5 }} more fields
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closePatientTemplateModal()">
+            Cancel
+          </button>
+          <button 
+            class="btn btn-success" 
+            [disabled]="!selectedPatientTemplate"
+            (click)="createPatientFromTemplate()">
+            <i class="material-icons">person_add</i>
+            Create Patient
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patient Creation Form Modal -->
+    <div class="modal-overlay patient-form-modal" *ngIf="showPatientFormModal" (click)="closePatientFormModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>
+            <i class="material-icons">person</i>
+            New Patient: {{ selectedPatientTemplate?.name }}
+          </h2>
+          <button class="btn btn-link" (click)="closePatientFormModal()" title="Close">
+            <i class="material-icons">close</i>
+          </button>
+        </div>
+        
+        <div class="modal-body patient-form-container">
+          <div class="phi-warning">
+            <i class="material-icons">security</i>
+            <span>This form contains Protected Health Information (PHI). Data will be encrypted and access will be logged.</span>
+          </div>
+          
+          <!-- Dynamic Patient Form -->
+          <div class="patient-form" *ngIf="selectedPatientTemplate">
+            <form [formGroup]="patientForm" (ngSubmit)="submitPatientForm()">
+              <div 
+                *ngFor="let field of selectedPatientTemplate.fields" 
+                class="form-group" 
+                [class.phi-field]="field.isPhiField">
+                
+                <label [class.required]="field.required">
+                  {{ field.label }}
+                  <i class="material-icons phi-icon" *ngIf="field.isPhiField" title="PHI Field">security</i>
+                </label>
+                
+                <!-- Dynamic Field Rendering -->
+                <div [ngSwitch]="field.type" class="field-input">
+                  <!-- Patient Name Field -->
+                  <input 
+                    *ngSwitchCase="'patient_name'"
+                    type="text"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                  
+                  <!-- Patient ID Field -->
+                  <input 
+                    *ngSwitchCase="'patient_id'"
+                    type="text"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                  
+                  <!-- Date of Birth -->
+                  <input 
+                    *ngSwitchCase="'date_of_birth'"
+                    type="date"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [readonly]="field.readonly">
+                  
+                  <!-- SSN -->
+                  <input 
+                    *ngSwitchCase="'ssn'"
+                    type="text"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly"
+                    pattern="[0-9]{3}-[0-9]{2}-[0-9]{4}">
+                  
+                  <!-- Address -->
+                  <div *ngSwitchCase="'address'" class="address-fields">
+                    <input type="text" class="form-control" [formControlName]="field.name + '_street'" placeholder="Street Address">
+                    <div class="address-row">
+                      <input type="text" class="form-control" [formControlName]="field.name + '_city'" placeholder="City">
+                      <input type="text" class="form-control" [formControlName]="field.name + '_state'" placeholder="State">
+                      <input type="text" class="form-control" [formControlName]="field.name + '_zip'" placeholder="ZIP">
+                    </div>
+                  </div>
+                  
+                  <!-- Phone Number -->
+                  <input 
+                    *ngSwitchCase="'phone_number'"
+                    type="tel"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                  
+                  <!-- Email -->
+                  <input 
+                    *ngSwitchCase="'email_address'"
+                    type="email"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                  
+                  <!-- Medical Record Number -->
+                  <input 
+                    *ngSwitchCase="'medical_record_number'"
+                    type="text"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                  
+                  <!-- Default Text Input -->
+                  <input 
+                    *ngSwitchDefault
+                    type="text"
+                    class="form-control"
+                    [formControlName]="field.name"
+                    [placeholder]="field.placeholder"
+                    [readonly]="field.readonly">
+                </div>
+                
+                <small class="field-help" *ngIf="field.helpText">{{ field.helpText }}</small>
+              </div>
+              
+              <!-- Study Enrollment (if applicable) -->
+              <div class="form-group" *ngIf="availableStudies.length > 0">
+                <label>Enroll in Study (Optional)</label>
+                <select class="form-control" formControlName="studyId">
+                  <option value="">No study enrollment</option>
+                  <option *ngFor="let study of availableStudies" [value]="study.id">{{ study.title }}</option>
+                </select>
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closePatientFormModal()">
+            Cancel
+          </button>
+          <button 
+            class="btn btn-success" 
+            [disabled]="!patientForm.valid || isCreatingPatient"
+            (click)="submitPatientForm()">
+            <i class="material-icons" *ngIf="!isCreatingPatient">save</i>
+            <i class="material-icons rotating" *ngIf="isCreatingPatient">sync</i>
+            {{ isCreatingPatient ? 'Creating...' : 'Create Patient' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Edit Popup -->
+    <app-profile-edit-popup
+      [userProfile]="currentUserProfile"
+      [isVisible]="showProfileEditModal"
+      (closePopup)="closeProfileEditModal()"
+      (profileUpdated)="onProfileUpdated($event)">
+    </app-profile-edit-popup>

@@ -46,7 +46,6 @@
         <form [formGroup]="loginForm" (ngSubmit)="signInWithEmail()" class="auth-form">
           <div class="form-group">
             <div class="input-group">
-              <mat-icon class="input-icon">email</mat-icon>
               <mat-form-field appearance="fill" class="modern-input">
                 <mat-label>Email Address</mat-label>
                 <input matInput formControlName="email" type="email" required>
@@ -58,7 +57,6 @@
 
           <div class="form-group">
             <div class="input-group">
-              <mat-icon class="input-icon">lock</mat-icon>
               <mat-form-field appearance="fill" class="modern-input">
                 <mat-label>Password</mat-label>
                 <input matInput formControlName="password" [type]="hidePassword ? 'password' : 'text'" required>
@@ -87,7 +85,6 @@
         <form [formGroup]="registerForm" (ngSubmit)="registerWithEmail()" class="auth-form">
           <div class="form-group">
             <div class="input-group">
-              <mat-icon class="input-icon">person</mat-icon>
               <mat-form-field appearance="fill" class="modern-input">
                 <mat-label>Full Name</mat-label>
                 <input matInput formControlName="displayName" required>
@@ -98,7 +95,6 @@
 
           <div class="form-group">
             <div class="input-group">
-              <mat-icon class="input-icon">email</mat-icon>
               <mat-form-field appearance="fill" class="modern-input">
                 <mat-label>Email Address</mat-label>
                 <input matInput formControlName="email" type="email" required>
@@ -110,7 +106,6 @@
 
           <div class="form-group">
             <div class="input-group">
-              <mat-icon class="input-icon">lock</mat-icon>
               <mat-form-field appearance="fill" class="modern-input">
                 <mat-label>Password</mat-label>
                 <input matInput formControlName="password" type="password" required minlength="8">

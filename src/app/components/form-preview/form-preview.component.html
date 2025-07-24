@@ -35,7 +35,7 @@
           <i class="material-icons field-icon">{{ getFieldIcon(field.type) }}</i>
           <span class="label-text">{{ field.label }}</span>
           <span class="required-indicator" *ngIf="isFieldRequired(field)">*</span>
-          <span class="phi-indicator" *ngIf="field.isPhi" title="Personal Health Information">PHI</span>
+          <span class="phi-indicator" *ngIf="field.isPhiField" title="Personal Health Information">PHI</span>
         </label>
 
         <!-- Field Help Text -->

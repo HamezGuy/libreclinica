@@ -4,7 +4,7 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Va
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { Subject, takeUntil } from 'rxjs';
 
-import { FormTemplate, FormField, FieldType, ValidationRule, FormFieldGroup } from '../../models/form-template.model';
+import { FormTemplate, FormField, FieldType, ValidationRule, FormFieldGroup, TemplateType, PhiFieldType, PhiClassification } from '../../models/form-template.model';
 import { FormTemplateService } from '../../services/form-template.service';
 import { FormValidationService } from '../../services/form-validation.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
@@ -133,15 +133,53 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       description: [''],
       category: ['', Validators.required],
       version: ['1.0.0', Validators.required],
+      
+      // Template Type Configuration
+      templateType: ['form', Validators.required],
+      isPatientTemplate: [false],
+      isStudySubjectTemplate: [false],
+      
+      // PHI and Compliance Settings
       isPhiForm: [false],
+      phiEncryptionEnabled: [false],
+      phiAccessLogging: [true],
+      phiDataMinimization: [true],
+      hipaaCompliant: [false],
+      gdprCompliant: [false],
+      
+      // Form Behavior
       requiresSignature: [false],
       allowPartialSave: [true],
       maxSubmissions: [null],
       expirationDate: [null],
       instructions: [''],
+      
+      // Form Structure
       fields: this.fb.array([]),
       fieldGroups: this.fb.array([]),
       conditionalLogic: this.fb.array([]),
+      
+      // Template Linking
+      parentTemplateId: [null],
+      childTemplateIds: this.fb.array([]),
+      linkedTemplates: this.fb.array([]),
+      
+      // Healthcare API Configuration
+      healthcareApiConfig: this.fb.group({
+        projectId: ['data-entry-project-465905'],
+        datasetId: ['edc-dataset'],
+        fhirStoreId: ['edc-fhir-store'],
+        encryptionKeyId: [null]
+      }),
+      fhirResourceType: [null],
+      
+      // PHI Retention Policy
+      phiRetentionPolicy: this.fb.group({
+        retentionPeriodDays: [2555],
+        autoDeleteEnabled: [false],
+        archiveBeforeDelete: [true]
+      }),
+      
       customCss: [''],
       metadata: this.fb.group({
         studyPhase: [''],
@@ -258,7 +296,8 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       isRequired: [field.isRequired || false],
       isReadonly: [field.isReadonly || false],
       isHidden: [field.isHidden || false],
-      isPhi: [field.isPhi || false],
+      isPhiField: [field.isPhiField || false],
+      auditRequired: [field.auditRequired || false],
       order: [field.order || 0],
       width: [field.width || 'full'],
       columnPosition: [field.columnPosition || 'left'],
@@ -362,7 +401,8 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       isRequired: false,
       isReadonly: false,
       isHidden: false,
-      isPhi: false,
+      isPhiField: false,
+      auditRequired: false,
       order: order,
       width: 'full', // Default to full width
       columnPosition: 'left', // Default to left column

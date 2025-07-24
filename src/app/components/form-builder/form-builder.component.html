@@ -699,6 +699,73 @@
             </div>
           </div>
 
+          <!-- Template Type Selection -->
+          <div class="settings-section">
+            <h4>Template Type</h4>
+            <p class="section-description">Select the type of template you want to create</p>
+            
+            <div class="template-type-selector">
+              <div class="template-type-options">
+                <label class="template-type-option" 
+                       [class.selected]="builderForm.get('templateType')?.value === 'form'">
+                  <input type="radio" formControlName="templateType" value="form">
+                  <div class="option-content">
+                    <span class="material-icons">description</span>
+                    <h5>Regular Form</h5>
+                    <p>Standard data collection form for studies</p>
+                  </div>
+                </label>
+                
+                <label class="template-type-option" 
+                       [class.selected]="builderForm.get('templateType')?.value === 'patient'">
+                  <input type="radio" formControlName="templateType" value="patient">
+                  <div class="option-content">
+                    <span class="material-icons">person</span>
+                    <h5>Patient Template</h5>
+                    <p>Template for patient demographics and PHI data</p>
+                    <div class="phi-badge">PHI</div>
+                  </div>
+                </label>
+                
+                <label class="template-type-option" 
+                       [class.selected]="builderForm.get('templateType')?.value === 'study_subject'">
+                  <input type="radio" formControlName="templateType" value="study_subject">
+                  <div class="option-content">
+                    <span class="material-icons">group</span>
+                    <h5>Study Subject</h5>
+                    <p>Template for study-specific subject data</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Template Type Help Text -->
+            <div class="template-type-help" *ngIf="builderForm.get('templateType')?.value">
+              <div *ngIf="builderForm.get('templateType')?.value === 'form'" class="help-content">
+                <span class="material-icons">info</span>
+                <div>
+                  <strong>Regular Form:</strong> Use this for standard data collection forms like CRFs, questionnaires, and assessments.
+                </div>
+              </div>
+              
+              <div *ngIf="builderForm.get('templateType')?.value === 'patient'" class="help-content">
+                <span class="material-icons">security</span>
+                <div>
+                  <strong>Patient Template:</strong> Contains PHI data and requires encryption. Use for patient demographics, contact information, and medical history.
+                  <br><small>This will enable PHI compliance features and Google Healthcare API integration.</small>
+                </div>
+              </div>
+              
+              <div *ngIf="builderForm.get('templateType')?.value === 'study_subject'" class="help-content">
+                <span class="material-icons">science</span>
+                <div>
+                  <strong>Study Subject:</strong> Template for study-specific participant data that links to patient records.
+                  <br><small>This enables form linking and study enrollment workflows.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Form Behavior -->
           <div class="settings-section">
             <h4>Form Behavior</h4>
