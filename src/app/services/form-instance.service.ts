@@ -1,4 +1,4 @@
-import { Injectable, inject, Inject } from '@angular/core';
+import { Injectable, inject, Inject, runInInjectionContext, Injector } from '@angular/core';
 import { Observable, from, BehaviorSubject, combineLatest } from 'rxjs';
 import { map, switchMap, tap, catchError } from 'rxjs/operators';
 import { 
@@ -45,11 +45,11 @@ export class FormInstanceService {
   private authService = inject(EdcCompliantAuthService);
   private templateService = inject(FormTemplateService);
   private dataSeparationService = inject(DataSeparationService);
+  private injector = inject(Injector);
+  private eventBus = inject(EVENT_BUS_TOKEN);
   
   private instancesSubject = new BehaviorSubject<FormInstance[]>([]);
   public instances$ = this.instancesSubject.asObservable();
-  
-  constructor(@Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus) {}
 
   /**
    * Create a new form instance from a template
@@ -96,11 +96,13 @@ export class FormInstanceService {
       };
 
       const instancesRef = collection(this.firestore, 'formInstances');
-      const docRef = await addDoc(instancesRef, {
-        ...instanceData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastModifiedAt: serverTimestamp()
+      const docRef = await runInInjectionContext(this.injector, async () => {
+        return await addDoc(instancesRef, {
+          ...instanceData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastModifiedAt: serverTimestamp()
+        });
       });
 
       const createdInstance: FormInstance = {
@@ -171,7 +173,8 @@ export class FormInstanceService {
         reason: reason || 'Form data updated'
       };
 
-      const updateData = {
+      // Prepare data for Firestore (with serverTimestamp)
+      const firestoreUpdateData = {
         ...updates,
         data: { ...existingInstance.data, ...nonPhiData },
         phiData: { ...existingInstance.phiData, ...phiData },
@@ -186,19 +189,31 @@ export class FormInstanceService {
       };
 
       const instanceRef = doc(this.firestore, 'formInstances', instanceId);
-      await updateDoc(instanceRef, updateData);
+      await runInInjectionContext(this.injector, async () => {
+        await updateDoc(instanceRef, firestoreUpdateData);
+      });
 
       // Store PHI data separately if present
       if (Object.keys(phiData).length > 0) {
         await this.storePhiData(instanceId, phiData);
       }
 
+      // Return local instance with Date objects
+      const now = new Date();
       const updatedInstance: FormInstance = {
         ...existingInstance,
-        ...updateData,
-        lastModifiedAt: new Date(),
-        updatedAt: new Date()
-      } as FormInstance;
+        ...updates,
+        data: { ...existingInstance.data, ...nonPhiData },
+        phiData: { ...existingInstance.phiData, ...phiData },
+        completionPercentage,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: now,
+        updatedAt: now,
+        changeHistory: [
+          ...(existingInstance.changeHistory || []),
+          changeEntry
+        ]
+      };
 
       return updatedInstance;
     } catch (error) {
@@ -323,12 +338,19 @@ export class FormInstanceService {
   async getFormInstance(instanceId: string): Promise<FormInstance | null> {
     try {
       const instanceRef = doc(this.firestore, 'formInstances', instanceId);
-      const instanceSnap = await getDoc(instanceRef);
+      const instanceSnap = await runInInjectionContext(this.injector, async () => {
+        return await getDoc(instanceRef);
+      });
       
       if (instanceSnap.exists()) {
+        const rawData = instanceSnap.data();
         const instance = {
           id: instanceSnap.id,
-          ...instanceSnap.data()
+          ...rawData,
+          // Ensure timestamps are converted to Date objects
+          createdAt: rawData['createdAt']?.toDate?.() || rawData['createdAt'] || new Date(),
+          updatedAt: rawData['updatedAt']?.toDate?.() || rawData['updatedAt'] || new Date(),
+          lastModifiedAt: rawData['lastModifiedAt']?.toDate?.() || rawData['lastModifiedAt'] || new Date()
         } as FormInstance;
 
         // Load PHI data if user has permissions
@@ -444,14 +466,123 @@ export class FormInstanceService {
 
     Object.entries(data).forEach(([fieldId, value]) => {
       const field = template.fields.find(f => f.id === fieldId);
+      const serializedValue = this.serializeFieldValue(value, field?.type);
+      
       if (field && field.isPhi) {
-        phiData[fieldId] = value;
+        phiData[fieldId] = serializedValue;
       } else {
-        nonPhiData[fieldId] = value;
+        nonPhiData[fieldId] = serializedValue;
       }
     });
 
     return { phiData, nonPhiData };
+  }
+
+  /**
+   * Serialize field values for Firestore storage
+   */
+  private serializeFieldValue(value: any, fieldType?: string): any {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    // Handle different field types
+    switch (fieldType) {
+      case 'date':
+      case 'datetime':
+        if (value instanceof Date) {
+          return value;
+        }
+        if (typeof value === 'string') {
+          const date = new Date(value);
+          return isNaN(date.getTime()) ? null : date;
+        }
+        return null;
+
+      case 'time':
+        if (typeof value === 'string') {
+          return value; // Store time as string
+        }
+        return null;
+
+      case 'number':
+      case 'height':
+      case 'weight':
+      case 'temperature':
+        return typeof value === 'number' ? value : parseFloat(value) || null;
+
+      case 'boolean':
+        return Boolean(value);
+
+      case 'blood_pressure':
+        // Handle blood pressure as structured data
+        if (typeof value === 'object' && value !== null) {
+          return {
+            systolic: parseFloat(value.systolic) || null,
+            diastolic: parseFloat(value.diastolic) || null,
+            unit: value.unit || 'mmHg'
+          };
+        }
+        return null;
+
+      case 'medication':
+        // Handle medication as structured data
+        if (typeof value === 'object' && value !== null) {
+          return {
+            name: value.name || '',
+            dosage: value.dosage || '',
+            frequency: value.frequency || '',
+            route: value.route || '',
+            startDate: value.startDate ? new Date(value.startDate) : null,
+            endDate: value.endDate ? new Date(value.endDate) : null
+          };
+        }
+        return null;
+
+      case 'diagnosis':
+        // Handle diagnosis as structured data
+        if (typeof value === 'object' && value !== null) {
+          return {
+            code: value.code || '',
+            description: value.description || '',
+            system: value.system || 'ICD-10',
+            severity: value.severity || '',
+            onset: value.onset ? new Date(value.onset) : null
+          };
+        }
+        return null;
+
+      case 'file':
+        // Handle file uploads
+        if (typeof value === 'object' && value !== null) {
+          return {
+            fileName: value.fileName || '',
+            fileSize: value.fileSize || 0,
+            mimeType: value.mimeType || '',
+            uploadDate: value.uploadDate ? new Date(value.uploadDate) : new Date(),
+            url: value.url || ''
+          };
+        }
+        return null;
+
+      case 'multiselect':
+        // Handle arrays
+        return Array.isArray(value) ? value : [];
+
+      default:
+        // Handle strings and other simple types
+        if (typeof value === 'object' && value !== null) {
+          // For complex objects, ensure they're serializable
+          try {
+            JSON.stringify(value);
+            return value;
+          } catch (error) {
+            console.warn('Could not serialize complex object:', value);
+            return String(value);
+          }
+        }
+        return value;
+    }
   }
 
   private calculateCompletionPercentage(data: Record<string, any>, template: FormTemplate): number {

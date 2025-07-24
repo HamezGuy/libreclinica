@@ -159,8 +159,7 @@ export class HealthcareApiService {
   private functions = inject(Functions);
   private auditService = inject(CloudAuditService);
   private injector: Injector = inject(Injector);
-  
-  constructor(@Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus) {}
+  private eventBus = inject(EVENT_BUS_TOKEN);
   
   // Configuration will be loaded from environment
   private config: HealthcareConfig = {

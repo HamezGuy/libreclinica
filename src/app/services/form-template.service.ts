@@ -1,4 +1,4 @@
-import { Injectable, inject, Inject } from '@angular/core';
+import { Injectable, inject, Inject, Injector, runInInjectionContext } from '@angular/core';
 import { Observable, from, BehaviorSubject, combineLatest } from 'rxjs';
 import { map, switchMap, tap, catchError } from 'rxjs/operators';
 import { 
@@ -45,11 +45,13 @@ export class FormTemplateService {
   private functions = inject(Functions);
   private authService = inject(EdcCompliantAuthService);
   private auditService = inject(CloudAuditService);
+  private injector: Injector = inject(Injector);
   
   private templatesSubject = new BehaviorSubject<FormTemplate[]>([]);
   public templates$ = this.templatesSubject.asObservable();
+  private eventBus = inject(EVENT_BUS_TOKEN);
   
-  constructor(@Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus) {
+  constructor() {
     this.loadTemplates();
   }
 
@@ -119,7 +121,6 @@ export class FormTemplateService {
     }
 
     try {
-      const templatesRef = collection(this.firestore, 'formTemplates');
       const templateData = {
         ...template,
         createdBy: currentUser.uid,
@@ -128,22 +129,37 @@ export class FormTemplateService {
         updatedAt: serverTimestamp(),
         changeHistory: [{
           id: crypto.randomUUID(),
+          action: 'created',
           timestamp: new Date(),
           userId: currentUser.uid,
           userEmail: currentUser.email,
-          action: 'created' as const,
-          changes: { created: true },
-          reason: 'Initial template creation'
+          reason: 'Initial template creation',
+          changes: { created: true }
         }]
       };
 
-      const docRef = await addDoc(templatesRef, templateData);
+      const docRef = await runInInjectionContext(this.injector, async () => {
+        const templatesRef = collection(this.firestore, 'formTemplates');
+        return await addDoc(templatesRef, templateData);
+      });
+      // Create local template object with proper Date types
       const createdTemplate: FormTemplate = {
         id: docRef.id,
-        ...templateData,
+        ...template,
+        createdBy: currentUser.uid,
+        lastModifiedBy: currentUser.uid,
         createdAt: new Date(),
-        updatedAt: new Date()
-      } as FormTemplate;
+        updatedAt: new Date(),
+        changeHistory: [{
+          id: crypto.randomUUID(),
+          action: 'created',
+          timestamp: new Date(),
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+          reason: 'Initial template creation',
+          changes: { created: true }
+        }]
+      };
 
       // Publish event
       this.eventBus.publish<FormTemplateCreatedEvent>({
@@ -185,17 +201,15 @@ export class FormTemplateService {
     }
 
     try {
-      const templateRef = doc(this.firestore, 'formTemplates', templateId);
-      
       // Create change history entry
       const changeEntry = {
         id: crypto.randomUUID(),
+        action: 'modified',
         timestamp: new Date(),
         userId: currentUser.uid,
         userEmail: currentUser.email,
-        action: 'modified' as const,
-        changes: updates,
-        reason: updates.reason || 'Template modification'
+        reason: updates.reason || 'Template modification',
+        changes: updates
       };
 
       const updateData = {
@@ -208,7 +222,10 @@ export class FormTemplateService {
         ]
       };
 
-      await updateDoc(templateRef, updateData);
+      await runInInjectionContext(this.injector, async () => {
+        const templateRef = doc(this.firestore, 'formTemplates', templateId);
+        return await updateDoc(templateRef, updateData);
+      });
 
       // Refetch the template to get the correct version and other server-updated fields
       const updatedTemplate = await this.getTemplate(templateId);
@@ -347,17 +364,19 @@ export class FormTemplateService {
    */
   async getTemplate(templateId: string): Promise<FormTemplate | null> {
     try {
-      const templateRef = doc(this.firestore, 'formTemplates', templateId);
-      const templateSnap = await getDoc(templateRef);
-      
-      if (!templateSnap.exists()) {
-        return null;
-      }
-      
-      return {
-        id: templateSnap.id,
-        ...templateSnap.data()
-      } as FormTemplate;
+      return await runInInjectionContext(this.injector, async () => {
+        const templateRef = doc(this.firestore, 'formTemplates', templateId);
+        const templateSnap = await getDoc(templateRef);
+        
+        if (!templateSnap.exists()) {
+          return null;
+        }
+        
+        return {
+          id: templateSnap.id,
+          ...templateSnap.data()
+        } as FormTemplate;
+      });
     } catch (error) {
       console.error('Failed to get template:', error);
       throw error;
@@ -368,36 +387,42 @@ export class FormTemplateService {
    * Get all templates (compatibility method for dashboard)
    */
   async getAllTemplates(): Promise<FormTemplate[]> {
-    const currentUser = await this.authService.getCurrentUserProfile();
-    if (!currentUser) return [];
-    
-    return new Promise((resolve) => {
-      this.getTemplatesForUser(currentUser).subscribe(templates => {
-        resolve(templates);
+    try {
+      return await runInInjectionContext(this.injector, async () => {
+        const templatesRef = collection(this.firestore, 'formTemplates');
+        const q = query(templatesRef, orderBy('updatedAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        return snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as FormTemplate));
       });
-    });
+    } catch (error) {
+      console.error('Failed to get all templates:', error);
+      return [];
+    }
   }
 
   /**
    * Get templates by study ID
    */
   getTemplatesByStudy(studyId: string): Observable<FormTemplate[]> {
-    const templatesRef = collection(this.firestore, 'formTemplates');
-    const q = query(
-      templatesRef,
-      where('studyId', '==', studyId),
-      where('status', 'in', ['published', 'review']),
-      orderBy('name')
-    );
+    return from(runInInjectionContext(this.injector, async () => {
+      const templatesRef = collection(this.firestore, 'formTemplates');
+      const q = query(
+        templatesRef,
+        where('studyId', '==', studyId),
+        where('status', 'in', ['published', 'review']),
+        orderBy('name')
+      );
 
-    return from(getDocs(q)).pipe(
-      map(snapshot => 
-        snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as FormTemplate))
-      )
-    );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as FormTemplate));
+    }));
   }
 
   /**

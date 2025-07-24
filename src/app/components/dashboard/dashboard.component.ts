@@ -8,12 +8,15 @@ import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.servi
 import { FormTemplateService } from '../../services/form-template.service';
 import { FormInstanceService } from '../../services/form-instance.service';
 import { DataSeparationService } from '../../services/data-separation.service';
+import { StudyService } from '../../services/study.service';
 import { EventBusService } from '../../core/services/event-bus.service';
 import { HealthcareApiService, Patient as HealthcarePatient } from '../../services/healthcare-api.service';
 import { FormBuilderComponent } from '../form-builder/form-builder.component';
+import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance } from '../../models/form-template.model';
+import { Study, StudySection, PatientStudyEnrollment, CareIndicator } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
 
 // Patient display model (non-PHI)
@@ -69,7 +72,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, FormBuilderComponent, ProfileEditPopupComponent],
+  imports: [CommonModule, FormsModule, FormBuilderComponent, FormPreviewComponent, ProfileEditPopupComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -80,15 +83,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private instanceService = inject(FormInstanceService);
   private healthcareService = inject(HealthcareApiService);
   private dataSeparationService = inject(DataSeparationService);
+  private studyService = inject(StudyService);
   private router = inject(Router);
   private eventBus = inject(EventBusService);
   
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
   templates$: Observable<FormTemplate[]> = this.templateService.templates$;
+  studies$: Observable<Study[]> = this.studyService.getStudies();
   
   // Component state
   patients: PatientListItem[] = [];
+  studies: Study[] = [];
+  selectedStudy: Study | null = null;
+  studyEnrollments: PatientStudyEnrollment[] = [];
+  careIndicators: CareIndicator[] = [];
 
   selectedPatient: PatientListItem | null = null;
   selectedPatientForms: FormInstance[] = [];
@@ -145,6 +154,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.templates$.pipe(takeUntil(this.destroy$)).subscribe(templates => {
       this.allTemplates = templates;
       this.filterTemplates();
+    });
+    
+    // Subscribe to studies observable
+    this.studies$.pipe(takeUntil(this.destroy$)).subscribe(studies => {
+      this.studies = studies;
+    });
+    
+    // Load care indicators
+    this.studyService.getCareIndicators().pipe(takeUntil(this.destroy$)).subscribe(indicators => {
+      this.careIndicators = indicators;
     });
   }
 
@@ -532,7 +551,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'signature': 'draw'
     };
     
-    return iconMap[fieldType] || 'help_outline';
+    return iconMap[fieldType] || 'text_fields';
   }
 
 
@@ -560,5 +579,171 @@ export class DashboardComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  }
+
+  // Form preview event handlers
+  onPreviewFormDataChanged(formData: any): void {
+    // Handle form data changes if needed
+    console.log('Preview form data changed:', formData);
+  }
+
+  onPreviewFormSaved(formInstance: TemplateFormInstance): void {
+    // Handle form instance save
+    console.log('Preview form saved:', formInstance);
+    // Could show a success message or refresh data
+  }
+
+  onPreviewFormSubmitted(formInstance: TemplateFormInstance): void {
+    // Handle form instance submission
+    console.log('Preview form submitted:', formInstance);
+    // Could show success message or navigate somewhere
+  }
+
+  // Study Management Methods
+  selectStudy(study: Study): void {
+    this.selectedStudy = study;
+    if (study.id) {
+      this.loadStudyEnrollments(study.id);
+    }
+  }
+
+  async loadStudyEnrollments(studyId: string): Promise<void> {
+    try {
+      this.studyEnrollments = await this.studyService.getPatientsByStudy(studyId);
+    } catch (error) {
+      console.error('Error loading study enrollments:', error);
+    }
+  }
+
+  async createNewStudy(): Promise<void> {
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to create studies');
+      return;
+    }
+    
+    // TODO: Open study creation modal
+    console.log('Create new study modal would open here');
+  }
+
+  async editStudy(study: Study): Promise<void> {
+    if (!this.permissions.canEdit) {
+      alert('You do not have permission to edit studies');
+      return;
+    }
+    
+    // TODO: Open study edit modal
+    console.log('Edit study modal would open here:', study);
+  }
+
+  async deleteStudy(study: Study): Promise<void> {
+    if (!this.permissions.canDelete) {
+      alert('You do not have permission to delete studies');
+      return;
+    }
+    
+    if (confirm(`Are you sure you want to delete study "${study.title}"? This action cannot be undone.`)) {
+      try {
+        if (study.id) {
+          await this.studyService.deleteStudy(study.id, 'Deleted by user');
+          console.log('Study deleted successfully');
+        }
+      } catch (error) {
+        console.error('Error deleting study:', error);
+        alert('Failed to delete study. Please try again.');
+      }
+    }
+  }
+
+  async enrollPatientInStudy(study: Study): Promise<void> {
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to enroll patients');
+      return;
+    }
+    
+    // TODO: Open patient enrollment modal
+    console.log('Patient enrollment modal would open here for study:', study);
+  }
+
+  // Care Indicator Methods
+  getCareIndicatorsForStudy(studyId: string): CareIndicator[] {
+    return this.careIndicators.filter(indicator => indicator.studyId === studyId);
+  }
+
+  getCareIndicatorCount(studyId?: string, severity?: 'low' | 'medium' | 'high' | 'critical'): number {
+    let indicators = this.careIndicators;
+    
+    if (studyId) {
+      indicators = indicators.filter(indicator => indicator.studyId === studyId);
+    }
+    
+    if (severity) {
+      indicators = indicators.filter(indicator => indicator.severity === severity);
+    }
+    
+    return indicators.length;
+  }
+
+  async resolveCareIndicator(indicator: CareIndicator): Promise<void> {
+    try {
+      const resolutionNotes = prompt('Enter resolution notes:');
+      if (resolutionNotes) {
+        await this.studyService.resolveCareIndicator(indicator.id, resolutionNotes);
+        console.log('Care indicator resolved successfully');
+      }
+    } catch (error) {
+      console.error('Error resolving care indicator:', error);
+      alert('Failed to resolve care indicator. Please try again.');
+    }
+  }
+
+  // Study filtering and search
+  get filteredStudies(): Study[] {
+    let filtered = this.studies;
+    
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      filtered = filtered.filter(study => 
+        study.title.toLowerCase().includes(query) ||
+        study.protocolNumber.toLowerCase().includes(query) ||
+        study.description?.toLowerCase().includes(query) ||
+        study.phase?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }
+
+  // Study status helpers
+  getStudyStatusColor(status: string): string {
+    const statusColors: { [key: string]: string } = {
+      'planning': '#6c757d',
+      'active': '#28a745',
+      'on_hold': '#ffc107',
+      'completed': '#17a2b8',
+      'cancelled': '#dc3545',
+      'archived': '#6f42c1'
+    };
+    return statusColors[status] || '#6c757d';
+  }
+
+  getStudyPhaseColor(phase: string): string {
+    const phaseColors: { [key: string]: string } = {
+      'preclinical': '#6c757d',
+      'phase_1': '#28a745',
+      'phase_2': '#ffc107',
+      'phase_3': '#fd7e14',
+      'phase_4': '#dc3545',
+      'post_market': '#6f42c1'
+    };
+    return phaseColors[phase] || '#6c757d';
+  }
+
+  // Study progress calculation
+  calculateStudyProgress(study: Study): number {
+    const enrollments = this.studyEnrollments.filter(e => e.studyId === study.id);
+    if (enrollments.length === 0) return 0;
+    
+    const completedEnrollments = enrollments.filter(e => e.status === 'completed').length;
+    return Math.round((completedEnrollments / enrollments.length) * 100);
   }
 }

@@ -1,0 +1,319 @@
+<!-- Form Preview Component -->
+<div class="form-preview-container" [class.readonly]="readonly">
+  
+  <!-- Form Header -->
+  <div class="form-header" *ngIf="template">
+    <div class="form-title">
+      <h3>{{ template.name }}</h3>
+      <span class="form-version">v{{ template.version }}</span>
+    </div>
+    <div class="form-description" *ngIf="template.description">
+      <p>{{ template.description }}</p>
+    </div>
+    <div class="form-instructions" *ngIf="template.instructions">
+      <div class="instructions-content">
+        <i class="material-icons">info</i>
+        <p>{{ template.instructions }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Content -->
+  <form [formGroup]="previewForm" class="preview-form" *ngIf="previewForm && template?.fields">
+    
+    <!-- Form Fields -->
+    <div class="form-fields">
+      <div 
+        *ngFor="let field of template.fields; trackBy: trackField"
+        class="form-field-container"
+        [class.field-required]="isFieldRequired(field)"
+        [class.field-hidden]="isFieldHidden(field)"
+        [class.field-error]="getFieldControl(field.id)?.invalid && getFieldControl(field.id)?.touched">
+        
+        <!-- Field Label -->
+        <label [for]="field.id" class="field-label">
+          <i class="material-icons field-icon">{{ getFieldIcon(field.type) }}</i>
+          <span class="label-text">{{ field.label }}</span>
+          <span class="required-indicator" *ngIf="isFieldRequired(field)">*</span>
+          <span class="phi-indicator" *ngIf="field.isPhi" title="Personal Health Information">PHI</span>
+        </label>
+
+        <!-- Field Help Text -->
+        <div class="field-help" *ngIf="field.helpText">
+          <small>{{ field.helpText }}</small>
+        </div>
+
+        <!-- Field Input - Text -->
+        <input 
+          *ngIf="field.type === 'text'"
+          type="text"
+          [id]="field.id"
+          [formControlName]="field.id"
+          [placeholder]="field.placeholder || ''"
+          class="form-control">
+
+        <!-- Field Input - Textarea -->
+        <textarea 
+          *ngIf="field.type === 'textarea'"
+          [id]="field.id"
+          [formControlName]="field.id"
+          [placeholder]="field.placeholder || ''"
+          rows="4"
+          class="form-control"></textarea>
+
+        <!-- Field Input - Number -->
+        <input 
+          *ngIf="field.type === 'number'"
+          type="number"
+          [id]="field.id"
+          [formControlName]="field.id"
+          [placeholder]="field.placeholder || ''"
+          class="form-control">
+
+        <!-- Field Input - Email -->
+        <input 
+          *ngIf="field.type === 'email'"
+          type="email"
+          [id]="field.id"
+          [formControlName]="field.id"
+          [placeholder]="field.placeholder || 'Enter email address'"
+          class="form-control">
+
+        <!-- Field Input - Phone -->
+        <input 
+          *ngIf="field.type === 'phone'"
+          type="tel"
+          [id]="field.id"
+          [formControlName]="field.id"
+          [placeholder]="field.placeholder || 'Enter phone number'"
+          class="form-control">
+
+        <!-- Field Input - Date -->
+        <input 
+          *ngIf="field.type === 'date'"
+          type="date"
+          [id]="field.id"
+          [formControlName]="field.id"
+          class="form-control">
+
+        <!-- Field Input - Time -->
+        <input 
+          *ngIf="field.type === 'time'"
+          type="time"
+          [id]="field.id"
+          [formControlName]="field.id"
+          class="form-control">
+
+        <!-- Field Input - DateTime -->
+        <input 
+          *ngIf="field.type === 'datetime'"
+          type="datetime-local"
+          [id]="field.id"
+          [formControlName]="field.id"
+          class="form-control">
+
+        <!-- Field Input - Select -->
+        <select 
+          *ngIf="field.type === 'select'"
+          [id]="field.id"
+          [formControlName]="field.id"
+          class="form-control">
+          <option value="">{{ field.placeholder || 'Select an option' }}</option>
+          <option 
+            *ngFor="let option of field.options"
+            [value]="option.value"
+            [disabled]="option.disabled">
+            {{ option.label }}
+          </option>
+        </select>
+
+        <!-- Field Input - Multi-Select -->
+        <select 
+          *ngIf="field.type === 'multiselect'"
+          [id]="field.id"
+          [formControlName]="field.id"
+          multiple
+          class="form-control multi-select">
+          <option 
+            *ngFor="let option of field.options"
+            [value]="option.value"
+            [disabled]="option.disabled">
+            {{ option.label }}
+          </option>
+        </select>
+
+        <!-- Field Input - Radio Group -->
+        <div *ngIf="field.type === 'radio'" class="radio-group">
+          <div 
+            *ngFor="let option of field.options"
+            class="radio-option">
+            <input 
+              type="radio"
+              [id]="field.id + '_' + option.value"
+              [name]="field.id"
+              [value]="option.value"
+              [formControlName]="field.id"
+              [disabled]="option.disabled || false">
+            <label [for]="field.id + '_' + option.value" class="radio-label">
+              {{ option.label }}
+            </label>
+          </div>
+        </div>
+
+        <!-- Field Input - Checkbox Group -->
+        <div *ngIf="field.type === 'checkbox'" class="checkbox-group">
+          <div 
+            *ngFor="let option of field.options"
+            class="checkbox-option">
+            <input 
+              type="checkbox"
+              [id]="field.id + '_' + option.value"
+              [value]="option.value"
+              [disabled]="option.disabled || false">
+            <label [for]="field.id + '_' + option.value" class="checkbox-label">
+              {{ option.label }}
+            </label>
+          </div>
+        </div>
+
+        <!-- Field Input - Boolean -->
+        <div *ngIf="field.type === 'boolean'" class="boolean-field">
+          <input 
+            type="checkbox"
+            [id]="field.id"
+            [formControlName]="field.id">
+          <label [for]="field.id" class="boolean-label">
+            {{ field.placeholder || 'Yes/No' }}
+          </label>
+        </div>
+
+        <!-- Field Input - File Upload -->
+        <div *ngIf="field.type === 'file'" class="file-upload">
+          <input 
+            type="file"
+            [id]="field.id"
+            [accept]="getFileAcceptTypes(field)"
+            [multiple]="field.maxFiles ? field.maxFiles > 1 : false"
+            class="file-input">
+          <label [for]="field.id" class="file-label">
+            <i class="material-icons">cloud_upload</i>
+            <span>{{ field.placeholder || 'Choose file(s)' }}</span>
+          </label>
+        </div>
+
+        <!-- Medical Field - Height -->
+        <div *ngIf="field.type === 'height'" class="medical-field height-field">
+          <input 
+            type="number"
+            [id]="field.id"
+            [formControlName]="field.id"
+            [placeholder]="field.placeholder || 'Height in cm'"
+            min="50"
+            max="250"
+            class="form-control">
+          <span class="unit">cm</span>
+        </div>
+
+        <!-- Medical Field - Weight -->
+        <div *ngIf="field.type === 'weight'" class="medical-field weight-field">
+          <input 
+            type="number"
+            [id]="field.id"
+            [formControlName]="field.id"
+            [placeholder]="field.placeholder || 'Weight in kg'"
+            min="1"
+            max="500"
+            step="0.1"
+            class="form-control">
+          <span class="unit">kg</span>
+        </div>
+
+        <!-- Medical Field - Temperature -->
+        <div *ngIf="field.type === 'temperature'" class="medical-field temperature-field">
+          <input 
+            type="number"
+            [id]="field.id"
+            [formControlName]="field.id"
+            [placeholder]="field.placeholder || 'Temperature in °C'"
+            min="30"
+            max="45"
+            step="0.1"
+            class="form-control">
+          <span class="unit">°C</span>
+        </div>
+
+        <!-- Medical Field - Blood Pressure -->
+        <div *ngIf="field.type === 'blood_pressure'" class="medical-field bp-field">
+          <div class="bp-inputs">
+            <input 
+              type="number"
+              [placeholder]="'Systolic'"
+              min="50"
+              max="300"
+              class="form-control bp-systolic">
+            <span class="bp-separator">/</span>
+            <input 
+              type="number"
+              [placeholder]="'Diastolic'"
+              min="30"
+              max="200"
+              class="form-control bp-diastolic">
+            <span class="unit">mmHg</span>
+          </div>
+        </div>
+
+        <!-- Field Description -->
+        <div class="field-description" *ngIf="field.description">
+          <small>{{ field.description }}</small>
+        </div>
+
+        <!-- Field Validation Errors -->
+        <div class="field-errors" *ngIf="getFieldControl(field.id)?.invalid && getFieldControl(field.id)?.touched">
+          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['required']">
+            This field is required
+          </div>
+          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['email']">
+            Please enter a valid email address
+          </div>
+          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['pattern']">
+            Please enter a valid format
+          </div>
+          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['minlength']">
+            Minimum {{ getFieldControl(field.id)?.errors?.['minlength']?.requiredLength }} characters required
+          </div>
+          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['maxlength']">
+            Maximum {{ getFieldControl(field.id)?.errors?.['maxlength']?.requiredLength }} characters allowed
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions" *ngIf="!readonly">
+      <button 
+        type="button"
+        class="btn btn-secondary"
+        (click)="saveForm()"
+        [disabled]="isLoading || !hasUnsavedChanges">
+        <i class="material-icons">save</i>
+        {{ isLoading ? 'Saving...' : 'Save Draft' }}
+      </button>
+      
+      <button 
+        type="button"
+        class="btn btn-primary"
+        (click)="submitForm()"
+        [disabled]="isLoading || previewForm.invalid || !currentInstance">
+        <i class="material-icons">send</i>
+        {{ isLoading ? 'Submitting...' : 'Submit Form' }}
+      </button>
+    </div>
+  </form>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!template || !template.fields?.length">
+    <i class="material-icons">description</i>
+    <h4>No Fields Available</h4>
+    <p>This template doesn't have any fields to preview.</p>
+  </div>
+</div>

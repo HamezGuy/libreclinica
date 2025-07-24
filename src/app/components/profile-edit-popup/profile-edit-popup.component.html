@@ -1,0 +1,196 @@
+<!-- Profile Edit Popup -->
+<div class="popup-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="popup-container">
+    <div class="popup-header">
+      <h2>Edit Profile</h2>
+      <button class="close-btn" (click)="onClose()" type="button">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+
+    <div class="popup-content">
+      <form (ngSubmit)="onSave()" #ngForm="ngForm">
+        <!-- Error Message -->
+        <div class="error-message" *ngIf="errorMessage">
+          <i class="material-icons">error</i>
+          {{ errorMessage }}
+        </div>
+
+        <!-- Basic Information -->
+        <div class="form-section">
+          <h3>Basic Information</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="displayName">Display Name *</label>
+              <input
+                type="text"
+                id="displayName"
+                [(ngModel)]="profileForm.displayName"
+                name="displayName"
+                required
+                [disabled]="isLoading"
+                class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label for="username">Username *</label>
+              <input
+                type="text"
+                id="username"
+                [(ngModel)]="profileForm.username"
+                name="username"
+                required
+                [disabled]="isLoading"
+                class="form-control">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                [(ngModel)]="profileForm.email"
+                name="email"
+                readonly
+                class="form-control readonly"
+                title="Email cannot be changed">
+            </div>
+
+            <div class="form-group">
+              <label for="phoneNumber">Phone Number</label>
+              <input
+                type="tel"
+                id="phoneNumber"
+                [(ngModel)]="profileForm.phoneNumber"
+                name="phoneNumber"
+                [disabled]="isLoading"
+                class="form-control">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="organization">Organization</label>
+              <input
+                type="text"
+                id="organization"
+                [(ngModel)]="profileForm.organization"
+                name="organization"
+                [disabled]="isLoading"
+                class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label for="title">Title</label>
+              <input
+                type="text"
+                id="title"
+                [(ngModel)]="profileForm.title"
+                name="title"
+                [disabled]="isLoading"
+                class="form-control"
+                placeholder="e.g., Principal Investigator, Data Manager">
+            </div>
+          </div>
+        </div>
+
+        <!-- Access & Permissions -->
+        <div class="form-section">
+          <h3>Access & Permissions</h3>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="accessLevel">Access Level *</label>
+              <select
+                id="accessLevel"
+                [(ngModel)]="profileForm.accessLevel"
+                name="accessLevel"
+                required
+                [disabled]="isLoading"
+                class="form-control">
+                <option *ngFor="let level of accessLevelOptions" [value]="level">
+                  {{ getAccessLevelDisplayName(level) }}
+                </option>
+              </select>
+              <small class="help-text">
+                <strong>Note:</strong> Changing access level will update user permissions automatically.
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="status">Account Status *</label>
+              <select
+                id="status"
+                [(ngModel)]="profileForm.status"
+                name="status"
+                required
+                [disabled]="isLoading"
+                class="form-control">
+                <option *ngFor="let status of userStatusOptions" [value]="status">
+                  {{ getUserStatusDisplayName(status) }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="complianceRegion">Compliance Region *</label>
+              <select
+                id="complianceRegion"
+                [(ngModel)]="profileForm.complianceRegion"
+                name="complianceRegion"
+                required
+                [disabled]="isLoading"
+                class="form-control">
+                <option *ngFor="let region of complianceRegionOptions" [value]="region">
+                  {{ getComplianceRegionDisplayName(region) }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Access Level Information -->
+        <div class="info-section">
+          <h4>Access Level Permissions</h4>
+          <div class="access-info" [ngSwitch]="profileForm.accessLevel">
+            <div *ngSwitchCase="AccessLevel.SUPER_ADMIN" class="permission-info super-admin">
+              <strong>Super Admin:</strong> Full system access including user management, all data operations, audit logs, and system configuration.
+            </div>
+            <div *ngSwitchCase="AccessLevel.ADMIN" class="permission-info admin">
+              <strong>Admin:</strong> Can create/edit studies, view all data, export data, manage users, and view audit logs.
+            </div>
+            <div *ngSwitchCase="AccessLevel.INVESTIGATOR" class="permission-info investigator">
+              <strong>Investigator:</strong> Can edit studies and export data for assigned studies.
+            </div>
+            <div *ngSwitchCase="AccessLevel.MONITOR" class="permission-info monitor">
+              <strong>Monitor:</strong> Can view all data and audit logs for quality assurance.
+            </div>
+            <div *ngSwitchCase="AccessLevel.DATA_ENTRY" class="permission-info data-entry">
+              <strong>Data Entry:</strong> Can edit study data but cannot export or manage users.
+            </div>
+            <div *ngSwitchCase="AccessLevel.VIEWER" class="permission-info viewer">
+              <strong>Viewer:</strong> Read-only access to assigned studies.
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="popup-actions">
+          <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isLoading">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="isLoading || !ngForm.valid">
+            <span *ngIf="isLoading" class="loading-spinner"></span>
+            <span *ngIf="!isLoading">Save Changes</span>
+            <span *ngIf="isLoading">Saving...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

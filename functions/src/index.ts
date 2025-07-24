@@ -3,7 +3,7 @@
  * Handles audit logging, healthcare API integration, and compliance
  */
 
-import { initializeApp } from 'firebase-admin/app';
+import {initializeApp} from "firebase-admin/app";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -12,8 +12,8 @@ initializeApp();
 export {
   logAuditEvent,
   queryAuditLogs,
-  exportAuditLogs
-} from './audit-logging-simple';
+  exportAuditLogs,
+} from "./audit-logging-simple";
 
 // Export comprehensive Healthcare API functions with audit logging
 export {
@@ -27,7 +27,7 @@ export {
   createConsent,
   validateFhirResource,
   bulkImportFhir,
-  exportPatientData
-} from './healthcare-api';
+  exportPatientData,
+} from "./healthcare-api";
 
-console.log('Firebase Functions initialized successfully');
+console.log("Firebase Functions initialized successfully");

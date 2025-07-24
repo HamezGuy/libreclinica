@@ -294,7 +294,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   // Helper methods for template
   getFieldIcon(field: FormField): string {
     const fieldType = this.fieldTypes.find(ft => ft.type === field.type);
-    return fieldType?.icon || 'help_outline';
+    return fieldType?.icon || 'text_fields';
   }
 
   getOptionsControls(fieldControl: AbstractControl): AbstractControl[] {

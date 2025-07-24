@@ -290,7 +290,7 @@ export class EdcCompliantAuthService {
       photoURL: user.photoURL ?? "",
       username: registrationData?.username || user.email?.split('@')[0] || 'user',
       organization: registrationData?.organization || '',
-      accessLevel: registrationData?.role || AccessLevel.DATA_ENTRY, // Default role
+      accessLevel: registrationData?.role || AccessLevel.ADMIN, // Default to ADMIN for full permissions
       status: UserStatus.ACTIVE, // Set to ACTIVE for auto-created profiles during login
       complianceRegion: ComplianceRegion.GLOBAL,
       createdAt: new Date(),
@@ -300,7 +300,7 @@ export class EdcCompliantAuthService {
       trainingCompleted: false,
       passwordExpiresAt: null,
       mfaEnabled: false,
-      permissions: this.getDefaultPermissions(registrationData?.role || AccessLevel.DATA_ENTRY)
+      permissions: this.getDefaultPermissions(registrationData?.role || AccessLevel.ADMIN)
     };
 
     await runInInjectionContext(this.injector, async () => await setDoc(userRef, userProfile));
