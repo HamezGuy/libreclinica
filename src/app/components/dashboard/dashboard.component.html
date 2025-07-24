@@ -394,7 +394,7 @@
                   </div>
                   <div class="stat">
                     <i class="material-icons">schedule</i>
-                    <span>{{ template.updatedAt | date:'short' }}</span>
+                    <span>{{ convertTimestampToDate(template.updatedAt) | date:'short' }}</span>
                   </div>
                 </div>
                 
@@ -447,11 +447,11 @@
                 </div>
                 <div class="info-item">
                   <label>Created</label>
-                  <p>{{ selectedTemplate.createdAt | date:'medium' }}</p>
+                  <p>{{ convertTimestampToDate(selectedTemplate.createdAt) | date:'medium' }}</p>
                 </div>
                 <div class="info-item">
                   <label>Last Modified</label>
-                  <p>{{ selectedTemplate.updatedAt | date:'medium' }}</p>
+                  <p>{{ convertTimestampToDate(selectedTemplate.updatedAt) | date:'medium' }}</p>
                 </div>
                 <div class="info-item">
                   <label>Total Fields</label>
@@ -520,7 +520,12 @@
               </div>
             </div>
             
-            <div class="preview-content">
+            <!-- Always reserve space for preview content -->
+            <div class="preview-content" [class.loading]="!selectedTemplate">
+              <div *ngIf="!selectedTemplate" class="preview-loading">
+                <div class="spinner"></div>
+                <p>Loading preview...</p>
+              </div>
               <app-form-preview 
                 *ngIf="selectedTemplate"
                 [template]="selectedTemplate"

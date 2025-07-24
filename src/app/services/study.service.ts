@@ -17,7 +17,7 @@ import {
   onSnapshot,
   Timestamp
 } from '@angular/fire/firestore';
-import { Observable, BehaviorSubject, map, switchMap, combineLatest } from 'rxjs';
+import { Observable, BehaviorSubject, map, switchMap, combineLatest, firstValueFrom } from 'rxjs';
 
 import { IStudyService, StudyStatistics, EnrollmentStatistics, CompletionStatistics, AuditReport, ImportResult } from './interfaces/study-service.interface';
 import { 
@@ -61,7 +61,8 @@ export class StudyService implements IStudyService {
 
   async createStudy(studyData: Omit<Study, 'id' | 'createdAt' | 'lastModifiedAt' | 'changeHistory'>): Promise<Study> {
     return await runInInjectionContext(this.injector, async () => {
-      const currentUser = await this.authService.getCurrentUser();
+      // Get current user through observable (synchronous access)
+      const currentUser = this.authService.isAuthenticated$ ? await firstValueFrom(this.authService.user$) : null;
       if (!currentUser) {
         throw new Error('User must be authenticated to create studies');
       }
@@ -93,15 +94,15 @@ export class StudyService implements IStudyService {
       
       // Log audit event
       await this.auditService.logAuditEvent({
-        eventType: 'study_created',
-        entityType: 'study',
-        entityId: docRef.id,
+        action: 'study_created',
+        resourceType: 'study',
+        resourceId: docRef.id,
         userId: currentUser.uid,
-        details: {
+        details: JSON.stringify({
           protocolNumber: study.protocolNumber,
           title: study.title,
           phase: study.phase
-        }
+        })
       });
 
       return createdStudy;
@@ -123,7 +124,8 @@ export class StudyService implements IStudyService {
 
   async updateStudy(studyId: string, updates: Partial<Study>, reason?: string): Promise<Study> {
     return await runInInjectionContext(this.injector, async () => {
-      const currentUser = await this.authService.getCurrentUser();
+      // Get current user through observable (synchronous access)
+      const currentUser = this.authService.isAuthenticated$ ? await firstValueFrom(this.authService.user$) : null;
       if (!currentUser) {
         throw new Error('User must be authenticated to update studies');
       }
@@ -159,14 +161,14 @@ export class StudyService implements IStudyService {
       
       // Log audit event
       await this.auditService.logAuditEvent({
-        eventType: 'study_updated',
-        entityType: 'study',
-        entityId: studyId,
+        action: 'study_updated',
+        resourceType: 'study',
+        resourceId: studyId,
         userId: currentUser.uid,
-        details: {
+        details: JSON.stringify({
           changes: updates,
           reason: reason
-        }
+        })
       });
 
       return { ...existingStudy, ...updates, lastModifiedBy: currentUser.uid, lastModifiedAt: now };
@@ -175,7 +177,8 @@ export class StudyService implements IStudyService {
 
   async deleteStudy(studyId: string, reason: string): Promise<void> {
     return await runInInjectionContext(this.injector, async () => {
-      const currentUser = await this.authService.getCurrentUser();
+      // Get current user through observable (synchronous access)
+      const currentUser = this.authService.isAuthenticated$ ? await firstValueFrom(this.authService.user$) : null;
       if (!currentUser) {
         throw new Error('User must be authenticated to delete studies');
       }
@@ -197,11 +200,11 @@ export class StudyService implements IStudyService {
 
       // Log audit event
       await this.auditService.logAuditEvent({
-        eventType: 'study_deleted',
-        entityType: 'study',
-        entityId: studyId,
+        action: 'study_deleted',
+        resourceType: 'study',
+        resourceId: studyId,
         userId: currentUser.uid,
-        details: { reason }
+        details: JSON.stringify({ reason })
       });
     });
   }
@@ -432,7 +435,7 @@ export class StudyService implements IStudyService {
       canViewPHI: false,
       canManageSites: false,
       canGenerateReports: false,
-      requiredAccessLevel: AccessLevel.SYSTEM_ADMIN
+      requiredAccessLevel: AccessLevel.SUPER_ADMIN
     };
   }
 

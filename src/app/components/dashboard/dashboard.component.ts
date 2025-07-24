@@ -713,17 +713,47 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return filtered;
   }
 
-  // Study status helpers
-  getStudyStatusColor(status: string): string {
-    const statusColors: { [key: string]: string } = {
-      'planning': '#6c757d',
+  // Helper methods for UI
+  getStatusColor(status: string): string {
+    const colors: { [key: string]: string } = {
       'active': '#28a745',
-      'on_hold': '#ffc107',
-      'completed': '#17a2b8',
+      'completed': '#28a745', 
+      'recruiting': '#17a2b8',
+      'paused': '#ffc107',
       'cancelled': '#dc3545',
-      'archived': '#6f42c1'
+      'draft': '#6c757d'
     };
-    return statusColors[status] || '#6c757d';
+    return colors[status.toLowerCase()] || '#6c757d';
+  }
+
+  /**
+   * Convert Firestore Timestamp to JavaScript Date for DatePipe compatibility
+   * Fixes: "Unable to convert Timestamp into a date" errors
+   */
+  convertTimestampToDate(timestamp: any): Date | null {
+    if (!timestamp) return null;
+    
+    // Handle Firestore Timestamp objects
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate();
+    }
+    
+    // Handle already converted Date objects
+    if (timestamp instanceof Date) {
+      return timestamp;
+    }
+    
+    // Handle string dates
+    if (typeof timestamp === 'string') {
+      return new Date(timestamp);
+    }
+    
+    // Handle timestamp numbers (milliseconds)
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp);
+    }
+    
+    return null;
   }
 
   getStudyPhaseColor(phase: string): string {

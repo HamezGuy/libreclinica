@@ -412,11 +412,13 @@
       overflow: hidden;
       
       .templates-sidebar {
-        width: 400px;
-        background: #f8fafc;
-        border-right: 1px solid #e2e8f0;
+        width: 450px;
+        min-width: 450px;
+        background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
         
         .sidebar-header {
           padding: 20px;
@@ -681,25 +683,19 @@
         .template-details-bottom {
           border-top: 1px solid #e2e8f0;
           background: white;
+          flex-shrink: 0;
+          padding: 0.75rem;
+          max-height: 30vh;
+          overflow-y: auto;
           
           .details-section {
-            padding: 20px;
+            padding: 0;
             
             h4 {
-              margin: 0 0 16px 0;
-              font-size: 16px;
+              margin: 0 0 0.5rem 0;
+              font-size: 0.9rem;
               font-weight: 600;
-              color: #1e293b;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              
-              &::before {
-                content: 'info';
-                font-family: 'Material Icons';
-                font-size: 18px;
-                color: #667eea;
-              }
+              color: #495057;
             }
             
             .info-list {
@@ -708,39 +704,42 @@
               margin-bottom: 20px;
               
               .info-item {
-                label {
+                
+                .detail-label {
                   display: block;
-                  font-size: 12px;
-                  font-weight: 600;
-                  color: #64748b;
+                  font-size: 0.75rem;
+                  font-weight: 500;
+                  color: #6c757d;
+                  margin-bottom: 0.2rem;
                   text-transform: uppercase;
                   letter-spacing: 0.5px;
-                  margin-bottom: 4px;
                 }
                 
                 p {
                   margin: 0;
-                  font-size: 14px;
-                  color: #1e293b;
-                  line-height: 1.4;
+                  font-size: 0.85rem;
+                  color: #495057;
+                  line-height: 1.3;
                 }
               }
             }
             
             .template-actions-main {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 8px;
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.4rem;
+              margin-top: 0.75rem;
+              padding-top: 0.75rem;
+              border-top: 1px solid #e9ecef;
               
               .btn {
-                font-size: 12px;
-                padding: 8px 12px;
-                justify-content: center;
-                
-                .material-icons {
-                  font-size: 16px;
-                  margin-right: 4px;
-                }
+                flex: 1;
+                min-width: 0;
+                font-size: 0.75rem;
+                padding: 0.35rem 0.5rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
               }
             }
           }
@@ -753,6 +752,7 @@
         display: flex;
         flex-direction: column;
         background: white;
+        min-height: 400px; // Always reserve space for preview
         
         .no-selection {
           flex: 1;
@@ -821,6 +821,35 @@
             padding: 24px;
             overflow-y: auto;
             background: #f8fafc;
+            min-height: 300px; // Reserve minimum space
+            
+            &.loading {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            
+            .preview-loading {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 1rem;
+              color: #6c757d;
+              
+              .spinner {
+                width: 32px;
+                height: 32px;
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #007bff;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+              }
+              
+              p {
+                margin: 0;
+                font-size: 0.9rem;
+              }
+            }
           }
         }
       }
@@ -2091,6 +2120,12 @@
       }
     }
   }
+}
+
+// Spinner animation for loading states
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Button disabled states */
