@@ -228,8 +228,478 @@
         </div>
       </div>
       
-      <!-- Other sections (Studies, Reports, Audit) -->
-      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms'">
+      <!-- Studies View -->
+      <div class="content-section" *ngIf="activeSidebarItem === 'studies'">
+        <div class="section-header">
+          <h2>Studies Management</h2>
+          <div class="section-actions">
+            <button 
+              class="btn btn-primary" 
+              (click)="createNewStudy()"
+              [disabled]="!permissions.canCreate"
+              [title]="permissions.canCreate ? 'Create New Study' : 'Insufficient permissions to create studies'">
+              <i class="material-icons">add</i>
+              Create Study
+            </button>
+          </div>
+        </div>
+        
+        <!-- Studies Overview Cards -->
+        <div class="overview-cards" *ngIf="studies.length > 0">
+          <div class="overview-card">
+            <div class="card-icon">
+              <i class="material-icons">folder</i>
+            </div>
+            <div class="card-content">
+              <h3>{{ studies.length }}</h3>
+              <p>Total Studies</p>
+            </div>
+          </div>
+          
+          <div class="overview-card">
+            <div class="card-icon">
+              <i class="material-icons">people</i>
+            </div>
+            <div class="card-content">
+              <h3>{{ getTotalEnrollments() }}</h3>
+              <p>Total Enrollments</p>
+            </div>
+          </div>
+          
+          <div class="overview-card">
+            <div class="card-icon">
+              <i class="material-icons">warning</i>
+            </div>
+            <div class="card-content">
+              <h3>{{ getTotalCareAlerts() }}</h3>
+              <p>Care Alerts</p>
+            </div>
+          </div>
+          
+          <div class="overview-card">
+            <div class="card-icon">
+              <i class="material-icons">play_circle</i>
+            </div>
+            <div class="card-content">
+              <h3>{{ getActiveStudiesCount() }}</h3>
+              <p>Active Studies</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Studies Grid -->
+        <div class="studies-list">
+          <div class="studies-grid" *ngIf="filteredStudies.length > 0">
+            <div 
+              *ngFor="let study of filteredStudies; trackBy: trackStudy" 
+              class="study-card"
+              [class.selected]="selectedStudy?.id === study.id"
+              (click)="selectStudy(study)">
+              
+              <div class="study-header">
+                <h3>{{ study.title }}</h3>
+                <div class="study-badges">
+                  <span class="badge status" [class]="'status-' + study.status">{{ study.status }}</span>
+                  <span class="badge phase" [class]="'phase-' + study.phase">{{ study.phase }}</span>
+                </div>
+              </div>
+              
+              <div class="study-body">
+                <p class="study-description">{{ study.description }}</p>
+                <div class="study-meta">
+                  <div class="meta-item">
+                    <i class="material-icons">confirmation_number</i>
+                    <span>{{ study.protocolNumber }}</span>
+                  </div>
+                  <div class="meta-item">
+                    <i class="material-icons">people</i>
+                    <span>{{ study.actualEnrollment || 0 }}/{{ study.plannedEnrollment }} enrolled</span>
+                  </div>
+                  <div class="meta-item">
+                    <i class="material-icons">description</i>
+                    <span>{{ getSectionsForStudy(study.id || '').length }} sections</span>
+                  </div>
+                  <div class="meta-item" *ngIf="getCareIndicatorsForStudy(study.id || '').length > 0">
+                    <i class="material-icons">warning</i>
+                    <span>{{ getCareIndicatorsForStudy(study.id || '').length }} alerts</span>
+                  </div>
+                </div>
+                
+                <!-- Progress Bar for Selected Study -->
+                <div class="study-progress" *ngIf="selectedStudy?.id === study.id">
+                  <div class="progress-bar">
+                    <div class="progress-fill" [style.width.%]="getStudyProgress(study)"></div>
+                  </div>
+                  <span class="progress-text">{{ getStudyProgress(study) }}% Complete</span>
+                </div>
+              </div>
+              
+              <div class="study-actions">
+                <button 
+                  class="btn btn-sm btn-secondary"
+                  (click)="editStudy(study); $event.stopPropagation()"
+                  *ngIf="permissions.canEdit"
+                  title="Edit Study">
+                  <i class="material-icons">edit</i>
+                </button>
+                
+                <button 
+                  class="btn btn-sm btn-primary"
+                  (click)="enrollPatientInStudy(study); $event.stopPropagation()"
+                  *ngIf="permissions.canCreate"
+                  title="Enroll Patient">
+                  <i class="material-icons">person_add</i>
+                </button>
+                
+                <button 
+                  class="btn btn-sm btn-danger"
+                  (click)="deleteStudy(study); $event.stopPropagation()"
+                  *ngIf="permissions.canDelete"
+                  title="Delete Study">
+                  <i class="material-icons">delete</i>
+                </button>
+              </div>
+              
+              <!-- Care Indicators -->
+              <div class="care-indicators" *ngIf="getCareIndicatorsForStudy(study.id || '').length > 0">
+                <div 
+                  *ngFor="let indicator of getCareIndicatorsForStudy(study.id || '')"
+                  class="care-indicator"
+                  [class]="'severity-' + indicator.severity">
+                  <i class="material-icons">{{ getCareIndicatorIcon(indicator.type) }}</i>
+                  <span>{{ indicator.description }}</span>
+                  <button 
+                    class="btn btn-xs btn-link"
+                    (click)="resolveCareIndicator(indicator); $event.stopPropagation()"
+                    title="Resolve">
+                    <i class="material-icons">check</i>
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Enhanced Study Management Panel -->
+              <div class="enhanced-study-panel" *ngIf="selectedStudy?.id === study.id">
+                <div class="study-tabs">
+                  <button 
+                    class="tab-button active"
+                    (click)="$event.stopPropagation()">
+                    <i class="material-icons">description</i>
+                    Forms & Sections
+                  </button>
+                  <button 
+                    class="tab-button"
+                    (click)="openSubstudyModal(); $event.stopPropagation()">
+                    <i class="material-icons">location_on</i>
+                    Substudies
+                  </button>
+                  <button 
+                    class="tab-button"
+                    (click)="openStudyGroupModal(); $event.stopPropagation()">
+                    <i class="material-icons">group</i>
+                    Study Groups
+                  </button>
+                  <button 
+                    class="tab-button"
+                    *ngIf="getActiveDataQueriesCount() > 0"
+                    (click)="$event.stopPropagation()">
+                    <i class="material-icons">help</i>
+                    Data Queries ({{ getActiveDataQueriesCount() }})
+                  </button>
+                </div>
+                
+                <!-- Study Sections with Form Management -->
+                <div class="study-sections">
+                  <div 
+                    *ngFor="let section of getSectionsForStudy(study.id || ''); trackBy: trackSection" 
+                    class="section-item"
+                    [class.completed]="isSectionComplete(section.id)">
+                    
+                    <div class="section-header">
+                      <div class="section-info">
+                        <h4>{{ section.name }}</h4>
+                        <span class="section-type">{{ section.type | titlecase }}</span>
+                        <div class="section-progress">
+                          <div class="progress-bar">
+                            <div class="progress-fill" [style.width.%]="getSectionCompletionPercentage(section.id)"></div>
+                          </div>
+                          <span class="progress-text">{{ getSectionCompletionPercentage(section.id) }}% Complete</span>
+                        </div>
+                      </div>
+                      
+                      <div class="section-actions">
+                        <button 
+                          class="btn btn-xs btn-secondary"
+                          (click)="openFormAssignmentModal(section); $event.stopPropagation()"
+                          title="Assign Form">
+                          <i class="material-icons">add</i>
+                          Add Form
+                        </button>
+                        
+                        <button 
+                          class="btn btn-xs btn-success"
+                          *ngIf="!isSectionComplete(section.id)"
+                          (click)="markSectionComplete(section.id); $event.stopPropagation()"
+                          title="Mark Complete">
+                          <i class="material-icons">check_circle</i>
+                        </button>
+                        
+                        <button 
+                          class="btn btn-xs btn-warning"
+                          *ngIf="isSectionComplete(section.id)"
+                          (click)="markSectionIncomplete(section.id); $event.stopPropagation()"
+                          title="Mark Incomplete">
+                          <i class="material-icons">radio_button_unchecked</i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Section Forms -->
+                    <div class="section-forms" *ngIf="getFormInstancesForSection(section.id).length > 0">
+                      <div 
+                        *ngFor="let formInstance of getFormInstancesForSection(section.id); trackBy: trackFormInstance"
+                        class="form-instance"
+                        [class]="'status-' + formInstance.status">
+                        
+                        <div class="form-info">
+                          <span class="form-name">{{ formInstance.templateName }}</span>
+                          <span class="form-status">{{ formInstance.status | titlecase }}</span>
+                          <div class="form-progress">
+                            <div class="progress-bar small">
+                              <div class="progress-fill" [style.width.%]="formInstance.completionPercentage"></div>
+                            </div>
+                            <span class="progress-text">{{ formInstance.completionPercentage }}%</span>
+                          </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                          <button 
+                            class="btn btn-xs btn-primary"
+                            (click)="$event.stopPropagation()"
+                            title="Fill Form">
+                            <i class="material-icons">edit</i>
+                          </button>
+                          
+                          <button 
+                            class="btn btn-xs btn-info"
+                            *ngIf="formInstance.queries && formInstance.queries.length > 0"
+                            (click)="loadDataQueriesForForm(formInstance.id); $event.stopPropagation()"
+                            title="View Queries ({{ formInstance.queries.length }})">
+                            <i class="material-icons">help</i>
+                            {{ formInstance.queries.length }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Empty state for section -->
+                    <div class="section-empty" *ngIf="getFormInstancesForSection(section.id).length === 0">
+                      <p>No forms assigned to this section</p>
+                      <button 
+                        class="btn btn-sm btn-primary"
+                        (click)="openFormAssignmentModal(section); $event.stopPropagation()">
+                        <i class="material-icons">add</i>
+                        Assign First Form
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Empty State -->
+          <div *ngIf="studies.length === 0" class="empty-state">
+            <i class="material-icons">folder_open</i>
+            <h3>No Studies Found</h3>
+            <p>Create your first study to begin managing clinical research data.</p>
+            <button 
+              class="btn btn-primary"
+              (click)="createNewStudy()"
+              *ngIf="permissions.canCreate">
+              <i class="material-icons">add</i>
+              Create Your First Study
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Enhanced Study Management Modals -->
+      
+      <!-- Substudy Management Modal -->
+      <div class="modal-overlay" *ngIf="showSubstudyModal" (click)="closeSubstudyModal()">
+        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Manage Substudies</h3>
+            <button class="close-btn" (click)="closeSubstudyModal()">
+              <i class="material-icons">close</i>
+            </button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="substudy-list">
+              <div class="list-header">
+                <h4>Substudies for {{ selectedStudy?.title }}</h4>
+                <button class="btn btn-primary" (click)="createSubstudy(selectedStudy?.id || '', { studyId: selectedStudy?.id || '', name: 'New Substudy', geographicalLocation: { country: 'US', sites: [] }, targetEnrollment: 50, actualEnrollment: 0, status: 'planning', regulatoryApprovals: [], irbApprovals: [], createdBy: '', lastModifiedBy: '' })">
+                  <i class="material-icons">add</i>
+                  Add Substudy
+                </button>
+              </div>
+              
+              <div class="substudy-items" *ngIf="substudies.length > 0">
+                <div 
+                  *ngFor="let substudy of substudies; trackBy: trackSubstudy"
+                  class="substudy-item"
+                  [class.selected]="selectedSubstudy?.id === substudy.id"
+                  (click)="selectSubstudy(substudy)">
+                  
+                  <div class="substudy-info">
+                    <h5>{{ substudy.name }}</h5>
+                    <p>{{ substudy.geographicalLocation.country }} - {{ substudy.geographicalLocation.region || 'All Regions' }}</p>
+                    <div class="substudy-stats">
+                      <span class="stat">{{ substudy.actualEnrollment }}/{{ substudy.targetEnrollment }} enrolled</span>
+                      <span class="status" [class]="'status-' + substudy.status">{{ substudy.status | titlecase }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="substudy-actions">
+                    <button class="btn btn-sm btn-secondary" title="Edit">
+                      <i class="material-icons">edit</i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="empty-state" *ngIf="substudies.length === 0">
+                <i class="material-icons">location_on</i>
+                <h4>No Substudies</h4>
+                <p>Create geographical substudies to organize your study by location.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Study Group Management Modal -->
+      <div class="modal-overlay" *ngIf="showStudyGroupModal" (click)="closeStudyGroupModal()">
+        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Manage Study Groups</h3>
+            <button class="close-btn" (click)="closeStudyGroupModal()">
+              <i class="material-icons">close</i>
+            </button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="study-group-list">
+              <div class="list-header">
+                <h4>Study Groups for {{ selectedStudy?.title }}</h4>
+                <button class="btn btn-primary" (click)="createStudyGroup(selectedStudy?.id || '', { studyId: selectedStudy?.id || '', name: 'Control Group', groupType: 'control', targetEnrollment: 25, actualEnrollment: 0, blindingLevel: 'double', isActive: true, createdBy: '', lastModifiedBy: '' })">
+                  <i class="material-icons">add</i>
+                  Add Group
+                </button>
+              </div>
+              
+              <div class="study-group-items" *ngIf="studyGroups.length > 0">
+                <div 
+                  *ngFor="let group of studyGroups; trackBy: trackStudyGroup"
+                  class="study-group-item"
+                  [class.selected]="selectedStudyGroup?.id === group.id"
+                  (click)="selectStudyGroup(group)">
+                  
+                  <div class="group-info">
+                    <h5>{{ group.name }}</h5>
+                    <p>{{ group.groupType | titlecase }} Group</p>
+                    <div class="group-stats">
+                      <span class="stat">{{ group.actualEnrollment }}/{{ group.targetEnrollment }} enrolled</span>
+                      <span class="blinding">{{ group.blindingLevel | titlecase }} Blind</span>
+                      <span class="status" [class.active]="group.isActive">{{ group.isActive ? 'Active' : 'Inactive' }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="group-actions">
+                    <button class="btn btn-sm btn-secondary" title="Edit">
+                      <i class="material-icons">edit</i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="empty-state" *ngIf="studyGroups.length === 0">
+                <i class="material-icons">group</i>
+                <h4>No Study Groups</h4>
+                <p>Create treatment arms and control groups to organize patient enrollment.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Form Assignment Modal -->
+      <div class="modal-overlay" *ngIf="showFormAssignmentModal" (click)="closeFormAssignmentModal()">
+        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Assign Form to Section</h3>
+            <button class="close-btn" (click)="closeFormAssignmentModal()">
+              <i class="material-icons">close</i>
+            </button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="form-assignment">
+              <div class="section-info">
+                <h4>Section: {{ selectedSection?.name }}</h4>
+                <p>{{ selectedSection?.description }}</p>
+              </div>
+              
+              <div class="template-selection">
+                <h5>Select Form Template</h5>
+                <div class="template-grid" *ngIf="availableTemplates.length > 0">
+                  <div 
+                    *ngFor="let template of availableTemplates"
+                    class="template-card"
+                    [class.selected]="selectedTemplateForAssignment?.id === template.id"
+                    (click)="selectedTemplateForAssignment = template">
+                    
+                    <div class="template-header">
+                      <h6>{{ template.name }}</h6>
+                      <span class="template-type" [class]="'type-' + template.templateType">{{ template.templateType | titlecase }}</span>
+                    </div>
+                    
+                    <div class="template-info">
+                      <p>{{ template.description }}</p>
+                      <div class="template-stats">
+                        <span class="field-count">{{ template.fields.length || 0 }} fields</span>
+                        <span class="version">v{{ template.version }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="empty-state" *ngIf="availableTemplates.length === 0">
+                  <i class="material-icons">description</i>
+                  <h4>No Templates Available</h4>
+                  <p>Create form templates first before assigning them to study sections.</p>
+                </div>
+              </div>
+              
+              <div class="assignment-actions" *ngIf="selectedTemplateForAssignment">
+                <button 
+                  class="btn btn-primary"
+                  (click)="assignFormToSection(selectedSection?.id || '', selectedTemplateForAssignment.id!)">
+                  <i class="material-icons">assignment</i>
+                  Assign Form
+                </button>
+                <button class="btn btn-secondary" (click)="closeFormAssignmentModal()">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Other sections (Reports, Audit) -->
+      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms' && activeSidebarItem !== 'studies'">
         <div class="section-header">
           <h2>{{ activeSidebarItem | titlecase }}</h2>
         </div>
@@ -305,7 +775,7 @@
               <button 
                 *ngFor="let template of templates" 
                 class="btn btn-sm btn-outline"
-                (click)="createFormInstance(template, selectedPatient!)"
+                (click)="createLegacyFormInstance(template, selectedPatient!)"
                 [disabled]="template.status !== 'published'">
                 {{ template.name }}
               </button>

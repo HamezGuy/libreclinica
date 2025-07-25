@@ -235,8 +235,9 @@ export class EdcCompliantAuthService {
       setTimeout(() => {
         this.zone.run(async () => {
           if (this.auth.currentUser) {
-            console.log('Session timeout. Signing out...');
+            console.log('Session timeout. Redirecting to auth...');
             await this.signOut('timeout');
+            this.router.navigate(['/auth'], { queryParams: { reason: 'session-timeout' } });
           }
         });
       }, this.SESSION_TIMEOUT)

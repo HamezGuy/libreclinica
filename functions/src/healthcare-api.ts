@@ -68,7 +68,7 @@ const checkUserPermissions = async (userId: string, action: string, resourceType
  * Create a new patient in FHIR store
  */
 export const createPatient = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, unknown>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -104,7 +104,7 @@ export const createPatient = onCall({
  * Get patient by ID
  */
 export const getPatient = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<{patientId: string}>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -136,7 +136,7 @@ export const getPatient = onCall({
  * Search patients
  */
 export const searchPatients = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, string>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -176,7 +176,7 @@ export const searchPatients = onCall({
  * Create observation (lab results, vitals, etc.)
  */
 export const createObservation = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, unknown>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -221,7 +221,7 @@ export const createObservation = onCall({
  * Get patient observations
  */
 export const getPatientObservations = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<{patientId: string}>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -256,7 +256,7 @@ export const getPatientObservations = onCall({
  * Create encounter
  */
 export const createEncounter = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, unknown>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -292,7 +292,7 @@ export const createEncounter = onCall({
  * Create consent record
  */
 export const createConsent = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, unknown>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -328,7 +328,7 @@ export const createConsent = onCall({
  * Export patient data (GDPR/CCPA compliance)
  */
 export const exportPatientData = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<{patientId: string}>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -375,7 +375,7 @@ export const exportPatientData = onCall({
  * Delete patient data (restricted operation)
  */
 export const deletePatientData = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<{patientId: string, reason: string}>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -420,7 +420,7 @@ export const deletePatientData = onCall({
  * Validate FHIR resource
  */
 export const validateFhirResource = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, unknown>>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -454,7 +454,7 @@ export const validateFhirResource = onCall({
  * Bulk import FHIR resources
  */
 export const bulkImportFhir = onCall({
-  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202"],
+  cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<any[]>) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");

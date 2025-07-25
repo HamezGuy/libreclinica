@@ -8,6 +8,7 @@ import {
   getDocs, 
   updateDoc, 
   deleteDoc, 
+  setDoc, 
   query, 
   where, 
   orderBy, 
@@ -32,7 +33,16 @@ import {
   StudyChange,
   PatientEnrollmentChange,
   CareIndicatorType,
-  CareIndicatorSeverity
+  CareIndicatorSeverity,
+  Substudy,
+  StudyGroup,
+  StudyFormInstance,
+  EnhancedStudySection,
+  StudySectionFormTemplate,
+  DataQuery,
+  FormInstanceChange,
+  StudyFormInstanceStatus,
+  SectionCompletionStatus
 } from '../models/study.model';
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { CloudAuditService } from './cloud-audit.service';
@@ -54,6 +64,18 @@ export class StudyService implements IStudyService {
   constructor() {
     this.initializeRealtimeListeners();
   }
+
+  // Reactive data streams for enhanced features
+  private substudiesSubject = new BehaviorSubject<Substudy[]>([]);
+  private studyGroupsSubject = new BehaviorSubject<StudyGroup[]>([]);
+  private formInstancesSubject = new BehaviorSubject<StudyFormInstance[]>([]);
+  private dataQueriesSubject = new BehaviorSubject<DataQuery[]>([]);
+
+  // Public observables
+  public substudies$ = this.substudiesSubject.asObservable();
+  public studyGroups$ = this.studyGroupsSubject.asObservable();
+  public formInstances$ = this.formInstancesSubject.asObservable();
+  public dataQueries$ = this.dataQueriesSubject.asObservable();
 
   // ============================================================================
   // Study CRUD Operations
@@ -322,8 +344,291 @@ export class StudyService implements IStudyService {
     });
   }
 
+  // ============================================================================
+  // Form Instance Management
+  // ============================================================================
+
+  async createFormInstance(formInstanceData: Omit<StudyFormInstance, 'id' | 'changeHistory'>): Promise<StudyFormInstance> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const now = new Date();
+      const formInstance: Omit<StudyFormInstance, 'id'> = {
+        ...formInstanceData,
+        lastModifiedDate: now,
+        filledBy: currentUser.uid,
+        changeHistory: [{
+          id: this.generateId(),
+          timestamp: now,
+          userId: currentUser.uid,
+          userEmail: currentUser.email || 'unknown',
+          action: 'created',
+          reason: 'Form instance created'
+        }]
+      };
+
+      const instanceRef = doc(collection(this.firestore, 'study-form-instances'));
+      await setDoc(instanceRef, formInstance);
+
+      const createdInstance: StudyFormInstance = { id: instanceRef.id, ...formInstance };
+      
+      // Update local state
+      const currentInstances = this.formInstancesSubject.value;
+      this.formInstancesSubject.next([...currentInstances, createdInstance]);
+
+      return createdInstance;
+    });
+  }
+
+  async getFormInstancesBySection(sectionId: string): Promise<StudyFormInstance[]> {
+    return await runInInjectionContext(this.injector, async () => {
+      const instancesRef = collection(this.firestore, 'study-form-instances');
+      const q = query(instancesRef, where('sectionId', '==', sectionId));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as StudyFormInstance));
+    });
+  }
+
+  async updateFormInstance(instanceId: string, formData: { [key: string]: any }, reason?: string): Promise<StudyFormInstance> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const instanceRef = doc(this.firestore, 'study-form-instances', instanceId);
+      const instanceDoc = await getDoc(instanceRef);
+      
+      if (!instanceDoc.exists()) {
+        throw new Error('Form instance not found');
+      }
+
+      const existingInstance = instanceDoc.data() as StudyFormInstance;
+      const now = new Date();
+      
+      // Calculate completion percentage
+      const totalFields = Object.keys(formData).length;
+      const completedFields = Object.values(formData).filter(value => 
+        value !== null && value !== undefined && value !== ''
+      ).length;
+      const completionPercentage = totalFields > 0 ? (completedFields / totalFields) * 100 : 0;
+      
+      // Determine status based on completion
+      let status: StudyFormInstanceStatus = 'in_progress';
+      if (completionPercentage === 100) {
+        status = 'completed';
+      } else if (completionPercentage === 0) {
+        status = 'not_started';
+      }
+
+      const updateData = {
+        formData,
+        completionPercentage,
+        status,
+        lastModifiedDate: now,
+        changeHistory: [
+          ...existingInstance.changeHistory,
+          {
+            id: this.generateId(),
+            timestamp: now,
+            userId: currentUser.uid,
+            userEmail: currentUser.email || 'unknown',
+            action: 'modified' as const,
+            fieldChanges: this.calculateFieldChanges(existingInstance.formData, formData),
+            reason: reason || 'Form data updated'
+          }
+        ]
+      };
+      
+      await updateDoc(instanceRef, updateData);
+      
+      const updatedDoc = await getDoc(instanceRef);
+      const updatedInstance = { id: updatedDoc.id, ...updatedDoc.data() } as StudyFormInstance;
+      
+      // Update local state
+      const currentInstances = this.formInstancesSubject.value;
+      const updatedInstances = currentInstances.map(i => 
+        i.id === instanceId ? updatedInstance : i
+      );
+      this.formInstancesSubject.next(updatedInstances);
+      
+      return updatedInstance;
+    });
+  }
+
+  async completeFormInstance(instanceId: string): Promise<StudyFormInstance> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const instanceRef = doc(this.firestore, 'study-form-instances', instanceId);
+      const now = new Date();
+      
+      const updateData = {
+        status: 'completed' as StudyFormInstanceStatus,
+        completedDate: now,
+        lastModifiedDate: now
+      };
+      
+      await updateDoc(instanceRef, updateData);
+      
+      const updatedDoc = await getDoc(instanceRef);
+      return { id: updatedDoc.id, ...updatedDoc.data() } as StudyFormInstance;
+    });
+  }
+
+  // ============================================================================
+  // Section Completion Management
+  // ============================================================================
+
+  async updateSectionStatus(sectionId: string, status: SectionCompletionStatus, reason?: string): Promise<void> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const sectionRef = doc(this.firestore, 'study-sections', sectionId);
+      const updateData = {
+        status,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: new Date()
+      };
+      
+      await updateDoc(sectionRef, updateData);
+      
+      // Log audit event
+      await this.auditService.logAuditEvent({
+        action: 'section_status_updated',
+        resourceType: 'study_section',
+        resourceId: sectionId,
+        userId: currentUser.uid,
+        userEmail: currentUser.email || '',
+        severity: 'INFO' as const,
+        details: JSON.stringify({
+          newStatus: status,
+          reason: reason || 'Section status updated'
+        })
+      });
+    });
+  }
+
+  async getSectionProgress(sectionId: string): Promise<{
+    totalForms: number;
+    completedForms: number;
+    inProgressForms: number;
+    overdueForms: number;
+    completionPercentage: number;
+  }> {
+    const formInstances = await this.getFormInstancesBySection(sectionId);
+    
+    const totalForms = formInstances.length;
+    const completedForms = formInstances.filter(f => f.status === 'completed').length;
+    const inProgressForms = formInstances.filter(f => f.status === 'in_progress').length;
+    const overdueForms = formInstances.filter(f => 
+      f.dueDate && new Date() > f.dueDate && f.status !== 'completed'
+    ).length;
+    const completionPercentage = totalForms > 0 ? (completedForms / totalForms) * 100 : 0;
+    
+    return {
+      totalForms,
+      completedForms,
+      inProgressForms,
+      overdueForms,
+      completionPercentage
+    };
+  }
+
+  // ============================================================================
+  // Data Query Management
+  // ============================================================================
+
+  async createDataQuery(queryData: Omit<DataQuery, 'id' | 'createdAt'>): Promise<DataQuery> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const dataQuery: Omit<DataQuery, 'id'> = {
+        ...queryData,
+        createdBy: currentUser.uid,
+        createdAt: new Date()
+      };
+
+      const queryRef = doc(collection(this.firestore, 'data-queries'));
+      await setDoc(queryRef, dataQuery);
+
+      const createdQuery: DataQuery = { id: queryRef.id, ...dataQuery };
+      
+      // Update local state
+      const currentQueries = this.dataQueriesSubject.value;
+      this.dataQueriesSubject.next([...currentQueries, createdQuery]);
+
+      return createdQuery;
+    });
+  }
+
+  async resolveDataQuery(queryId: string, resolution: string): Promise<DataQuery> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) throw new Error('User must be authenticated');
+
+      const queryRef = doc(this.firestore, 'data-queries', queryId);
+      const updateData = {
+        status: 'resolved' as const,
+        resolvedBy: currentUser.uid,
+        resolvedAt: new Date(),
+        resolutionNotes: resolution
+      };
+      
+      await updateDoc(queryRef, updateData);
+      
+      const updatedDoc = await getDoc(queryRef);
+      const updatedQuery = { id: updatedDoc.id, ...updatedDoc.data() } as DataQuery;
+      
+      // Update local state
+      const currentQueries = this.dataQueriesSubject.value;
+      const updatedQueries = currentQueries.map(q => 
+        q.id === queryId ? updatedQuery : q
+      );
+      this.dataQueriesSubject.next(updatedQueries);
+      
+      return updatedQuery;
+    });
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+
+  private calculateFieldChanges(oldData: { [key: string]: any }, newData: { [key: string]: any }): { [fieldId: string]: { oldValue: any; newValue: any } } {
+    const changes: { [fieldId: string]: { oldValue: any; newValue: any } } = {};
+    
+    // Check for changed fields
+    Object.keys(newData).forEach(fieldId => {
+      if (oldData[fieldId] !== newData[fieldId]) {
+        changes[fieldId] = {
+          oldValue: oldData[fieldId],
+          newValue: newData[fieldId]
+        };
+      }
+    });
+    
+    // Check for removed fields
+    Object.keys(oldData).forEach(fieldId => {
+      if (!(fieldId in newData)) {
+        changes[fieldId] = {
+          oldValue: oldData[fieldId],
+          newValue: null
+        };
+      }
+    });
+    
+    return changes;
+  }
+
   private generateId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   private async getClientIpAddress(): Promise<string> {
@@ -405,7 +710,7 @@ export class StudyService implements IStudyService {
       totalSections: study.sections.length,
       completedSections: 0, // TODO: Calculate from enrollments
       totalForms: study.sections.reduce((sum, section) => 
-        sum + section.requiredForms.length + section.optionalForms.length, 0
+        sum + section.formTemplates.length, 0
       ),
       completedForms: 0 // TODO: Calculate from form instances
     };
@@ -546,5 +851,19 @@ export class StudyService implements IStudyService {
 
   async archiveStudy(studyId: string, reason: string): Promise<void> {
     throw new Error('Method not implemented');
+  }
+
+  // Organization-specific study methods
+  async getStudiesForOrganization(organizationId: string): Promise<Study[]> {
+    return await runInInjectionContext(this.injector, async () => {
+      const studiesRef = collection(this.firestore, 'studies');
+      const q = query(studiesRef, where('organizationId', '==', organizationId));
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return this.deserializeStudyData({ id: doc.id, ...data } as any);
+      });
+    });
   }
 }

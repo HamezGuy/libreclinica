@@ -6,7 +6,7 @@ import {
   Router,
   UrlTree 
 } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, of, catchError } from 'rxjs';
 import { map, take } from 'rxjs/operators';
 import { EdcCompliantAuthService } from '../services/edc-compliant-auth.service';
 import { UserStatus } from '../enums/access-levels.enum';
@@ -26,16 +26,17 @@ export class AuthGuard implements CanActivate {
       take(1),
       map(userProfile => {
         if (!userProfile) {
-          // Not logged in, redirect to login page
-          return this.router.createUrlTree(['/login'], {
+          // Not logged in, redirect to auth page (home)
+          return this.router.createUrlTree(['/auth'], {
             queryParams: { returnUrl: state.url }
           });
         }
 
         // Check if user account is active
         if (userProfile.status !== UserStatus.ACTIVE) {
+          console.log('User account not active, redirecting to auth');
           this.authService.signOut('forced');
-          return this.router.createUrlTree(['/login'], {
+          return this.router.createUrlTree(['/auth'], {
             queryParams: { reason: 'account-not-active' }
           });
         }
@@ -53,6 +54,13 @@ export class AuthGuard implements CanActivate {
         }
 
         return true;
+      }),
+      catchError(error => {
+        console.error('Auth guard error, redirecting to auth:', error);
+        // On any error, redirect to auth page instead of showing grey screen
+        return of(this.router.createUrlTree(['/auth'], {
+          queryParams: { error: 'auth-error' }
+        }));
       })
     );
   }

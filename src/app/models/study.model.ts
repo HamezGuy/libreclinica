@@ -1,5 +1,5 @@
 import { AccessLevel } from '../enums/access-levels.enum';
-import { ElectronicSignature } from './form-template.model';
+import { ElectronicSignature, FormTemplate } from './form-template.model';
 
 // Study Status Types
 export type StudyStatus = 
@@ -32,6 +32,37 @@ export type StudySectionType =
   | 'early_termination' 
   | 'completion';
 
+// Study Group Types (Treatment Arms)
+export type StudyGroupType = 
+  | 'control' 
+  | 'treatment' 
+  | 'placebo' 
+  | 'dose_low' 
+  | 'dose_medium' 
+  | 'dose_high' 
+  | 'combination' 
+  | 'observational';
+
+// Form Instance Status within Study Context
+export type StudyFormInstanceStatus = 
+  | 'not_started' 
+  | 'in_progress' 
+  | 'completed' 
+  | 'locked' 
+  | 'reviewed' 
+  | 'query_open' 
+  | 'query_resolved' 
+  | 'signed';
+
+// Section Completion Status
+export type SectionCompletionStatus = 
+  | 'not_started' 
+  | 'in_progress' 
+  | 'pending_review' 
+  | 'completed' 
+  | 'locked' 
+  | 'overdue';
+
 // Patient Study Status
 export type PatientStudyStatus = 
   | 'screening' 
@@ -55,6 +86,180 @@ export type CareIndicatorType =
 
 // Care Indicator Severity
 export type CareIndicatorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+// Substudy Interface (for geographical locations)
+export interface Substudy {
+  id: string;
+  studyId: string;
+  name: string;
+  description?: string;
+  geographicalLocation: {
+    country: string;
+    region?: string;
+    city?: string;
+    sites: string[]; // Site IDs
+  };
+  targetEnrollment: number;
+  actualEnrollment: number;
+  status: StudyStatus;
+  principalInvestigator?: string;
+  studyCoordinator?: string;
+  regulatoryApprovals: string[];
+  irbApprovals: string[];
+  customAttributes?: { [key: string]: any };
+  createdBy: string;
+  createdAt: Date;
+  lastModifiedBy: string;
+  lastModifiedAt: Date;
+}
+
+// Study Group Interface (Treatment Arms/Control Groups)
+export interface StudyGroup {
+  id: string;
+  studyId: string;
+  substudyId?: string;
+  name: string;
+  description?: string;
+  groupType: StudyGroupType;
+  targetEnrollment: number;
+  actualEnrollment: number;
+  randomizationRatio?: number;
+  interventionDescription?: string;
+  dosage?: {
+    amount: number;
+    unit: string;
+    frequency: string;
+    duration?: string;
+  };
+  blindingLevel: 'none' | 'single' | 'double' | 'triple';
+  isActive: boolean;
+  eligibilityCriteria?: string[];
+  exclusionCriteria?: string[];
+  customAttributes?: { [key: string]: any };
+  createdBy: string;
+  createdAt: Date;
+  lastModifiedBy: string;
+  lastModifiedAt: Date;
+}
+
+// Study Form Instance (Forms filled within study context)
+export interface StudyFormInstance {
+  id: string;
+  studyId: string;
+  substudyId?: string;
+  sectionId: string;
+  templateId: string;
+  templateName: string;
+  templateVersion: string;
+  patientId?: string;
+  visitId?: string;
+  groupId?: string;
+  status: StudyFormInstanceStatus;
+  formData: { [key: string]: any };
+  phiData?: { [key: string]: any };
+  completionPercentage: number;
+  isRequired: boolean;
+  dueDate?: Date;
+  completedDate?: Date;
+  lastModifiedDate: Date;
+  filledBy: string;
+  reviewedBy?: string;
+  reviewedDate?: Date;
+  signedBy?: string;
+  signedDate?: Date;
+  electronicSignature?: ElectronicSignature;
+  queries: DataQuery[];
+  changeHistory: FormInstanceChange[];
+  customAttributes?: { [key: string]: any };
+}
+
+// Data Query for Form Instances
+export interface DataQuery {
+  id: string;
+  formInstanceId: string;
+  fieldId: string;
+  queryType: 'clarification' | 'discrepancy' | 'missing_data' | 'range_check' | 'consistency_check';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  status: 'open' | 'responded' | 'resolved' | 'closed';
+  createdBy: string;
+  createdAt: Date;
+  assignedTo?: string;
+  response?: string;
+  respondedBy?: string;
+  respondedAt?: Date;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  resolutionNotes?: string;
+}
+
+// Form Instance Change Tracking
+export interface FormInstanceChange {
+  id: string;
+  timestamp: Date;
+  userId: string;
+  userEmail: string;
+  action: 'created' | 'modified' | 'completed' | 'reviewed' | 'signed' | 'query_added' | 'query_resolved';
+  fieldChanges?: { [fieldId: string]: { oldValue: any; newValue: any } };
+  reason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+// Enhanced Section with Form Instance Management
+export interface EnhancedStudySection {
+  id: string;
+  studyId: string;
+  name: string;
+  description?: string;
+  type: StudySectionType;
+  order: number;
+  scheduledDay?: number;
+  windowStart?: number;
+  windowEnd?: number;
+  isOptional: boolean;
+  allowUnscheduled: boolean;
+  status: SectionCompletionStatus;
+  completionCriteria: {
+    allFormsRequired: boolean;
+    minimumFormsRequired?: number;
+    specificFormsRequired?: string[]; // Form template IDs
+    reviewRequired: boolean;
+    signatureRequired: boolean;
+  };
+  formTemplates: StudySectionFormTemplate[];
+  formInstances: StudyFormInstance[];
+  totalPatients: number;
+  patientsCompleted: number;
+  patientsInProgress: number;
+  patientsOverdue: number;
+  estimatedDuration?: number;
+  instructions?: string;
+  prerequisiteSections?: string[];
+  customAttributes?: { [key: string]: any };
+  createdBy: string;
+  createdAt: Date;
+  lastModifiedBy: string;
+  lastModifiedAt: Date;
+}
+
+// Form Template within Study Section
+export interface StudySectionFormTemplate {
+  id: string;
+  templateId: string;
+  templateName: string;
+  templateVersion: string;
+  order: number;
+  isRequired: boolean;
+  completionRequired: boolean;
+  signatureRequired: boolean;
+  reviewRequired: boolean;
+  daysToComplete?: number;
+  showConditions?: ConditionalRule[];
+  requiredConditions?: ConditionalRule[];
+  applicableGroups?: string[]; // Study group IDs
+  customAttributes?: { [key: string]: any };
+}
 
 // Main Study Interface
 export interface Study {
@@ -83,8 +288,10 @@ export interface Study {
   actualEnrollment: number;
   enrollmentStatus: 'not_started' | 'recruiting' | 'completed' | 'terminated';
   
-  // Study Configuration
-  sections: StudySection[];
+  // Enhanced Study Structure
+  sections: EnhancedStudySection[];
+  substudies: Substudy[];
+  studyGroups: StudyGroup[];
   eligibilityCriteria: EligibilityCriteria;
   sites: StudySite[];
   

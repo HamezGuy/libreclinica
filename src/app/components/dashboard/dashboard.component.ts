@@ -17,7 +17,7 @@ import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-po
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
-import { Study, StudySection, PatientStudyEnrollment, CareIndicator } from '../../models/study.model';
+import { Study, StudySection, StudySite, EligibilityCriteria, PatientStudyEnrollment, CareIndicator, Substudy, StudyGroup, StudyFormInstance, StudyFormInstanceStatus, DataQuery, EnhancedStudySection } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
 
 // Patient display model (non-PHI)
@@ -101,6 +101,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedStudy: Study | null = null;
   studyEnrollments: PatientStudyEnrollment[] = [];
   careIndicators: CareIndicator[] = [];
+  
+  // Enhanced study management state
+  substudies: Substudy[] = [];
+  studyGroups: StudyGroup[] = [];
+  formInstances: StudyFormInstance[] = [];
+  dataQueries: DataQuery[] = [];
+  selectedSubstudy: Substudy | null = null;
+  selectedStudyGroup: StudyGroup | null = null;
+  selectedSection: EnhancedStudySection | null = null;
+  
+  // Study management modals
+  showSubstudyModal = false;
+  showStudyGroupModal = false;
+  showFormAssignmentModal = false;
+  showSectionModal = false;
+  
+  // Form assignment state
+  availableTemplates: FormTemplate[] = [];
+  selectedTemplateForAssignment: FormTemplate | null = null;
 
   selectedPatient: PatientListItem | null = null;
   selectedPatientForms: FormInstance[] = [];
@@ -419,8 +438,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Form instance management
-  async createFormInstance(template: FormTemplate, patient: PatientListItem) {
+  // Legacy form instance management (replaced by enhanced version below)
+  async createLegacyFormInstance(template: FormTemplate, patient: PatientListItem) {
     try {
       const instance = await this.instanceService.createFormInstance(
         template.id!,
@@ -824,39 +843,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  async deleteStudy(study: Study): Promise<void> {
-    if (!this.permissions.canDelete) {
-      alert('You do not have permission to delete studies');
-      return;
-    }
-    
-    if (confirm(`Are you sure you want to delete study "${study.title}"? This action cannot be undone.`)) {
-      try {
-        if (study.id) {
-          await this.studyService.deleteStudy(study.id, 'Deleted by user');
-          console.log('Study deleted successfully');
-        }
-      } catch (error) {
-        console.error('Error deleting study:', error);
-        alert('Failed to delete study. Please try again.');
-      }
-    }
-  }
 
-  async enrollPatientInStudy(study: Study): Promise<void> {
-    if (!this.permissions.canCreate) {
-      alert('You do not have permission to enroll patients');
-      return;
-    }
-    
-    // TODO: Open patient enrollment modal
-    console.log('Patient enrollment modal would open here for study:', study);
-  }
-
-  // Care Indicator Methods
-  getCareIndicatorsForStudy(studyId: string): CareIndicator[] {
-    return this.careIndicators.filter(indicator => indicator.studyId === studyId);
-  }
 
   getCareIndicatorCount(studyId?: string, severity?: 'low' | 'medium' | 'high' | 'critical'): number {
     let indicators = this.careIndicators;
@@ -872,35 +859,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return indicators.length;
   }
 
-  async resolveCareIndicator(indicator: CareIndicator): Promise<void> {
-    try {
-      const resolutionNotes = prompt('Enter resolution notes:');
-      if (resolutionNotes) {
-        await this.studyService.resolveCareIndicator(indicator.id, resolutionNotes);
-        console.log('Care indicator resolved successfully');
-      }
-    } catch (error) {
-      console.error('Error resolving care indicator:', error);
-      alert('Failed to resolve care indicator. Please try again.');
-    }
-  }
+  // Removed duplicate - using the simpler placeholder implementation below
 
-  // Study filtering and search
-  get filteredStudies(): Study[] {
-    let filtered = this.studies;
-    
-    if (this.searchQuery) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(study => 
-        study.title.toLowerCase().includes(query) ||
-        study.protocolNumber.toLowerCase().includes(query) ||
-        study.description?.toLowerCase().includes(query) ||
-        study.phase?.toLowerCase().includes(query)
-      );
-    }
-    
-    return filtered;
-  }
+
 
   // Helper methods for UI
   getStatusColor(status: string): string {
@@ -965,4 +926,352 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const completedEnrollments = enrollments.filter(e => e.status === 'completed').length;
     return Math.round((completedEnrollments / enrollments.length) * 100);
   }
+
+  // Studies UI Helper Methods
+  get filteredStudies(): Study[] {
+    return this.studies || [];
+  }
+
+  getTotalEnrollments(): number {
+    return this.studyEnrollments.length;
+  }
+
+  // Removed duplicate - using the more accurate implementation below that filters for open indicators
+
+  getActiveStudiesCount(): number {
+    return this.studies.filter(study => study.status === 'active').length;
+  }
+
+  trackStudy(index: number, study: Study): string {
+    return study.id || `study-${index}`;
+  }
+
+  getSectionsForStudy(studyId: string): EnhancedStudySection[] {
+    const study = this.studies.find(s => s.id === studyId);
+    return (study?.sections as EnhancedStudySection[]) || [];
+  }
+
+  getCareIndicatorsForStudy(studyId: string): CareIndicator[] {
+    return this.careIndicators.filter(indicator => indicator.studyId === studyId);
+  }
+
+  getStudyProgress(study: Study): number {
+    // Calculate progress based on enrollment vs target
+    const currentEnrollment = study.actualEnrollment || 0;
+    const targetEnrollment = study.plannedEnrollment || 1;
+    return Math.round((currentEnrollment / targetEnrollment) * 100);
+  }
+
+  getCareIndicatorIcon(type: string): string {
+    const iconMap: { [key: string]: string } = {
+      'patient_safety': 'warning',
+      'data_quality': 'error',
+      'enrollment': 'people',
+      'compliance': 'security',
+      'follow_up': 'schedule',
+      'adverse_event': 'emergency'
+    };
+    return iconMap[type] || 'info';
+  }
+
+  // Study Management Action Methods
+  deleteStudy(study: Study): void {
+    if (!this.permissions.canDelete) {
+      alert('You do not have permission to delete studies');
+      return;
+    }
+    
+    if (confirm(`Are you sure you want to delete the study "${study.title}"?`)) {
+      console.log('Deleting study:', study.title);
+      // TODO: Implement actual deletion via StudyService
+      // For now, remove from local array
+      this.studies = this.studies.filter(s => s.id !== study.id);
+      if (this.selectedStudy?.id === study.id) {
+        this.selectedStudy = null;
+      }
+    }
+  }
+
+  enrollPatientInStudy(study: Study): void {
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to enroll patients');
+      return;
+    }
+    
+    console.log('Enrolling patient in study:', study.title);
+    // TODO: Implement patient enrollment modal
+    alert(`Patient enrollment for "${study.title}" - Coming soon!`);
+  }
+
+  // Enhanced Study Management Methods
+  
+  // Substudy Management
+  async createSubstudy(studyId: string, substudyData: Omit<Substudy, 'id' | 'createdAt' | 'lastModifiedAt'>): Promise<void> {
+    try {
+      // TODO: Implement createSubstudy in StudyService
+      console.log('Creating substudy for study:', studyId, substudyData);
+      alert('Substudy creation - Coming soon!');
+      // Placeholder implementation
+      // const substudy = await this.studyService.createSubstudy(studyId, substudyData);
+      // this.substudies.push(substudy);
+    } catch (error) {
+      console.error('Error creating substudy:', error);
+      alert('Failed to create substudy. Please try again.');
+    }
+  }
+
+  async loadSubstudiesForStudy(studyId: string): Promise<void> {
+    try {
+      // TODO: Implement getSubstudiesForStudy in StudyService
+      console.log('Loading substudies for study:', studyId);
+      // Placeholder implementation
+      this.substudies = [];
+      // this.studyService.getSubstudiesForStudy(studyId).subscribe((substudies: Substudy[]) => {
+      //   this.substudies = substudies;
+      // });
+    } catch (error) {
+      console.error('Error loading substudies:', error);
+    }
+  }
+
+  selectSubstudy(substudy: Substudy): void {
+    this.selectedSubstudy = substudy;
+  }
+
+  openSubstudyModal(): void {
+    this.showSubstudyModal = true;
+  }
+
+  closeSubstudyModal(): void {
+    this.showSubstudyModal = false;
+    this.selectedSubstudy = null;
+  }
+
+  // Study Group Management
+  async createStudyGroup(studyId: string, groupData: Omit<StudyGroup, 'id' | 'createdAt' | 'lastModifiedAt'>): Promise<void> {
+    try {
+      // TODO: Implement createStudyGroup in StudyService
+      console.log('Creating study group for study:', studyId, groupData);
+      alert('Study group creation - Coming soon!');
+      // Placeholder implementation
+      // const group = await this.studyService.createStudyGroup(studyId, groupData);
+      // this.studyGroups.push(group);
+    } catch (error) {
+      console.error('Error creating study group:', error);
+      alert('Failed to create study group. Please try again.');
+    }
+  }
+
+  async loadStudyGroupsForStudy(studyId: string): Promise<void> {
+    try {
+      // TODO: Implement getStudyGroupsForStudy in StudyService
+      console.log('Loading study groups for study:', studyId);
+      // Placeholder implementation
+      this.studyGroups = [];
+      // this.studyService.getStudyGroupsForStudy(studyId).subscribe((groups: StudyGroup[]) => {
+      //   this.studyGroups = groups;
+      // });
+    } catch (error) {
+      console.error('Error loading study groups:', error);
+    }
+  }
+
+  selectStudyGroup(group: StudyGroup): void {
+    this.selectedStudyGroup = group;
+  }
+
+  openStudyGroupModal(): void {
+    this.showStudyGroupModal = true;
+  }
+
+  closeStudyGroupModal(): void {
+    this.showStudyGroupModal = false;
+    this.selectedStudyGroup = null;
+  }
+
+  // Form Instance Management
+  async createFormInstance(studyId: string, sectionId: string, templateId: string, patientId?: string): Promise<void> {
+    try {
+      const formInstanceData: Omit<StudyFormInstance, 'id' | 'changeHistory'> = {
+        studyId,
+        sectionId,
+        templateId,
+        templateName: 'Template', // TODO: Get from template service
+        templateVersion: '1.0',
+        patientId,
+        status: 'not_started' as StudyFormInstanceStatus,
+        formData: {},
+        completionPercentage: 0,
+        isRequired: true,
+        lastModifiedDate: new Date(),
+        filledBy: '', // Will be set by service
+        queries: []
+      };
+      
+      const formInstance = await this.studyService.createFormInstance(formInstanceData);
+      this.formInstances.push(formInstance);
+      console.log('Form instance created:', formInstance);
+    } catch (error) {
+      console.error('Error creating form instance:', error);
+      alert('Failed to create form instance. Please try again.');
+    }
+  }
+
+  async loadFormInstancesForStudy(studyId: string): Promise<void> {
+    try {
+      // TODO: Implement getFormInstancesForStudy in StudyService
+      console.log('Loading form instances for study:', studyId);
+      // Placeholder implementation
+      this.formInstances = [];
+      // this.studyService.getFormInstancesForStudy(studyId).subscribe((instances: StudyFormInstance[]) => {
+      //   this.formInstances = instances;
+      // });
+    } catch (error) {
+      console.error('Error loading form instances:', error);
+    }
+  }
+
+  async assignFormToSection(sectionId: string, templateId: string): Promise<void> {
+    if (!this.selectedStudy?.id) {
+      alert('Please select a study first');
+      return;
+    }
+
+    try {
+      await this.createFormInstance(this.selectedStudy.id, sectionId, templateId);
+      this.closeFormAssignmentModal();
+    } catch (error) {
+      console.error('Error assigning form to section:', error);
+    }
+  }
+
+  openFormAssignmentModal(section: EnhancedStudySection): void {
+    this.selectedSection = section;
+    this.showFormAssignmentModal = true;
+    // Load available templates
+    this.templates$.subscribe(templates => {
+      this.availableTemplates = templates;
+    });
+  }
+
+  closeFormAssignmentModal(): void {
+    this.showFormAssignmentModal = false;
+    this.selectedSection = null;
+    this.selectedTemplateForAssignment = null;
+  }
+
+  // Section Completion Management
+  async markSectionComplete(sectionId: string, reason?: string): Promise<void> {
+    try {
+      // TODO: Implement updateSectionCompletionStatus in StudyService
+      console.log('Marking section complete:', sectionId, reason);
+      alert('Section completion management - Coming soon!');
+      // await this.studyService.updateSectionCompletionStatus(sectionId, 'completed', reason);
+      // Refresh section data
+      if (this.selectedStudy?.id) {
+        await this.loadFormInstancesForStudy(this.selectedStudy.id);
+      }
+    } catch (error) {
+      console.error('Error marking section complete:', error);
+      alert('Failed to mark section as complete. Please try again.');
+    }
+  }
+
+  async markSectionIncomplete(sectionId: string, reason?: string): Promise<void> {
+    try {
+      // TODO: Implement updateSectionCompletionStatus in StudyService
+      console.log('Marking section incomplete:', sectionId, reason);
+      alert('Section completion management - Coming soon!');
+      // await this.studyService.updateSectionCompletionStatus(sectionId, 'in_progress', reason);
+      // Refresh section data
+      if (this.selectedStudy?.id) {
+        await this.loadFormInstancesForStudy(this.selectedStudy.id);
+      }
+    } catch (error) {
+      console.error('Error marking section incomplete:', error);
+      alert('Failed to mark section as incomplete. Please try again.');
+    }
+  }
+
+  // Data Query Management
+  async loadDataQueriesForForm(formInstanceId: string): Promise<void> {
+    try {
+      // TODO: Implement getDataQueriesForForm in StudyService
+      console.log('Loading data queries for form:', formInstanceId);
+      // Placeholder implementation
+      this.dataQueries = [];
+      // this.studyService.getDataQueriesForForm(formInstanceId).subscribe((queries: DataQuery[]) => {
+      //   this.dataQueries = queries;
+      // });
+    } catch (error) {
+      console.error('Error loading data queries:', error);
+    }
+  }
+
+  async resolveDataQuery(queryId: string, resolution: string): Promise<void> {
+    try {
+      await this.studyService.resolveDataQuery(queryId, resolution);
+      console.log('Data query resolved:', queryId);
+      // Refresh queries
+      const currentFormInstance = this.formInstances.find(fi => 
+        this.dataQueries.some(q => q.formInstanceId === fi.id)
+      );
+      if (currentFormInstance?.id) {
+        await this.loadDataQueriesForForm(currentFormInstance.id);
+      }
+    } catch (error) {
+      console.error('Error resolving data query:', error);
+      alert('Failed to resolve data query. Please try again.');
+    }
+  }
+
+  // Helper Methods
+  getFormInstancesForSection(sectionId: string): StudyFormInstance[] {
+    return this.formInstances.filter(fi => fi.sectionId === sectionId);
+  }
+
+  getSectionCompletionPercentage(sectionId: string): number {
+    const sectionForms = this.getFormInstancesForSection(sectionId);
+    if (sectionForms.length === 0) return 0;
+    
+    const totalCompletion = sectionForms.reduce((sum, form) => sum + (form.completionPercentage || 0), 0);
+    return Math.round(totalCompletion / sectionForms.length);
+  }
+
+  isSectionComplete(sectionId: string): boolean {
+    const sectionForms = this.getFormInstancesForSection(sectionId);
+    return sectionForms.length > 0 && sectionForms.every(form => form.completionPercentage === 100);
+  }
+
+  getActiveDataQueriesCount(): number {
+    return this.dataQueries.filter(q => q.status === 'open').length;
+  }
+
+  trackSubstudy(index: number, substudy: Substudy): string {
+    return substudy.id || `substudy-${index}`;
+  }
+
+  trackStudyGroup(index: number, group: StudyGroup): string {
+    return group.id || `group-${index}`;
+  }
+
+  trackFormInstance(index: number, instance: StudyFormInstance): string {
+    return instance.id || `instance-${index}`;
+  }
+
+  trackSection(index: number, section: EnhancedStudySection): string {
+    return section.id || `section-${index}`;
+  }
+
+  // Additional helper methods for UI
+  getTotalCareAlerts(): number {
+    return this.careIndicators.filter(indicator => indicator.status === 'open').length;
+  }
+
+  resolveCareIndicator(indicator: CareIndicator): void {
+    console.log('Resolving care indicator:', indicator.id);
+    // TODO: Implement care indicator resolution
+    alert('Care indicator resolution - Coming soon!');
+  }
+
 }

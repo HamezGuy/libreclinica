@@ -26,7 +26,7 @@ interface AuditEntry {
  * @param {https.Request} req The request object.
  * @param {https.Response} res The response object.
  */
-export const logAuditEvent = onCall({cors: true}, async (request) => {
+export const logAuditEvent = onCall({cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"]}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
   }
@@ -77,7 +77,7 @@ export const logAuditEvent = onCall({cors: true}, async (request) => {
  * @param {https.Request} req The request object.
  * @param {https.Response} res The response object.
  */
-export const queryAuditLogs = onCall({cors: true}, async (request) => {
+export const queryAuditLogs = onCall({cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"]}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
   }
@@ -111,7 +111,7 @@ export const queryAuditLogs = onCall({cors: true}, async (request) => {
 /**
  * Export audit logs function
  */
-export const exportAuditLogs = onCall({cors: true}, async (request) => {
+export const exportAuditLogs = onCall({cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"]}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
   }
