@@ -1,0 +1,303 @@
+<!-- Study Creation Modal -->
+<div class="modal-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content large-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Create New Study</h2>
+      <button class="close-button" (click)="closeStudyCreationModal()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    
+    <form [formGroup]="studyCreationForm" class="study-creation-form">
+      <div class="modal-body">
+        <!-- Basic Information Section -->
+        <div class="form-section">
+          <h3>Basic Information</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="protocolNumber">Protocol Number <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="protocolNumber" 
+                formControlName="protocolNumber"
+                placeholder="e.g., STUDY-2024-001"
+                class="form-control">
+              <div class="error-message" *ngIf="studyCreationForm.get('protocolNumber')?.touched && studyCreationForm.get('protocolNumber')?.errors">
+                <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['required']">Protocol number is required</span>
+                <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['pattern']">Use uppercase letters, numbers, and hyphens only</span>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="version">Version <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="version" 
+                formControlName="version"
+                placeholder="1.0"
+                class="form-control">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="title">Study Title <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="title" 
+              formControlName="title"
+              placeholder="Enter the full study title"
+              class="form-control">
+            <div class="error-message" *ngIf="studyCreationForm.get('title')?.touched && studyCreationForm.get('title')?.errors">
+              <span *ngIf="studyCreationForm.get('title')?.errors?.['required']">Title is required</span>
+              <span *ngIf="studyCreationForm.get('title')?.errors?.['minlength']">Title must be at least 5 characters</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="shortTitle">Short Title</label>
+            <input 
+              type="text" 
+              id="shortTitle" 
+              formControlName="shortTitle"
+              placeholder="Brief title or acronym"
+              class="form-control">
+          </div>
+          
+          <div class="form-group">
+            <label for="description">Description <span class="required">*</span></label>
+            <textarea 
+              id="description" 
+              formControlName="description"
+              placeholder="Provide a detailed description of the study"
+              class="form-control"
+              rows="4"></textarea>
+            <div class="error-message" *ngIf="studyCreationForm.get('description')?.touched && studyCreationForm.get('description')?.errors">
+              <span *ngIf="studyCreationForm.get('description')?.errors?.['required']">Description is required</span>
+              <span *ngIf="studyCreationForm.get('description')?.errors?.['minlength']">Description must be at least 20 characters</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Study Classification Section -->
+        <div class="form-section">
+          <h3>Study Classification</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phase">Study Phase <span class="required">*</span></label>
+              <select id="phase" formControlName="phase" class="form-control">
+                <option value="phase_i">Phase I</option>
+                <option value="phase_ii">Phase II</option>
+                <option value="phase_iii">Phase III</option>
+                <option value="phase_iv">Phase IV</option>
+                <option value="pre_clinical">Pre-Clinical</option>
+                <option value="pilot">Pilot Study</option>
+                <option value="feasibility">Feasibility Study</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="studyType">Study Type <span class="required">*</span></label>
+              <select id="studyType" formControlName="studyType" class="form-control">
+                <option value="interventional">Interventional</option>
+                <option value="observational">Observational</option>
+                <option value="registry">Registry</option>
+                <option value="expanded_access">Expanded Access</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="therapeuticArea">Therapeutic Area <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="therapeuticArea" 
+                formControlName="therapeuticArea"
+                placeholder="e.g., Oncology, Cardiology"
+                class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="indication">Indication <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="indication" 
+                formControlName="indication"
+                placeholder="e.g., Type 2 Diabetes"
+                class="form-control">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Timeline and Status Section -->
+        <div class="form-section">
+          <h3>Timeline and Status</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="status">Study Status <span class="required">*</span></label>
+              <select id="status" formControlName="status" class="form-control">
+                <option value="planning">Planning</option>
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="plannedEnrollment">Planned Enrollment <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="plannedEnrollment" 
+                formControlName="plannedEnrollment"
+                min="1"
+                class="form-control">
+              <div class="error-message" *ngIf="studyCreationForm.get('plannedEnrollment')?.touched && studyCreationForm.get('plannedEnrollment')?.errors">
+                <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['required']">Planned enrollment is required</span>
+                <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['min']">Must be at least 1</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="plannedStartDate">Planned Start Date</label>
+              <input 
+                type="date" 
+                id="plannedStartDate" 
+                formControlName="plannedStartDate"
+                class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="plannedEndDate">Planned End Date</label>
+              <input 
+                type="date" 
+                id="plannedEndDate" 
+                formControlName="plannedEndDate"
+                class="form-control">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Study Team Section -->
+        <div class="form-section">
+          <h3>Study Team</h3>
+          <div class="form-group">
+            <label for="principalInvestigator">Principal Investigator</label>
+            <input 
+              type="text" 
+              id="principalInvestigator" 
+              formControlName="principalInvestigator"
+              placeholder="Name of PI"
+              class="form-control">
+          </div>
+          
+          <div class="form-group">
+            <label for="studyCoordinator">Study Coordinator</label>
+            <input 
+              type="text" 
+              id="studyCoordinator" 
+              formControlName="studyCoordinator"
+              placeholder="Name of coordinator"
+              class="form-control">
+          </div>
+          
+          <div class="form-group">
+            <label for="dataManager">Data Manager</label>
+            <input 
+              type="text" 
+              id="dataManager" 
+              formControlName="dataManager"
+              placeholder="Name of data manager"
+              class="form-control">
+          </div>
+        </div>
+        
+        <!-- Regulatory & Compliance Section -->
+        <div class="form-section">
+          <h3>Regulatory & Compliance</h3>
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="irbApprovalRequired">
+                <span class="checkbox-label">IRB Approval Required</span>
+              </label>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="consentRequired">
+                <span class="checkbox-label">Informed Consent Required</span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="requiresElectronicSignatures">
+                <span class="checkbox-label">Electronic Signatures Required</span>
+              </label>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="auditTrailRequired">
+                <span class="checkbox-label">Audit Trail Required</span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dataIntegrityLevel">Data Integrity Level <span class="required">*</span></label>
+              <select id="dataIntegrityLevel" formControlName="dataIntegrityLevel" class="form-control">
+                <option value="basic">Basic</option>
+                <option value="enhanced">Enhanced</option>
+                <option value="maximum">Maximum</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="dataRetentionPeriod">Data Retention Period (months) <span class="required">*</span></label>
+              <input 
+                type="number" 
+                id="dataRetentionPeriod" 
+                formControlName="dataRetentionPeriod"
+                min="12"
+                placeholder="120"
+                class="form-control">
+              <div class="error-message" *ngIf="studyCreationForm.get('dataRetentionPeriod')?.touched && studyCreationForm.get('dataRetentionPeriod')?.errors">
+                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['required']">Retention period is required</span>
+                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['min']">Must be at least 12 months</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeStudyCreationModal()">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="saveNewStudy()"
+          [disabled]="!studyCreationForm.valid || isCreatingStudy">
+          <span *ngIf="isCreatingStudy">Creating...</span>
+          <span *ngIf="!isCreatingStudy">Create Study</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

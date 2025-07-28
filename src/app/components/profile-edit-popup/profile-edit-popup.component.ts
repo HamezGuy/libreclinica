@@ -144,10 +144,10 @@ export class ProfileEditPopupComponent implements OnInit {
     this.closePopup.emit();
   }
 
+  // Prevent closing by clicking outside
   onBackdropClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      this.onClose();
-    }
+    event.stopPropagation();
+    // Do nothing - modal can only be closed via X button
   }
 
   // Helper method to get display name for enum values

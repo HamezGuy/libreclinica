@@ -15,6 +15,7 @@ import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { TemplateManagementComponent } from '../template-management/template-management.component';
+import { CreateStudyWidgetComponent } from '../create-study-widget/create-study-widget.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -74,7 +75,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -118,8 +119,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showFormAssignmentModal = false;
   showSectionModal = false;
   showStudyCreationModal = false;
-  studyCreationForm!: FormGroup;
-  isCreatingStudy = false;
   
   // Form assignment state
   availableTemplates: FormTemplate[] = [];
@@ -179,7 +178,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Initialize study creation form
-    this.initializeStudyCreationForm();
+
     
     // First ensure permissions are set up before any API calls
     this.setupPermissions().then(() => {
@@ -305,53 +304,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return age;
   }
 
-  private initializeStudyCreationForm(): void {
-    this.studyCreationForm = this.fb.group({
-      // Basic Information
-      protocolNumber: ['', [Validators.required, Validators.pattern(/^[A-Z0-9-]+$/)]], 
-      title: ['', [Validators.required, Validators.minLength(5)]],
-      shortTitle: [''],
-      description: ['', [Validators.required, Validators.minLength(20)]],
-      version: ['1.0', Validators.required],
-      
-      // Study Classification
-      phase: ['phase_i', Validators.required],
-      studyType: ['interventional', Validators.required],
-      therapeuticArea: ['', Validators.required],
-      indication: ['', Validators.required],
-      
-      // Study Status and Timeline
-      status: ['planning', Validators.required],
-      plannedStartDate: [''],
-      plannedEndDate: [''],
-      
-      // Enrollment Information
-      plannedEnrollment: [0, [Validators.required, Validators.min(1)]],
-      actualEnrollment: [0],
-      enrollmentStatus: ['not_started'],
-      
-      // Regulatory Information
-      regulatoryRequirements: [[]],
-      irbApprovalRequired: [true],
-      consentRequired: [true],
-      
-      // CFR 21 Part 11 Compliance
-      requiresElectronicSignatures: [true],
-      auditTrailRequired: [true],
-      dataIntegrityLevel: ['enhanced', Validators.required],
-      
-      // Data Retention
-      dataRetentionPeriod: [120, [Validators.required, Validators.min(12)]], // in months
-      
-      // Study Team
-      principalInvestigator: [''],
-      studyCoordinator: [''],
-      dataManager: [''],
-      
-      // Tags
-      tags: [[]]
-    });
-  }
+
 
   private getPatientDisplayName(patient: PatientListItem): string {
     const displayName = patient.displayName;
@@ -450,6 +403,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   closeFormBuilder(): void {
+    // For form builder, we'll rely on the form builder component itself to handle unsaved changes
+    // since it has its own form state management. This method is called after confirmation.
     this.showFormBuilderModal = false;
     this.selectedTemplateForEdit = null;
     this.formBuilderTemplateId = undefined;
@@ -762,22 +717,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     
     console.log('Permissions check passed, opening modal');
-    // Reset form and open modal
-    this.studyCreationForm.reset({
-      phase: 'phase_i',
-      studyType: 'interventional',
-      status: 'planning',
-      enrollmentStatus: 'not_started',
-      plannedEnrollment: 0,
-      actualEnrollment: 0,
-      irbApprovalRequired: true,
-      consentRequired: true,
-      requiresElectronicSignatures: true,
-      auditTrailRequired: true,
-      dataIntegrityLevel: 'enhanced',
-      dataRetentionPeriod: 120 // 10 years default
-    });
-    
+    // Open the Create Study widget modal
     this.showStudyCreationModal = true;
     console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
   }
@@ -821,6 +761,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   closePatientTemplateModal(): void {
+    // No confirmation needed for template selection modal
     this.showPatientTemplateModal = false;
     this.selectedPatientTemplate = null;
   }
@@ -869,6 +810,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   closePatientFormModal(): void {
+    // Check if form has unsaved changes
+    if (this.patientForm.dirty && !this.patientForm.pristine) {
+      const confirmClose = confirm(
+        'You have unsaved changes in the patient form. Are you sure you want to close without saving?\n\n' +
+        'Click "OK" to close without saving, or "Cancel" to continue editing.'
+      );
+      
+      if (!confirmClose) {
+        return; // Don't close the modal
+      }
+    }
+    
     this.showPatientFormModal = false;
     this.patientForm.reset();
   }
@@ -1090,73 +1043,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return study.id || `study-${index}`;
   }
 
-  async saveNewStudy(): Promise<void> {
-    if (this.studyCreationForm.invalid) {
-      // Mark all fields as touched to show validation errors
-      Object.keys(this.studyCreationForm.controls).forEach(key => {
-        this.studyCreationForm.get(key)?.markAsTouched();
-      });
-      return;
-    }
 
-    this.isCreatingStudy = true;
-    
-    try {
-      const formValue = this.studyCreationForm.value;
-      
-      // Create the study object
-      const newStudy: Study = {
-        ...formValue,
-        sections: [], // Initialize empty sections
-        substudies: [],
-        studyGroups: [],
-        eligibilityCriteria: {
-          inclusionCriteria: [],
-          exclusionCriteria: [],
-          ageRange: {
-            minimum: 18,
-            maximum: 99,
-            unit: 'years'
-          },
-          genderRestriction: 'any'
-        },
-        sites: [],
-        archivalRequirements: [],
-        changeHistory: [],
-        createdBy: this.currentUserProfile?.uid || 'unknown',
-        createdAt: new Date(),
-        lastModifiedBy: this.currentUserProfile?.uid || 'unknown',
-        lastModifiedAt: new Date()
-      };
-
-      // Save to Firebase via StudyService
-      const savedStudy = await this.studyService.createStudy(newStudy);
-      
-      // Success - close modal and refresh studies list
-      this.showStudyCreationModal = false;
-      this.studyCreationForm.reset();
-      
-      // Show success message
-      alert(`Study "${savedStudy.title}" created successfully!`);
-      
-      // Refresh studies list
-      this.loadStudies();
-    } catch (error) {
-      console.error('Error creating study:', error);
-      alert('Failed to create study. Please try again.');
-    } finally {
-      this.isCreatingStudy = false;
-    }
-  }
-
-  closeStudyCreationModal(): void {
-    this.showStudyCreationModal = false;
-    this.studyCreationForm.reset();
-  }
 
   loadStudies(): void {
     // Refresh the studies list
     this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
+  // Create Study Widget Event Handlers
+  onStudyWidgetClosed(): void {
+    this.showStudyCreationModal = false;
+  }
+
+  onStudyCreated(study: Study): void {
+    console.log('Study created:', study);
+    // Study is already added to the list by the widget refresh call
+    // Just close the modal
+    this.showStudyCreationModal = false;
+  }
+
+  onRefreshStudies(): void {
+    this.loadStudies();
   }
 
   getSectionsForStudy(studyId: string): EnhancedStudySection[] {

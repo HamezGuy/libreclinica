@@ -1,0 +1,185 @@
+<!-- Form Assignment Modal -->
+<div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>
+        <i class="material-icons">assignment</i>
+        {{ isEditMode ? 'Edit' : 'Assign' }} Form to Study
+        <span class="study-name" *ngIf="study">{{ study.title }}</span>
+      </h2>
+      <button class="close-button" (click)="onClose()" [disabled]="isSubmitting">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <form [formGroup]="assignmentForm" (ngSubmit)="onSubmit()">
+        <div class="form-group">
+          <label for="formTemplateId">
+            Form Template
+            <span class="required">*</span>
+          </label>
+          <select 
+            id="formTemplateId"
+            formControlName="formTemplateId"
+            class="form-control"
+            [class.error]="assignmentForm.get('formTemplateId')?.invalid && assignmentForm.get('formTemplateId')?.touched">
+            <option value="">Select a form template...</option>
+            <option *ngFor="let template of availableTemplates" [value]="template.id">
+              {{ template.name }} ({{ template.category }})
+            </option>
+          </select>
+          <div class="error-message" *ngIf="assignmentForm.get('formTemplateId')?.invalid && assignmentForm.get('formTemplateId')?.touched">
+            <span *ngIf="assignmentForm.get('formTemplateId')?.errors?.['required']">Form template is required</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="sectionId">
+            Study Section
+            <span class="required">*</span>
+          </label>
+          <select 
+            id="sectionId"
+            formControlName="sectionId"
+            class="form-control"
+            [class.error]="assignmentForm.get('sectionId')?.invalid && assignmentForm.get('sectionId')?.touched">
+            <option value="">Select a section...</option>
+            <option *ngFor="let section of filteredSections" [value]="section.id">
+              {{ section.name }}
+            </option>
+          </select>
+          <div class="error-message" *ngIf="assignmentForm.get('sectionId')?.invalid && assignmentForm.get('sectionId')?.touched">
+            <span *ngIf="assignmentForm.get('sectionId')?.errors?.['required']">Study section is required</span>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="assignmentType">
+              Assignment Type
+              <span class="required">*</span>
+            </label>
+            <select 
+              id="assignmentType"
+              formControlName="assignmentType"
+              class="form-control"
+              [class.error]="assignmentForm.get('assignmentType')?.invalid && assignmentForm.get('assignmentType')?.touched">
+              <option *ngFor="let type of assignmentTypes" [value]="type.value">
+                {{ type.label }}
+              </option>
+            </select>
+            <div class="error-message" *ngIf="assignmentForm.get('assignmentType')?.invalid && assignmentForm.get('assignmentType')?.touched">
+              <span *ngIf="assignmentForm.get('assignmentType')?.errors?.['required']">Assignment type is required</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="frequency">
+              Frequency
+              <span class="required">*</span>
+            </label>
+            <select 
+              id="frequency"
+              formControlName="frequency"
+              class="form-control"
+              [class.error]="assignmentForm.get('frequency')?.invalid && assignmentForm.get('frequency')?.touched">
+              <option *ngFor="let freq of frequencies" [value]="freq.value">
+                {{ freq.label }}
+              </option>
+            </select>
+            <div class="error-message" *ngIf="assignmentForm.get('frequency')?.invalid && assignmentForm.get('frequency')?.touched">
+              <span *ngIf="assignmentForm.get('frequency')?.errors?.['required']">Frequency is required</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group" *ngIf="showConditionField">
+          <label for="condition">
+            Condition
+            <span class="required">*</span>
+          </label>
+          <textarea 
+            id="condition"
+            formControlName="condition"
+            class="form-control"
+            rows="3"
+            placeholder="Describe the condition that must be met for this form to be assigned"
+            [class.error]="assignmentForm.get('condition')?.invalid && assignmentForm.get('condition')?.touched">
+          </textarea>
+          <div class="error-message" *ngIf="assignmentForm.get('condition')?.invalid && assignmentForm.get('condition')?.touched">
+            <span *ngIf="assignmentForm.get('condition')?.errors?.['required']">Condition is required for conditional assignments</span>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="order">
+              Display Order
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="number"
+              id="order"
+              formControlName="order"
+              class="form-control"
+              placeholder="1"
+              min="1"
+              [class.error]="assignmentForm.get('order')?.invalid && assignmentForm.get('order')?.touched">
+            <div class="error-message" *ngIf="assignmentForm.get('order')?.invalid && assignmentForm.get('order')?.touched">
+              <span *ngIf="assignmentForm.get('order')?.errors?.['required']">Display order is required</span>
+              <span *ngIf="assignmentForm.get('order')?.errors?.['min']">Display order must be at least 1</span>
+            </div>
+          </div>
+          
+          <div class="form-group" *ngIf="showDueAfterField">
+            <label for="dueAfterDays">
+              Due After (Days)
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="number"
+              id="dueAfterDays"
+              formControlName="dueAfterDays"
+              class="form-control"
+              placeholder="0"
+              min="0"
+              [class.error]="assignmentForm.get('dueAfterDays')?.invalid && assignmentForm.get('dueAfterDays')?.touched">
+            <div class="error-message" *ngIf="assignmentForm.get('dueAfterDays')?.invalid && assignmentForm.get('dueAfterDays')?.touched">
+              <span *ngIf="assignmentForm.get('dueAfterDays')?.errors?.['required']">Due after days is required</span>
+              <span *ngIf="assignmentForm.get('dueAfterDays')?.errors?.['min']">Due after days cannot be negative</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="info-box">
+          <i class="material-icons">info</i>
+          <div class="info-content">
+            <p><strong>Assignment Types:</strong></p>
+            <ul>
+              <li><strong>Required:</strong> Form must be completed by all participants</li>
+              <li><strong>Optional:</strong> Form is available but not mandatory</li>
+              <li><strong>Conditional:</strong> Form is assigned based on specific criteria</li>
+            </ul>
+          </div>
+        </div>
+      </form>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
+        Cancel
+      </button>
+      <button 
+        class="btn btn-primary" 
+        (click)="onSubmit()"
+        [disabled]="assignmentForm.invalid || isSubmitting">
+        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Assign' }} Form</span>
+        <span *ngIf="isSubmitting">
+          <i class="material-icons spin">refresh</i>
+          {{ isEditMode ? 'Updating' : 'Assigning' }}...
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
