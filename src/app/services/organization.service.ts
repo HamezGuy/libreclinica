@@ -55,6 +55,9 @@ export class OrganizationService {
         this.loadOrganization(user.organization);
       }
     });
+    
+    // Ensure default test organization exists
+    this.ensureDefaultTestOrganization();
   }
 
   // Organization CRUD Operations
@@ -287,6 +290,112 @@ export class OrganizationService {
     });
 
     await this.addAuditEntry(organizationId, 'study_access_revoked', `Study access revoked for ${studyId}`);
+  }
+
+  // Default Test Organization Management
+  async ensureDefaultTestOrganization(): Promise<void> {
+    try {
+      const defaultOrgId = 'test-org-default';
+      const existingOrg = await this.getOrganization(defaultOrgId);
+      
+      if (!existingOrg) {
+        console.log('Creating default test organization...');
+        await this.createDefaultTestOrganization();
+      }
+    } catch (error) {
+      console.error('Error ensuring default test organization:', error);
+    }
+  }
+
+  async createDefaultTestOrganization(): Promise<string> {
+    const defaultOrgId = 'test-org-default';
+    const verificationKey = 'TEST-ORG-2024';
+    const adminKey = 'ADMIN-TEST-2024';
+
+    const defaultOrg: Organization = {
+      id: defaultOrgId,
+      name: 'test-organization',
+      displayName: 'Test Research Organization',
+      type: 'research_institution',
+      tier: 'enterprise',
+      status: 'active',
+      verificationKey,
+      adminKey,
+      contactInfo: {
+        email: 'admin@test-org.com',
+        phone: '+1-555-0123',
+        website: 'https://test-org.example.com',
+        address: {
+          street: '123 Research Blvd',
+          city: 'Test City',
+          state: 'TC',
+          postalCode: '12345',
+          country: 'USA'
+        }
+      },
+      settings: {
+        allowSelfRegistration: true,
+        requireAdminApproval: false, // For testing, auto-approve
+        maxUsers: 1000,
+        maxStudies: 100,
+        allowedStudyTypes: ['interventional', 'observational'],
+        dataRetentionDays: 2555,
+        requireMFA: false,
+        passwordPolicy: {
+          minLength: 8,
+          requireUppercase: true,
+          requireLowercase: true,
+          requireNumbers: true,
+          requireSpecialChars: false,
+          expirationDays: 0,
+          preventReuse: 3
+        },
+        sessionTimeout: 3600
+      },
+      studyAccess: {
+        defaultStudyAccess: AccessLevel.ADMIN,
+        studyRestrictions: [],
+        allowCrossStudyAccess: true
+      },
+      compliance: {
+        hipaaCompliant: true,
+        gdprCompliant: true,
+        cfr21Part11: true,
+        iso27001: false,
+        customCertifications: ['HIPAA', '21 CFR Part 11', 'GDPR']
+      },
+      admins: [],
+      superAdmins: [],
+      createdAt: serverTimestamp() as any,
+      updatedAt: serverTimestamp() as any,
+      createdBy: 'system',
+      updatedBy: 'system',
+      auditTrail: [],
+      metadata: {
+        description: 'Default test organization for development and testing',
+        tags: ['test', 'development'],
+        customFields: {}
+      }
+    };
+
+    const orgRef = doc(this.firestore, `organizations/${defaultOrgId}`);
+    await setDoc(orgRef, defaultOrg);
+    
+    console.log('Default test organization created successfully');
+    return defaultOrgId;
+  }
+
+  async getAvailableOrganizations(): Promise<Organization[]> {
+    // For now, return organizations that allow self-registration
+    const orgsRef = collection(this.firestore, 'organizations');
+    const q = query(
+      orgsRef, 
+      where('settings.allowSelfRegistration', '==', true),
+      where('status', '==', 'active')
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
   }
 
   // User Permissions and Validation

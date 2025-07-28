@@ -249,11 +249,13 @@ export class HealthcareApiService {
         `Searching patients with params: ${JSON.stringify(params)}`
       );
 
-      const searchPatientsFn = httpsCallable<any, {entry: Array<{resource: Patient}>}>(
-        this.functions, 
-        'searchPatients'
-      );
-      const result = await searchPatientsFn(params);
+      const result = await runInInjectionContext(this.injector, async () => {
+        const searchPatientsFn = httpsCallable<any, {entry: Array<{resource: Patient}>}>(
+          this.functions, 
+          'searchPatients'
+        );
+        return await searchPatientsFn(params);
+      });
       
       return result.data.entry?.map(e => e.resource) || [];
     } catch (error) {
@@ -274,11 +276,13 @@ export class HealthcareApiService {
         `Creating observation: ${observation.code.coding[0].display}`
       );
 
-      const createObservationFn = httpsCallable<Observation, Observation>(
-        this.functions, 
-        'createObservation'
-      );
-      const result = await createObservationFn(observation);
+      const result = await runInInjectionContext(this.injector, async () => {
+        const createObservationFn = httpsCallable<Observation, Observation>(
+          this.functions, 
+          'createObservation'
+        );
+        return await createObservationFn(observation);
+      });
       
       return result.data;
     } catch (error) {
@@ -372,11 +376,13 @@ export class HealthcareApiService {
         'Exporting patient data for portability request'
       );
 
-      const exportDataFn = httpsCallable<{patientId: string}, any>(
-        this.functions, 
-        'exportPatientData'
-      );
-      const result = await exportDataFn({ patientId });
+      const result = await runInInjectionContext(this.injector, async () => {
+        const exportDataFn = httpsCallable<{patientId: string}, any>(
+          this.functions, 
+          'exportPatientData'
+        );
+        return await exportDataFn({ patientId });
+      });
       
       return result.data;
     } catch (error) {

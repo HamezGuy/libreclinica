@@ -75,11 +75,47 @@ export class EdcCompliantAuthService {
 
   constructor() {
     // Monitor auth state changes
-    this.auth.onAuthStateChanged((user) => {
-      this.authStateSubject.next(user);
+    this.auth.onAuthStateChanged(async (user) => {
       if (user) {
-        this.startSessionTimer();
+        try {
+          // Ensure user profile exists and is properly loaded
+          let userProfile = await this.getUserProfile(user.uid);
+          
+          if (!userProfile) {
+            console.log('Auto-login: User profile not found, creating one...');
+            userProfile = await this.createUserProfile(user, {
+              displayName: user.displayName || user.email?.split('@')[0] || 'User',
+              email: user.email,
+              role: AccessLevel.ADMIN // Default to ADMIN for auto-created profiles
+            });
+          }
+          
+          // Verify required fields exist
+          if (!userProfile.accessLevel || !userProfile.status) {
+            console.warn('User profile missing required fields, updating...');
+            await this.updateUserProfile(user.uid, {
+              accessLevel: userProfile.accessLevel || AccessLevel.ADMIN,
+              status: userProfile.status || UserStatus.ACTIVE
+            });
+          }
+          
+          // Only set auth state after profile is verified
+          this.authStateSubject.next(user);
+          this.startSessionTimer();
+          
+          console.log('Auth state initialized with user profile:', {
+            uid: user.uid,
+            email: user.email,
+            accessLevel: userProfile.accessLevel,
+            status: userProfile.status
+          });
+        } catch (error) {
+          console.error('Error during auto-login profile check:', error);
+          // Don't set auth state if profile check fails
+          this.authStateSubject.next(null);
+        }
       } else {
+        this.authStateSubject.next(null);
         this.clearSessionTimer();
         this.currentSessionId = null;
       }
@@ -98,13 +134,11 @@ export class EdcCompliantAuthService {
         throw new Error('Email domain is not allowed.');
       }
 
-      let userProfile = await this.getUserProfile(user.uid);
-
+      // Ensure user profile exists and has all required fields
+      const userProfile = await this.ensureUserProfile(user);
+      
       if (!userProfile) {
-        userProfile = await this.createUserProfile(user);
-        this.publishUserCreatedEvent(userProfile);
-      } else {
-        await this.updateLastLogin(user.uid);
+        throw new Error('Failed to create or load user profile');
       }
 
       if (userProfile.status !== UserStatus.ACTIVE) {
@@ -114,6 +148,7 @@ export class EdcCompliantAuthService {
         throw new Error(reason);
       }
 
+      await this.updateLastLogin(user.uid);
       this.currentSessionId = this.generateSessionId();
       this.publishLoginEvent(userProfile);
       this.zone.run(() => this.router.navigate(['/dashboard']));
@@ -124,18 +159,29 @@ export class EdcCompliantAuthService {
     }
   }
 
-  async register(registrationData: any): Promise<void> {
+  async register(registrationData: {
+    email: string;
+    password: string;
+    displayName: string;
+    organization?: string;
+    role?: AccessLevel;
+  }): Promise<void> {
     if (!this.isEmailAllowed(registrationData.email)) {
         throw new Error('Email domain is not allowed.');
     }
     try {
-      const credential = await createUserWithEmailAndPassword(
-        this.auth,
-        registrationData.email,
-        registrationData.password
+      const credential = await runInInjectionContext(this.injector, async () =>
+        await createUserWithEmailAndPassword(
+          this.auth,
+          registrationData.email,
+          registrationData.password
+        )
       );
       const user = credential.user;
-      const userProfile = await this.createUserProfile(user, registrationData);
+      const userProfile = await this.createUserProfile(user, {
+        ...registrationData,
+        agreedToTerms: true
+      });
       this.publishUserCreatedEvent(userProfile);
       this.currentSessionId = this.generateSessionId();
       this.publishLoginEvent(userProfile, 'password');
@@ -160,15 +206,11 @@ export class EdcCompliantAuthService {
       );
       const user = userCredential.user;
 
-      let userProfile = await this.getUserProfile(user.uid);
-
+      // Ensure user profile exists and has all required fields
+      const userProfile = await this.ensureUserProfile(user);
+      
       if (!userProfile) {
-        // Create user profile if it doesn't exist (for users created directly in Firebase Auth)
-        console.log('User profile not found, creating one...');
-        userProfile = await this.createUserProfile(user, {
-          displayName: user.displayName || user.email?.split('@')[0] || 'User',
-          email: user.email
-        });
+        throw new Error('Failed to create or load user profile');
       }
 
       if (userProfile.status === UserStatus.SUSPENDED || userProfile.status === UserStatus.INACTIVE) {
@@ -356,8 +398,56 @@ export class EdcCompliantAuthService {
   async getCurrentUserProfile(): Promise<UserProfile | null> {
     const currentUser = this.auth.currentUser;
     if (!currentUser) return null;
-    const profile = await this.getUserProfile(currentUser.uid);
-    return profile ?? null;
+    
+    // Ensure profile exists and has required fields
+    const profile = await this.ensureUserProfile(currentUser);
+    return profile;
+  }
+  
+  /**
+   * Ensures user profile exists and has all required fields
+   * This prevents "User role undefined" errors in Cloud Functions
+   */
+  private async ensureUserProfile(user: User): Promise<UserProfile | null> {
+    try {
+      let userProfile = await this.getUserProfile(user.uid);
+      
+      if (!userProfile) {
+        console.log('ensureUserProfile: Creating missing profile for user:', user.uid);
+        userProfile = await this.createUserProfile(user, {
+          displayName: user.displayName || user.email?.split('@')[0] || 'User',
+          email: user.email,
+          role: AccessLevel.ADMIN // Default to ADMIN
+        });
+      }
+      
+      // Check for required fields
+      let needsUpdate = false;
+      const updates: Partial<UserProfile> = {};
+      
+      if (!userProfile.accessLevel) {
+        console.warn('User profile missing accessLevel, setting to ADMIN');
+        updates.accessLevel = AccessLevel.ADMIN;
+        needsUpdate = true;
+      }
+      
+      if (!userProfile.status) {
+        console.warn('User profile missing status, setting to ACTIVE');
+        updates.status = UserStatus.ACTIVE;
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await this.updateUserProfile(user.uid, updates);
+        // Fetch updated profile
+        userProfile = await this.getUserProfile(user.uid);
+      }
+      
+      return userProfile ?? null;
+    } catch (error) {
+      console.error('Error ensuring user profile:', error);
+      return null;
+    }
   }
 
   async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {

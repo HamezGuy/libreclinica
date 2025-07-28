@@ -174,12 +174,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   activeSidebarItem = 'patients';
 
   ngOnInit(): void {
-    this.loadPatients();
-    this.setupPermissions();
+    // First ensure permissions are set up before any API calls
+    this.setupPermissions().then(() => {
+      // Only load data after permissions are confirmed
+      this.loadPatients();
+      
+      // Load care indicators
+      this.studyService.getCareIndicators().pipe(takeUntil(this.destroy$)).subscribe(indicators => {
+        this.careIndicators = indicators;
+      });
+    }).catch(error => {
+      console.error('Failed to setup permissions:', error);
+      // Don't load data if permissions setup fails
+    });
     
     // Subscribe to current user profile changes
     this.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
       this.currentUserProfile = profile;
+      // Re-setup permissions when profile changes
+      if (profile) {
+        this.setupPermissions();
+      }
     });
     
     // Initialize template data for the enhanced modal
@@ -192,11 +207,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.studies$.pipe(takeUntil(this.destroy$)).subscribe(studies => {
       this.studies = studies;
     });
-    
-    // Load care indicators
-    this.studyService.getCareIndicators().pipe(takeUntil(this.destroy$)).subscribe(indicators => {
-      this.careIndicators = indicators;
-    });
   }
 
   ngOnDestroy(): void {
@@ -207,6 +217,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private async setupPermissions(): Promise<void> {
     try {
       const userProfile = await this.authService.getCurrentUserProfile();
+      console.log('🔐 Setting up permissions for user:', {
+        email: userProfile?.email,
+        accessLevel: userProfile?.accessLevel,
+        status: userProfile?.status
+      });
+      
       this.permissions = {
         canView: userProfile?.accessLevel !== AccessLevel.DATA_ENTRY,
         canCreate: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN, AccessLevel.INVESTIGATOR].includes(userProfile?.accessLevel || AccessLevel.VIEWER),
@@ -214,8 +230,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
         canDelete: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userProfile?.accessLevel || AccessLevel.VIEWER),
         canPublish: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userProfile?.accessLevel || AccessLevel.VIEWER)
       };
+      
+      console.log('✅ Permissions set:', this.permissions);
     } catch (error) {
-      console.error('Error setting up permissions:', error);
+      console.error('❌ Error setting up permissions:', error);
+      // Set default safe permissions if user profile fails to load
+      this.permissions = {
+        canView: false,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canPublish: false
+      };
     }
   }
 

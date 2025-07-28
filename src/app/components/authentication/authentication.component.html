@@ -115,6 +115,51 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <div class="input-group">
+              <mat-form-field appearance="fill" class="modern-input">
+                <mat-label>Organization</mat-label>
+                <mat-select formControlName="organizationId" required>
+                  <mat-option *ngFor="let org of availableOrganizations" [value]="org.id">
+                    {{ org.displayName }}
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="registerForm.get('organizationId')?.hasError('required')">Please select an organization</mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="input-group">
+              <mat-form-field appearance="fill" class="modern-input">
+                <mat-label>Access Level</mat-label>
+                <mat-select formControlName="accessLevel" required>
+                  <mat-option value="SUPER_ADMIN">
+                    <mat-icon>admin_panel_settings</mat-icon>
+                    Super Admin - Full system access
+                  </mat-option>
+                  <mat-option value="ADMIN">
+                    <mat-icon>shield</mat-icon>
+                    Admin - Organization management
+                  </mat-option>
+                  <mat-option value="INVESTIGATOR">
+                    <mat-icon>science</mat-icon>
+                    Investigator - Study management
+                  </mat-option>
+                  <mat-option value="MONITOR">
+                    <mat-icon>visibility</mat-icon>
+                    Monitor - Read-only access
+                  </mat-option>
+                  <mat-option value="DATA_ENTRY">
+                    <mat-icon>edit</mat-icon>
+                    Data Entry - Form submission only
+                  </mat-option>
+                </mat-select>
+                <mat-error *ngIf="registerForm.get('accessLevel')?.hasError('required')">Please select an access level</mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
           <button 
             mat-flat-button 
             type="submit" 
