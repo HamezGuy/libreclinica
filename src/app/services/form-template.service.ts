@@ -14,7 +14,8 @@ import {
   where, 
   orderBy,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  deleteField
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 
@@ -89,10 +90,22 @@ export class FormTemplateService {
 
     return from(getDocs(q)).pipe(
       map(snapshot => 
-        snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as FormTemplate))
+        snapshot.docs.map(doc => {
+          const data = doc.data();
+          // CRITICAL: Always use Firebase document ID, not the internal template ID
+          // The document data might have an 'id' field that we need to ignore
+          console.log('[getTemplatesForUser] Loading template:', {
+            firebaseDocId: doc.id,
+            internalId: data['id'],
+            templateName: data['name']
+          });
+          const template = {
+            ...data,
+            id: doc.id // This MUST be the Firebase document ID, overwriting any internal ID
+          } as FormTemplate;
+          console.log('[getTemplatesForUser] Final template ID:', template.id);
+          return template;
+        })
       )
     );
   }
@@ -121,8 +134,11 @@ export class FormTemplateService {
     }
 
     try {
+      // Remove id field to avoid conflicts with Firestore document ID
+      const { id, ...templateWithoutId } = template;
+      
       const templateData = {
-        ...template,
+        ...templateWithoutId,
         createdBy: currentUser.uid,
         lastModifiedBy: currentUser.uid,
         createdAt: serverTimestamp(),
@@ -212,8 +228,11 @@ export class FormTemplateService {
         changes: updates
       };
 
+      // Remove id field from updates to avoid conflicts
+      const { id, ...updatesWithoutId } = updates;
+      
       const updateData = {
-        ...updates,
+        ...updatesWithoutId,
         lastModifiedBy: currentUser.uid,
         updatedAt: serverTimestamp(),
         changeHistory: [
@@ -361,24 +380,40 @@ export class FormTemplateService {
 
   /**
    * Get a single form template by ID
+   * @param templateId The Firebase document ID (NOT the internal template ID)
+   * @important Always use the Firebase document ID for lookups, never the internal template.id field
    */
   async getTemplate(templateId: string): Promise<FormTemplate | null> {
     try {
+      console.log('[getTemplate] Fetching template with ID:', templateId);
       return await runInInjectionContext(this.injector, async () => {
         const templateRef = doc(this.firestore, 'formTemplates', templateId);
+        console.log('[getTemplate] Template reference path:', templateRef.path);
         const templateSnap = await getDoc(templateRef);
         
         if (!templateSnap.exists()) {
+          console.log('[getTemplate] Template document does not exist in Firestore');
           return null;
         }
         
-        return {
-          id: templateSnap.id,
-          ...templateSnap.data()
+        const data = templateSnap.data();
+        console.log('[getTemplate] Template data retrieved:', data);
+        
+        // CRITICAL: Always use Firebase document ID, not the internal template ID
+        // The document data might have an 'id' field that we need to overwrite
+        const template = {
+          ...data,
+          id: templateSnap.id // This MUST be the Firebase document ID, overwriting any internal ID
         } as FormTemplate;
+        
+        // Log both IDs to help debug any issues
+        console.log('[getTemplate] Firebase document ID:', templateSnap.id);
+        console.log('[getTemplate] Internal template ID (if any):', data['id']);
+        console.log('[getTemplate] Returning template with Firebase doc ID:', template.id);
+        return template;
       });
     } catch (error) {
-      console.error('Failed to get template:', error);
+      console.error('[getTemplate] Failed to get template:', error);
       throw error;
     }
   }
@@ -538,5 +573,47 @@ export class FormTemplateService {
             user.accessLevel === AccessLevel.SUPER_ADMIN || 
             user.accessLevel === AccessLevel.INVESTIGATOR ||
             user.accessLevel === AccessLevel.MONITOR);
+  }
+
+  /**
+   * Fix template IDs by removing internal id fields that conflict with document IDs
+   * This is a one-time migration to fix existing templates
+   */
+  async fixTemplateIds(): Promise<void> {
+    try {
+      console.log('[fixTemplateIds] Starting template ID fix...');
+      
+      const templatesRef = collection(this.firestore, 'formTemplates');
+      const snapshot = await getDocs(templatesRef);
+      
+      let fixedCount = 0;
+      
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        
+        // Check if the document has an internal 'id' field
+        if (data['id']) {
+          console.log(`[fixTemplateIds] Fixing template ${docSnap.id}: removing internal id field "${data['id']}"`);
+          
+          // Remove the id field from the document
+          await runInInjectionContext(this.injector, async () => {
+            const docRef = doc(this.firestore, 'formTemplates', docSnap.id);
+            await updateDoc(docRef, {
+              id: deleteField()
+            });
+          });
+          
+          fixedCount++;
+        }
+      }
+      
+      console.log(`[fixTemplateIds] Template ID fix complete. Fixed ${fixedCount} templates.`);
+      
+      // Reload templates after fixing
+      this.loadTemplates();
+    } catch (error) {
+      console.error('[fixTemplateIds] Error fixing template IDs:', error);
+      throw error;
+    }
   }
 }

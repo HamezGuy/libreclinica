@@ -29,26 +29,26 @@
         <button 
           type="button" 
           class="tab-btn" 
+          [class.active]="activeTab === 'information'"
+          (click)="switchTab('information')">
+          <span class="material-icons">info</span>
+          Form Information
+        </button>
+        <button 
+          type="button" 
+          class="tab-btn" 
           [class.active]="activeTab === 'design'"
-          (click)="activeTab = 'design'">
+          (click)="switchTab('design')">
           <span class="material-icons">design_services</span>
-          Design
+          Build Form
         </button>
         <button 
           type="button" 
           class="tab-btn" 
           [class.active]="activeTab === 'preview'"
-          (click)="activeTab = 'preview'">
+          (click)="switchTab('preview')">
           <span class="material-icons">preview</span>
           Preview
-        </button>
-        <button 
-          type="button" 
-          class="tab-btn" 
-          [class.active]="activeTab === 'settings'"
-          (click)="activeTab = 'settings'">
-          <span class="material-icons">settings</span>
-          Settings
         </button>
       </div>
     </div>
@@ -107,7 +107,168 @@
   <!-- Builder Content -->
   <div class="builder-content">
     
-    <!-- Design Tab -->
+    <!-- Form Information Tab (formerly Settings) -->
+    <div *ngIf="activeTab === 'information'" class="settings-panel">
+      <div class="settings-header">
+        <h3>
+          <span class="material-icons">info</span>
+          Form Information
+        </h3>
+      </div>
+      
+      <div class="settings-content">
+        <form [formGroup]="builderForm">
+          
+          <!-- Basic Settings -->
+          <div class="settings-section">
+            <h4>Basic Information</h4>
+            
+            <div class="form-group" [class.error]="builderForm.get('name')?.invalid && builderForm.get('name')?.touched">
+              <label for="template-name">Template Name <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="template-name" 
+                formControlName="name" 
+                placeholder="Enter template name"
+                class="form-control">
+              <span class="error-message" *ngIf="builderForm.get('name')?.invalid && builderForm.get('name')?.touched">
+                Template name is required (minimum 3 characters)
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label for="template-description">Description</label>
+              <textarea 
+                id="template-description" 
+                formControlName="description" 
+                rows="3" 
+                placeholder="Describe the purpose of this form template"
+                class="form-control"></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" [class.error]="builderForm.get('category')?.invalid && builderForm.get('category')?.touched">
+                <label for="template-category">Category <span class="required">*</span></label>
+                <select id="template-category" formControlName="category" class="form-control">
+                  <option value="">Select category</option>
+                  <option value="clinical">Clinical</option>
+                  <option value="administrative">Administrative</option>
+                  <option value="research">Research</option>
+                  <option value="survey">Survey</option>
+                  <option value="consent">Consent</option>
+                  <option value="other">Other</option>
+                </select>
+                <span class="error-message" *ngIf="builderForm.get('category')?.invalid && builderForm.get('category')?.touched">
+                  Please select a category
+                </span>
+              </div>
+
+              <div class="form-group" [class.error]="builderForm.get('version')?.invalid && builderForm.get('version')?.touched">
+                <label for="template-version">Version <span class="required">*</span></label>
+                <input 
+                  type="number" 
+                  id="template-version" 
+                  formControlName="version" 
+                  min="1" 
+                  step="1"
+                  class="form-control">
+                <span class="error-message" *ngIf="builderForm.get('version')?.invalid && builderForm.get('version')?.touched">
+                  Version is required
+                </span>
+              </div>
+            </div>
+
+            <div class="form-group" [class.error]="builderForm.get('templateType')?.invalid && builderForm.get('templateType')?.touched">
+              <label for="template-type">Template Type <span class="required">*</span></label>
+              <select id="template-type" formControlName="templateType" class="form-control">
+                <option value="">Select template type</option>
+                <option value="form">Standard Form</option>
+                <option value="patient_template">Patient Template (PHI)</option>
+                <option value="study_subject">Study Subject Form</option>
+              </select>
+              <span class="error-message" *ngIf="builderForm.get('templateType')?.invalid && builderForm.get('templateType')?.touched">
+                Please select a template type
+              </span>
+            </div>
+          </div>
+
+          <!-- Form Behavior -->
+          <div class="settings-section">
+            <h4>Form Behavior</h4>
+            
+            <div class="checkbox-group">
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="isPhiForm">
+                <span class="checkbox-label">Contains PHI (Protected Health Information)</span>
+                <span class="checkbox-description">Enable additional security and audit features</span>
+              </label>
+
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="requiresSignature">
+                <span class="checkbox-label">Requires Electronic Signature</span>
+                <span class="checkbox-description">Users must sign the form upon submission</span>
+              </label>
+
+              <label class="checkbox-option">
+                <input type="checkbox" formControlName="allowPartialSave">
+                <span class="checkbox-label">Allow Partial Save</span>
+                <span class="checkbox-description">Users can save incomplete forms as drafts</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="max-submissions">Maximum Submissions per User</label>
+              <input 
+                type="number" 
+                id="max-submissions" 
+                formControlName="maxSubmissions" 
+                min="0" 
+                placeholder="0 for unlimited"
+                class="form-control">
+              <span class="help-text">Leave as 0 for unlimited submissions</span>
+            </div>
+
+            <div class="form-group">
+              <label for="expiration-date">Expiration Date</label>
+              <input 
+                type="date" 
+                id="expiration-date" 
+                formControlName="expirationDate"
+                class="form-control">
+              <span class="help-text">Form will not accept submissions after this date</span>
+            </div>
+          </div>
+
+          <!-- Additional Settings -->
+          <div class="settings-section">
+            <h4>Additional Settings</h4>
+            
+            <div class="form-group">
+              <label for="instructions">Form Instructions</label>
+              <textarea 
+                id="instructions" 
+                formControlName="instructions" 
+                rows="4" 
+                placeholder="Instructions shown to users before filling the form"
+                class="form-control"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="custom-css">Custom CSS</label>
+              <textarea 
+                id="custom-css" 
+                formControlName="customCss" 
+                rows="4" 
+                placeholder="/* Custom styles for this form */"
+                class="form-control"
+                style="font-family: monospace;"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Build Form Tab (formerly Design) -->
     <div *ngIf="activeTab === 'design'" class="design-panel" [class.properties-shown]="showFieldProperties && selectedField">
       
       <!-- Field Toolbox -->
@@ -232,7 +393,7 @@
                     </span>
                     <span class="field-label">{{ fieldControl.get('label')?.value }}</span>
                     <span *ngIf="fieldControl.get('isRequired')?.value" class="required-indicator">*</span>
-                    <span *ngIf="fieldControl.get('isPhi')?.value" class="phi-indicator" title="Contains PHI">
+                    <span *ngIf="fieldControl.get('isPhiField')?.value" class="phi-indicator" title="Contains PHI">
                       <span class="material-icons">security</span>
                     </span>
                   </div>
@@ -482,7 +643,7 @@
                     </label>
                     
                     <label class="checkbox-option">
-                      <input type="checkbox" formControlName="isPhi">
+                      <input type="checkbox" formControlName="isPhiField">
                       <span>Contains PHI Data</span>
                     </label>
                   </div>
@@ -592,6 +753,12 @@
           </div>
           
           <div class="form-body">
+            <!-- Empty state when no fields -->
+            <div *ngIf="fieldsArray.controls.length === 0" class="empty-preview">
+              <span class="material-icons">info</span>
+              <p>No fields added yet. Switch to the "Build Form" tab to add fields.</p>
+            </div>
+            
             <!-- Preview of form fields -->
             <div *ngFor="let fieldControl of fieldsArray.controls" class="preview-field">
               <label class="field-label">
@@ -656,203 +823,6 @@
       </div>
     </div>
 
-    <!-- Settings Tab -->
-    <div *ngIf="isActiveTab('settings')" class="settings-panel">
-      <div class="settings-header">
-        <h3>
-          <span class="material-icons">settings</span>
-          Template Settings
-        </h3>
-      </div>
-      
-      <div class="settings-content">
-        <form [formGroup]="builderForm">
-          
-          <!-- Basic Settings -->
-          <div class="settings-section">
-            <h4>Basic Information</h4>
-            
-            <div class="form-group">
-              <label>Template Name *</label>
-              <input type="text" class="form-control" formControlName="name">
-            </div>
-            
-            <div class="form-group">
-              <label>Description</label>
-              <textarea class="form-control" formControlName="description" rows="3"></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label>Category *</label>
-              <select class="form-control" formControlName="category">
-                <option value="clinical">Clinical</option>
-                <option value="administrative">Administrative</option>
-                <option value="regulatory">Regulatory</option>
-                <option value="safety">Safety</option>
-                <option value="quality">Quality</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Version</label>
-              <input type="text" class="form-control" formControlName="version">
-            </div>
-          </div>
-
-          <!-- Template Type Selection -->
-          <div class="settings-section">
-            <h4>Template Type</h4>
-            <p class="section-description">Select the type of template you want to create</p>
-            
-            <div class="template-type-selector">
-              <div class="template-type-options">
-                <label class="template-type-option" 
-                       [class.selected]="builderForm.get('templateType')?.value === 'form'">
-                  <input type="radio" formControlName="templateType" value="form">
-                  <div class="option-content">
-                    <span class="material-icons">description</span>
-                    <h5>Regular Form</h5>
-                    <p>Standard data collection form for studies</p>
-                  </div>
-                </label>
-                
-                <label class="template-type-option" 
-                       [class.selected]="builderForm.get('templateType')?.value === 'patient'">
-                  <input type="radio" formControlName="templateType" value="patient">
-                  <div class="option-content">
-                    <span class="material-icons">person</span>
-                    <h5>Patient Template</h5>
-                    <p>Template for patient demographics and PHI data</p>
-                    <div class="phi-badge">PHI</div>
-                  </div>
-                </label>
-                
-                <label class="template-type-option" 
-                       [class.selected]="builderForm.get('templateType')?.value === 'study_subject'">
-                  <input type="radio" formControlName="templateType" value="study_subject">
-                  <div class="option-content">
-                    <span class="material-icons">group</span>
-                    <h5>Study Subject</h5>
-                    <p>Template for study-specific subject data</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-            
-            <!-- Template Type Help Text -->
-            <div class="template-type-help" *ngIf="builderForm.get('templateType')?.value">
-              <div *ngIf="builderForm.get('templateType')?.value === 'form'" class="help-content">
-                <span class="material-icons">info</span>
-                <div>
-                  <strong>Regular Form:</strong> Use this for standard data collection forms like CRFs, questionnaires, and assessments.
-                </div>
-              </div>
-              
-              <div *ngIf="builderForm.get('templateType')?.value === 'patient'" class="help-content">
-                <span class="material-icons">security</span>
-                <div>
-                  <strong>Patient Template:</strong> Contains PHI data and requires encryption. Use for patient demographics, contact information, and medical history.
-                  <br><small>This will enable PHI compliance features and Google Healthcare API integration.</small>
-                </div>
-              </div>
-              
-              <div *ngIf="builderForm.get('templateType')?.value === 'study_subject'" class="help-content">
-                <span class="material-icons">science</span>
-                <div>
-                  <strong>Study Subject:</strong> Template for study-specific participant data that links to patient records.
-                  <br><small>This enables form linking and study enrollment workflows.</small>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Form Behavior -->
-          <div class="settings-section">
-            <h4>Form Behavior</h4>
-            
-            <div class="checkbox-group">
-              <label class="checkbox-option">
-                <input type="checkbox" formControlName="isPhiForm">
-                <span>Contains PHI Data</span>
-              </label>
-              
-              <label class="checkbox-option">
-                <input type="checkbox" formControlName="requiresSignature">
-                <span>Requires Electronic Signature</span>
-              </label>
-              
-              <label class="checkbox-option">
-                <input type="checkbox" formControlName="allowPartialSave">
-                <span>Allow Partial Save</span>
-              </label>
-            </div>
-            
-            <div class="form-group">
-              <label>Maximum Submissions</label>
-              <input type="number" class="form-control" formControlName="maxSubmissions" min="1">
-              <small class="form-text">Leave empty for unlimited submissions</small>
-            </div>
-            
-            <div class="form-group">
-              <label>Expiration Date</label>
-              <input type="date" class="form-control" formControlName="expirationDate">
-            </div>
-          </div>
-
-          <!-- Instructions -->
-          <div class="settings-section">
-            <h4>Form Instructions</h4>
-            
-            <div class="form-group">
-              <label>Instructions for Users</label>
-              <textarea class="form-control" formControlName="instructions" rows="4" 
-                placeholder="Provide instructions for users filling out this form..."></textarea>
-            </div>
-          </div>
-
-          <!-- Compliance Settings -->
-          <div class="settings-section" formGroupName="metadata">
-            <h4>Compliance & Metadata</h4>
-            
-            <div class="form-group">
-              <label>Study Phase</label>
-              <select class="form-control" formControlName="studyPhase">
-                <option value="">Select Phase</option>
-                <option value="preclinical">Preclinical</option>
-                <option value="phase1">Phase I</option>
-                <option value="phase2">Phase II</option>
-                <option value="phase3">Phase III</option>
-                <option value="phase4">Phase IV</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Therapeutic Area</label>
-              <input type="text" class="form-control" formControlName="therapeuticArea" 
-                placeholder="e.g., Oncology, Cardiology, Neurology">
-            </div>
-            
-            <div class="form-group">
-              <label>Data Retention Period (days)</label>
-              <input type="number" class="form-control" formControlName="dataRetentionPeriod" min="1">
-              <small class="form-text">Default: 2555 days (7 years) for regulatory compliance</small>
-            </div>
-          </div>
-
-          <!-- Custom CSS -->
-          <div class="settings-section">
-            <h4>Custom Styling</h4>
-            
-            <div class="form-group">
-              <label>Custom CSS</label>
-              <textarea class="form-control" formControlName="customCss" rows="6" 
-                placeholder="/* Add custom CSS styles for this form */"></textarea>
-              <small class="form-text">Advanced: Custom CSS will be applied to this form only</small>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
   </div>
 
   <!-- Unsaved Changes Warning -->

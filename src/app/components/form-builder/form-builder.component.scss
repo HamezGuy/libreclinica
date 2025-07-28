@@ -848,6 +848,24 @@
 
       .form-body {
         padding: 32px;
+        
+        .empty-preview {
+          text-align: center;
+          padding: 60px 20px;
+          color: #64748b;
+          
+          .material-icons {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+          }
+          
+          p {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.5;
+          }
+        }
 
         .preview-field {
           margin-bottom: 24px;

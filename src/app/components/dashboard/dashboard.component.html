@@ -156,6 +156,15 @@
         <div class="section-header">
           <h2>Form Templates</h2>
           <div class="section-actions">
+            <!-- Temporary Fix Button -->
+            <button 
+              class="btn btn-warning" 
+              (click)="fixTemplateIds()"
+              title="Fix Template IDs (One-time migration)">
+              <i class="material-icons">build</i>
+              Fix Template IDs
+            </button>
+            
             <button 
               class="btn btn-primary" 
               (click)="createNewTemplate()"
@@ -789,227 +798,19 @@
   
 </div>
 
-<!-- Enhanced Template Management Modal -->
-<div class="modal-overlay template-management-modal" *ngIf="showTemplateModal" (click)="closeTemplateModal()">
-  <div class="modal-content" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2><i class="material-icons">description</i> Form Templates</h2>
-      <div class="header-actions">
-        <button class="btn btn-primary" (click)="createNewTemplate()" *ngIf="permissions.canCreate">
-          <i class="material-icons">add</i> New Template
-        </button>
-        <button class="btn btn-link close-btn" (click)="closeTemplateModal()">
-          <i class="material-icons">close</i>
-        </button>
-      </div>
-    </div>
-    
-    <div class="modal-body">
-        <!-- Left Sidebar - Template List -->
-        <div class="templates-sidebar">
-          <div class="sidebar-header">
-            <div class="search-container">
-              <i class="material-icons">search</i>
-              <input 
-                type="text" 
-                placeholder="Search templates..." 
-                [(ngModel)]="templateSearchTerm"
-                (input)="filterTemplates()">
-            </div>
-            <div class="filter-buttons">
-              <button 
-                class="filter-btn" 
-                [class.active]="templateFilter === 'all'"
-                (click)="setTemplateFilter('all')">
-                All ({{ filteredTemplates.length }})
-              </button>
-              <button 
-                class="filter-btn" 
-                [class.active]="templateFilter === 'draft'"
-                (click)="setTemplateFilter('draft')">
-                Draft
-              </button>
-              <button 
-                class="filter-btn" 
-                [class.active]="templateFilter === 'published'"
-                (click)="setTemplateFilter('published')">
-                Published
-              </button>
-            </div>
-          </div>
-          
-          <div class="template-list-enhanced">
-            <div 
-              *ngFor="let template of filteredTemplates; trackBy: trackTemplate" 
-              class="template-item"
-              [class.selected]="selectedTemplate?.id === template.id"
-              (click)="selectTemplate(template)">
-              
-              <div class="template-card">
-                <div class="template-header">
-                  <h4>{{ template.name }}</h4>
-                  <span class="status-badge" [class]="'status-' + template.status">{{ template.status }}</span>
-                </div>
-                
-                <p class="template-description">{{ template.description || 'No description' }}</p>
-                
-                <div class="template-stats">
-                  <div class="stat">
-                    <i class="material-icons">input</i>
-                    <span>{{ template.fields.length || 0 }} fields</span>
-                  </div>
-                  <div class="stat">
-                    <i class="material-icons">folder</i>
-                    <span>{{ template.category || 'General' }}</span>
-                  </div>
-                  <div class="stat">
-                    <i class="material-icons">schedule</i>
-                    <span>{{ convertTimestampToDate(template.updatedAt) | date:'short' }}</span>
-                  </div>
-                </div>
-                
-                <div class="template-actions-quick" (click)="$event.stopPropagation()">
-                  <button 
-                    class="btn-icon" 
-                    (click)="editTemplate(template)"
-                    [disabled]="!permissions.canEdit"
-                    title="Edit Template">
-                    <i class="material-icons">edit</i>
-                  </button>
-                  <button 
-                    class="btn-icon danger" 
-                    (click)="deleteTemplate(template)"
-                    [disabled]="!permissions.canDelete"
-                    title="Delete Template">
-                    <i class="material-icons">delete</i>
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div *ngIf="filteredTemplates.length === 0" class="empty-state">
-              <i class="material-icons">description</i>
-              <h3>No templates found</h3>
-              <p>{{ templateSearchTerm ? 'Try adjusting your search terms' : 'Create your first template to get started' }}</p>
-            </div>
-          </div>
-          
-          <!-- Template Details at Bottom of Sidebar -->
-          <div *ngIf="selectedTemplate" class="template-details-bottom">
-            <div class="details-section">
-              <h4>Template Information</h4>
-              <div class="info-list">
-                <div class="info-item">
-                  <label>Description</label>
-                  <p>{{ selectedTemplate.description || 'No description provided' }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Category</label>
-                  <p>{{ selectedTemplate.category || 'clinical' }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Version</label>
-                  <p>{{ selectedTemplate.version || '1' }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Status</label>
-                  <p>{{ selectedTemplate.status }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Created</label>
-                  <p>{{ convertTimestampToDate(selectedTemplate.createdAt) | date:'medium' }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Last Modified</label>
-                  <p>{{ convertTimestampToDate(selectedTemplate.updatedAt) | date:'medium' }}</p>
-                </div>
-                <div class="info-item">
-                  <label>Total Fields</label>
-                  <p>{{ selectedTemplate.fields.length || 0 }}</p>
-                </div>
-                <div class="info-item">
-                  <label>PHI Enabled</label>
-                  <p>{{ selectedTemplate.isPhiForm ? 'Yes' : 'No' }}</p>
-                </div>
-              </div>
-              
-              <!-- Actions -->
-              <div class="template-actions-main">
-                <button 
-                  class="btn btn-primary"
-                  (click)="editTemplate(selectedTemplate!)"
-                  [disabled]="!permissions.canEdit">
-                  <i class="material-icons">edit</i> Edit Template
-                </button>
-                
-                <button 
-                  class="btn btn-success"
-                  (click)="publishTemplate(selectedTemplate!)"
-                  [disabled]="!permissions.canPublish || selectedTemplate!.status !== 'draft'">
-                  <i class="material-icons">publish</i> 
-                  {{ selectedTemplate!.status === 'published' ? 'Published' : 'Publish' }}
-                </button>
-                
-                <button 
-                  class="btn btn-info"
-                  (click)="duplicateTemplate(selectedTemplate!)"
-                  [disabled]="!permissions.canCreate">
-                  <i class="material-icons">content_copy</i> Duplicate
-                </button>
-                
-                <button 
-                  class="btn btn-outline"
-                  (click)="exportTemplate(selectedTemplate!)">
-                  <i class="material-icons">download</i> Export
-                </button>
-                
-                <button 
-                  class="btn btn-danger"
-                  (click)="deleteTemplate(selectedTemplate!)"
-                  [disabled]="!permissions.canDelete">
-                  <i class="material-icons">delete</i> Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Right Panel - Always Show Preview -->
-        <div class="template-preview-panel">
-          <div *ngIf="!selectedTemplate" class="no-selection">
-            <i class="material-icons">description</i>
-            <h3>Select a template to view preview</h3>
-            <p>Click on any template from the list to see its live preview</p>
-          </div>
-          
-          <div *ngIf="selectedTemplate" class="template-preview">
-            <div class="preview-header">
-              <div class="template-title">
-                <h2>{{ selectedTemplate.name }}</h2>
-                <span class="preview-label">Live Preview</span>
-              </div>
-            </div>
-            
-            <!-- Always reserve space for preview content -->
-            <div class="preview-content" [class.loading]="!selectedTemplate">
-              <div *ngIf="!selectedTemplate" class="preview-loading">
-                <div class="spinner"></div>
-                <p>Loading preview...</p>
-              </div>
-              <app-form-preview 
-                *ngIf="selectedTemplate"
-                [template]="selectedTemplate"
-                [readonly]="true"
-                (formDataChanged)="onPreviewFormDataChanged($event)"
-                (formSaved)="onPreviewFormSaved($event)"
-                (formSubmitted)="onPreviewFormSubmitted($event)">
-              </app-form-preview>
-            </div>
-          </div>
-        </div>
-    </div>
-  </div>
-</div>
+<!-- Template Management Modal -->
+<app-template-management
+  [templates]="allTemplates"
+  [permissions]="permissions"
+  [isVisible]="showTemplateModal"
+  (close)="closeTemplateModal()"
+  (createTemplate)="createNewTemplate()"
+  (editTemplate)="editTemplate($event)"
+  (deleteTemplate)="deleteTemplate($event)"
+  (publishTemplate)="publishTemplate($event)"
+  (duplicateTemplate)="duplicateTemplate($event)"
+  (exportTemplate)="exportTemplate($event)">
+</app-template-management>
 
     <!-- Form Builder Modal -->
     <div *ngIf="showFormBuilderModal" class="modal-overlay">
@@ -1270,3 +1071,304 @@
       (closePopup)="closeProfileEditModal()"
       (profileUpdated)="onProfileUpdated($event)">
     </app-profile-edit-popup>
+
+    <!-- Study Creation Modal -->
+    <div class="modal-overlay" *ngIf="showStudyCreationModal" (click)="closeStudyCreationModal()">
+      <div class="modal-content large-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Create New Study</h2>
+          <button class="close-button" (click)="closeStudyCreationModal()">
+            <i class="material-icons">close</i>
+          </button>
+        </div>
+        
+        <form [formGroup]="studyCreationForm" class="study-creation-form">
+          <div class="modal-body">
+            <!-- Basic Information Section -->
+            <div class="form-section">
+              <h3>Basic Information</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="protocolNumber">Protocol Number <span class="required">*</span></label>
+                  <input 
+                    type="text" 
+                    id="protocolNumber" 
+                    formControlName="protocolNumber"
+                    placeholder="e.g., STUDY-2024-001"
+                    class="form-control">
+                  <div class="error-message" *ngIf="studyCreationForm.get('protocolNumber')?.touched && studyCreationForm.get('protocolNumber')?.errors">
+                    <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['required']">Protocol number is required</span>
+                    <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['pattern']">Use uppercase letters, numbers, and hyphens only</span>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label for="version">Version <span class="required">*</span></label>
+                  <input 
+                    type="text" 
+                    id="version" 
+                    formControlName="version"
+                    placeholder="1.0"
+                    class="form-control">
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="title">Study Title <span class="required">*</span></label>
+                <input 
+                  type="text" 
+                  id="title" 
+                  formControlName="title"
+                  placeholder="Enter the full study title"
+                  class="form-control">
+                <div class="error-message" *ngIf="studyCreationForm.get('title')?.touched && studyCreationForm.get('title')?.errors">
+                  <span *ngIf="studyCreationForm.get('title')?.errors?.['required']">Title is required</span>
+                  <span *ngIf="studyCreationForm.get('title')?.errors?.['minlength']">Title must be at least 5 characters</span>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="shortTitle">Short Title</label>
+                <input 
+                  type="text" 
+                  id="shortTitle" 
+                  formControlName="shortTitle"
+                  placeholder="Brief title or acronym"
+                  class="form-control">
+              </div>
+              
+              <div class="form-group">
+                <label for="description">Description <span class="required">*</span></label>
+                <textarea 
+                  id="description" 
+                  formControlName="description"
+                  rows="4"
+                  placeholder="Provide a detailed description of the study"
+                  class="form-control"></textarea>
+                <div class="error-message" *ngIf="studyCreationForm.get('description')?.touched && studyCreationForm.get('description')?.errors">
+                  <span *ngIf="studyCreationForm.get('description')?.errors?.['required']">Description is required</span>
+                  <span *ngIf="studyCreationForm.get('description')?.errors?.['minlength']">Description must be at least 20 characters</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Study Classification Section -->
+            <div class="form-section">
+              <h3>Study Classification</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="phase">Study Phase <span class="required">*</span></label>
+                  <select id="phase" formControlName="phase" class="form-control">
+                    <option value="preclinical">Preclinical</option>
+                    <option value="phase_i">Phase I</option>
+                    <option value="phase_ii">Phase II</option>
+                    <option value="phase_iii">Phase III</option>
+                    <option value="phase_iv">Phase IV</option>
+                    <option value="post_market">Post Market</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="studyType">Study Type <span class="required">*</span></label>
+                  <select id="studyType" formControlName="studyType" class="form-control">
+                    <option value="interventional">Interventional</option>
+                    <option value="observational">Observational</option>
+                    <option value="registry">Registry</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="therapeuticArea">Therapeutic Area <span class="required">*</span></label>
+                  <input 
+                    type="text" 
+                    id="therapeuticArea" 
+                    formControlName="therapeuticArea"
+                    placeholder="e.g., Oncology, Cardiology"
+                    class="form-control">
+                </div>
+                
+                <div class="form-group">
+                  <label for="indication">Indication <span class="required">*</span></label>
+                  <input 
+                    type="text" 
+                    id="indication" 
+                    formControlName="indication"
+                    placeholder="e.g., Type 2 Diabetes"
+                    class="form-control">
+                </div>
+              </div>
+            </div>
+            
+            <!-- Timeline and Status Section -->
+            <div class="form-section">
+              <h3>Timeline and Status</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="status">Study Status <span class="required">*</span></label>
+                  <select id="status" formControlName="status" class="form-control">
+                    <option value="planning">Planning</option>
+                    <option value="startup">Startup</option>
+                    <option value="active">Active</option>
+                    <option value="recruiting">Recruiting</option>
+                    <option value="locked">Locked</option>
+                    <option value="completed">Completed</option>
+                    <option value="terminated">Terminated</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="plannedEnrollment">Planned Enrollment <span class="required">*</span></label>
+                  <input 
+                    type="number" 
+                    id="plannedEnrollment" 
+                    formControlName="plannedEnrollment"
+                    min="1"
+                    placeholder="Number of participants"
+                    class="form-control">
+                  <div class="error-message" *ngIf="studyCreationForm.get('plannedEnrollment')?.touched && studyCreationForm.get('plannedEnrollment')?.errors">
+                    <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['required']">Planned enrollment is required</span>
+                    <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['min']">Must be at least 1</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="plannedStartDate">Planned Start Date</label>
+                  <input 
+                    type="date" 
+                    id="plannedStartDate" 
+                    formControlName="plannedStartDate"
+                    class="form-control">
+                </div>
+                
+                <div class="form-group">
+                  <label for="plannedEndDate">Planned End Date</label>
+                  <input 
+                    type="date" 
+                    id="plannedEndDate" 
+                    formControlName="plannedEndDate"
+                    class="form-control">
+                </div>
+              </div>
+            </div>
+            
+            <!-- Study Team Section -->
+            <div class="form-section">
+              <h3>Study Team</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="principalInvestigator">Principal Investigator</label>
+                  <input 
+                    type="text" 
+                    id="principalInvestigator" 
+                    formControlName="principalInvestigator"
+                    placeholder="Name of PI"
+                    class="form-control">
+                </div>
+                
+                <div class="form-group">
+                  <label for="studyCoordinator">Study Coordinator</label>
+                  <input 
+                    type="text" 
+                    id="studyCoordinator" 
+                    formControlName="studyCoordinator"
+                    placeholder="Name of coordinator"
+                    class="form-control">
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="dataManager">Data Manager</label>
+                <input 
+                  type="text" 
+                  id="dataManager" 
+                  formControlName="dataManager"
+                  placeholder="Name of data manager"
+                  class="form-control">
+              </div>
+            </div>
+            
+            <!-- Compliance Section -->
+            <div class="form-section">
+              <h3>Regulatory & Compliance</h3>
+              <div class="form-row">
+                <div class="form-group checkbox-group">
+                  <label>
+                    <input type="checkbox" formControlName="irbApprovalRequired">
+                    IRB Approval Required
+                  </label>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                  <label>
+                    <input type="checkbox" formControlName="consentRequired">
+                    Informed Consent Required
+                  </label>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group checkbox-group">
+                  <label>
+                    <input type="checkbox" formControlName="requiresElectronicSignatures">
+                    Electronic Signatures Required
+                  </label>
+                </div>
+                
+                <div class="form-group checkbox-group">
+                  <label>
+                    <input type="checkbox" formControlName="auditTrailRequired">
+                    Audit Trail Required
+                  </label>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="dataIntegrityLevel">Data Integrity Level <span class="required">*</span></label>
+                  <select id="dataIntegrityLevel" formControlName="dataIntegrityLevel" class="form-control">
+                    <option value="basic">Basic</option>
+                    <option value="enhanced">Enhanced</option>
+                    <option value="strict">Strict</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="dataRetentionPeriod">Data Retention Period (months) <span class="required">*</span></label>
+                  <input 
+                    type="number" 
+                    id="dataRetentionPeriod" 
+                    formControlName="dataRetentionPeriod"
+                    min="12"
+                    placeholder="e.g., 120 for 10 years"
+                    class="form-control">
+                  <div class="error-message" *ngIf="studyCreationForm.get('dataRetentionPeriod')?.touched && studyCreationForm.get('dataRetentionPeriod')?.errors">
+                    <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['required']">Retention period is required</span>
+                    <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['min']">Must be at least 12 months</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="closeStudyCreationModal()">
+              Cancel
+            </button>
+            <button 
+              type="button"
+              class="btn btn-primary" 
+              [disabled]="!studyCreationForm.valid || isCreatingStudy"
+              (click)="saveNewStudy()">
+              <i class="material-icons" *ngIf="!isCreatingStudy">save</i>
+              <i class="material-icons rotating" *ngIf="isCreatingStudy">sync</i>
+              {{ isCreatingStudy ? 'Creating Study...' : 'Create Study' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>

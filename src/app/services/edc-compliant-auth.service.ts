@@ -78,25 +78,13 @@ export class EdcCompliantAuthService {
     this.auth.onAuthStateChanged(async (user) => {
       if (user) {
         try {
-          // Ensure user profile exists and is properly loaded
-          let userProfile = await this.getUserProfile(user.uid);
+          // Use ensureUserProfile to guarantee profile exists with all required fields
+          const userProfile = await this.ensureUserProfile(user);
           
           if (!userProfile) {
-            console.log('Auto-login: User profile not found, creating one...');
-            userProfile = await this.createUserProfile(user, {
-              displayName: user.displayName || user.email?.split('@')[0] || 'User',
-              email: user.email,
-              role: AccessLevel.ADMIN // Default to ADMIN for auto-created profiles
-            });
-          }
-          
-          // Verify required fields exist
-          if (!userProfile.accessLevel || !userProfile.status) {
-            console.warn('User profile missing required fields, updating...');
-            await this.updateUserProfile(user.uid, {
-              accessLevel: userProfile.accessLevel || AccessLevel.ADMIN,
-              status: userProfile.status || UserStatus.ACTIVE
-            });
+            console.error('Failed to ensure user profile during auto-login');
+            this.authStateSubject.next(null);
+            return;
           }
           
           // Only set auth state after profile is verified
@@ -265,6 +253,15 @@ export class EdcCompliantAuthService {
       await signOut(this.auth);
       this.clearSessionTimer();
       this.currentSessionId = null;
+      
+      // Navigate to auth page after successful logout
+      this.zone.run(() => {
+        if (reason === 'timeout') {
+          this.router.navigate(['/auth'], { queryParams: { reason: 'session-timeout' } });
+        } else {
+          this.router.navigate(['/auth']);
+        }
+      });
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -350,6 +347,57 @@ export class EdcCompliantAuthService {
     return userProfile;
   }
 
+  /**
+   * Ensures user profile exists and has all required fields
+   * Creates profile if missing, updates if fields are missing
+   */
+  private async ensureUserProfile(user: User): Promise<UserProfile | null> {
+    try {
+      let userProfile = await this.getUserProfile(user.uid);
+      
+      if (!userProfile) {
+        console.log('User profile not found, creating new profile for:', user.email);
+        userProfile = await this.createUserProfile(user, {
+          role: AccessLevel.ADMIN
+        });
+      }
+      
+      // Check if required fields exist
+      let needsUpdate = false;
+      const updates: Partial<UserProfile> = {};
+      
+      if (!userProfile.accessLevel) {
+        console.log('User profile missing accessLevel, setting to ADMIN');
+        updates.accessLevel = AccessLevel.ADMIN;
+        needsUpdate = true;
+      }
+      
+      if (!userProfile.status) {
+        console.log('User profile missing status, setting to ACTIVE');
+        updates.status = UserStatus.ACTIVE;
+        needsUpdate = true;
+      }
+      
+      if (!userProfile.permissions) {
+        console.log('User profile missing permissions, setting defaults');
+        updates.permissions = this.getDefaultPermissions(userProfile.accessLevel || AccessLevel.ADMIN);
+        needsUpdate = true;
+      }
+      
+      // Update profile if any fields were missing
+      if (needsUpdate) {
+        await this.updateUserProfile(user.uid, updates);
+        // Fetch the updated profile
+        userProfile = await this.getUserProfile(user.uid);
+      }
+      
+      return userProfile || null;
+    } catch (error) {
+      console.error('Error ensuring user profile:', error);
+      return null;
+    }
+  }
+
   private async updateLastLogin(uid: string): Promise<void> {
     const userRef = doc(this.firestore, `users/${uid}`);
     await runInInjectionContext(this.injector, async () => await updateDoc(userRef, { 
@@ -402,52 +450,6 @@ export class EdcCompliantAuthService {
     // Ensure profile exists and has required fields
     const profile = await this.ensureUserProfile(currentUser);
     return profile;
-  }
-  
-  /**
-   * Ensures user profile exists and has all required fields
-   * This prevents "User role undefined" errors in Cloud Functions
-   */
-  private async ensureUserProfile(user: User): Promise<UserProfile | null> {
-    try {
-      let userProfile = await this.getUserProfile(user.uid);
-      
-      if (!userProfile) {
-        console.log('ensureUserProfile: Creating missing profile for user:', user.uid);
-        userProfile = await this.createUserProfile(user, {
-          displayName: user.displayName || user.email?.split('@')[0] || 'User',
-          email: user.email,
-          role: AccessLevel.ADMIN // Default to ADMIN
-        });
-      }
-      
-      // Check for required fields
-      let needsUpdate = false;
-      const updates: Partial<UserProfile> = {};
-      
-      if (!userProfile.accessLevel) {
-        console.warn('User profile missing accessLevel, setting to ADMIN');
-        updates.accessLevel = AccessLevel.ADMIN;
-        needsUpdate = true;
-      }
-      
-      if (!userProfile.status) {
-        console.warn('User profile missing status, setting to ACTIVE');
-        updates.status = UserStatus.ACTIVE;
-        needsUpdate = true;
-      }
-      
-      if (needsUpdate) {
-        await this.updateUserProfile(user.uid, updates);
-        // Fetch updated profile
-        userProfile = await this.getUserProfile(user.uid);
-      }
-      
-      return userProfile ?? null;
-    } catch (error) {
-      console.error('Error ensuring user profile:', error);
-      return null;
-    }
   }
 
   async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {

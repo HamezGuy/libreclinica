@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators, AbstractControl } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { Subject, takeUntil } from 'rxjs';
+import { Router } from '@angular/router';
 
 import { FormTemplate, FormField, FieldType, ValidationRule, FormFieldGroup, TemplateType, PhiFieldType, PhiClassification } from '../../models/form-template.model';
 import { FormTemplateService } from '../../services/form-template.service';
@@ -38,6 +39,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   @Input() isModal = true;
   @Output() templateSaved = new EventEmitter<FormTemplate>();
   @Output() builderClosed = new EventEmitter<void>();
+  @Output() close = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
 
@@ -107,7 +109,8 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private formTemplateService: FormTemplateService,
     private formValidationService: FormValidationService,
-    private authService: EdcCompliantAuthService
+    private authService: EdcCompliantAuthService,
+    private router: Router
   ) {
     this.builderForm = this.createBuilderForm();
   }
@@ -116,8 +119,10 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.setupFormChangeTracking();
     
     if (this.templateId) {
+      console.log('Loading template with ID:', this.templateId);
       this.loadTemplate();
     } else {
+      console.log('Creating new template');
       this.initializeNewTemplate();
     }
   }
@@ -204,9 +209,13 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     try {
+      console.log('Fetching template from service...');
       this.currentTemplate = await this.formTemplateService.getTemplate(this.templateId);
+      console.log('Template loaded:', this.currentTemplate);
       if (this.currentTemplate) {
         this.populateForm(this.currentTemplate);
+      } else {
+        console.warn('No template found with ID:', this.templateId);
       }
     } catch (error) {
       console.error('Error loading template:', error);
@@ -241,7 +250,14 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       description: template.description,
       category: template.category,
       version: template.version,
+      templateType: template.templateType || 'form',
+      isPatientTemplate: template.isPatientTemplate || false,
+      isStudySubjectTemplate: template.isStudySubjectTemplate || false,
       isPhiForm: template.isPhiForm,
+      phiEncryptionEnabled: template.phiEncryptionEnabled || false,
+      phiAccessLogging: template.phiAccessLogging || true,
+      phiDataMinimization: template.phiDataMinimization || true,
+      hipaaCompliant: template.hipaaCompliant || false,
       requiresSignature: template.requiresSignature,
       allowPartialSave: template.allowPartialSave,
       maxSubmissions: template.maxSubmissions,
@@ -463,9 +479,55 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
   // Template actions
   async saveTemplate(): Promise<void> {
+    // First check basic form validity
     if (this.builderForm.invalid) {
       this.markFormGroupTouched(this.builderForm);
       this.showSaveMessage('Please fix validation errors before saving.', 'error');
+      this.switchTab('form-info'); // Switch to form info tab to show errors
+      return;
+    }
+
+    // Check for required fields and default values
+    const formData = this.builderForm.value;
+    const validationErrors: string[] = [];
+    
+    // Check template name
+    if (!formData.name || formData.name.trim() === '') {
+      validationErrors.push('Template name is required');
+      this.builderForm.get('name')?.markAsTouched();
+      this.builderForm.get('name')?.setErrors({ required: true });
+    } else if (formData.name === 'New Form Template' || formData.name === 'Untitled Form') {
+      validationErrors.push('Please provide a meaningful template name');
+      this.builderForm.get('name')?.markAsTouched();
+      this.builderForm.get('name')?.setErrors({ invalidValue: true });
+    }
+    
+    // Check category
+    if (!formData.category || formData.category.trim() === '') {
+      validationErrors.push('Category is required');
+      this.builderForm.get('category')?.markAsTouched();
+      this.builderForm.get('category')?.setErrors({ required: true });
+    }
+    
+    // Check version
+    if (!formData.version || String(formData.version).trim() === '') {
+      validationErrors.push('Version is required');
+      this.builderForm.get('version')?.markAsTouched();
+      this.builderForm.get('version')?.setErrors({ required: true });
+    }
+    
+    // Check template type
+    if (!formData.templateType || formData.templateType.trim() === '') {
+      validationErrors.push('Template type is required');
+      this.builderForm.get('templateType')?.markAsTouched();
+      this.builderForm.get('templateType')?.setErrors({ required: true });
+    }
+    
+    // If there are validation errors, show them and switch to form info tab
+    if (validationErrors.length > 0) {
+      const errorMessage = 'Please complete the following required fields:\n• ' + validationErrors.join('\n• ');
+      this.showSaveMessage(errorMessage, 'error');
+      this.switchTab('form-info'); // Switch to form info tab to show the fields with errors
       return;
     }
 
@@ -535,19 +597,28 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.activeTab = 'preview';
   }
 
+  @HostListener('window:beforeunload', ['$event'])
+  unloadNotification($event: any): void {
+    if (this.hasUnsavedChanges) {
+      $event.returnValue = true;
+    }
+  }
+
+  // Close the form builder without saving
   closeBuilder(): void {
+    // Check for unsaved changes
     if (this.hasUnsavedChanges) {
       const confirmClose = confirm('You have unsaved changes. Are you sure you want to close?');
       if (!confirmClose) return;
     }
     
-    this.builderClosed.emit();
-  }
-
-  @HostListener('window:beforeunload', ['$event'])
-  unloadNotification($event: any): void {
-    if (this.hasUnsavedChanges) {
-      $event.returnValue = true;
+    // If in modal mode, emit close event
+    if (this.isModal) {
+      this.close.emit();
+      this.builderClosed.emit();
+    } else {
+      // Navigate back to dashboard or previous route
+      this.router.navigate(['/dashboard']);
     }
   }
 

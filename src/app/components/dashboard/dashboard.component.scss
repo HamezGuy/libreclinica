@@ -2148,3 +2148,148 @@
     color: #6c757d !important;
   }
 }
+
+// Study Creation Modal Styles
+.study-creation-form {
+  .form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #e0e0e0;
+    
+    &:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    
+    h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 1.5rem;
+    }
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    
+    .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+    
+    label {
+      display: block;
+      font-weight: 500;
+      color: #555;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      
+      .required {
+        color: #dc3545;
+        font-weight: 600;
+      }
+    }
+    
+    .form-control {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+      
+      &:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+      }
+      
+      &.ng-invalid.ng-touched {
+        border-color: #dc3545;
+      }
+    }
+    
+    textarea.form-control {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    select.form-control {
+      cursor: pointer;
+    }
+    
+    &.checkbox-group {
+      label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-weight: 400;
+        
+        input[type="checkbox"] {
+          margin-right: 0.5rem;
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+      }
+    }
+    
+    .error-message {
+      margin-top: 0.25rem;
+      font-size: 0.875rem;
+      color: #dc3545;
+      
+      span {
+        display: block;
+      }
+    }
+  }
+}
+
+.large-modal {
+  max-width: 900px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  
+  .modal-body {
+    padding: 2rem;
+    max-height: calc(90vh - 200px);
+    overflow-y: auto;
+  }
+  
+  @media (max-width: 768px) {
+    width: 95%;
+    max-height: 95vh;
+    
+    .modal-body {
+      padding: 1rem;
+    }
+  }
+}
+
+// Rotating animation for loading spinner
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rotating {
+  animation: rotate 1s linear infinite;
+}

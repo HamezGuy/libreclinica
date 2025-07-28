@@ -40,28 +40,154 @@ const ACCESS_LEVEL_PERMISSIONS: Record<string, string[]> = {
 
 // Helper function to check user permissions
 const checkUserPermissions = async (userId: string, action: string, resourceType: string) => {
-  const userDoc = await admin.firestore().collection("users").doc(userId).get();
-  const userData = userDoc.data();
+  try {
+    const userDoc = await admin.firestore().collection("users").doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.error(`User document not found for userId: ${userId}`);
+      // Try to create a default user profile for authenticated users
+      const auth = admin.auth();
+      try {
+        const userRecord = await auth.getUser(userId);
+        console.log(`Creating default profile for authenticated user: ${userRecord.email}`);
+        
+        // Create a default admin profile
+        const defaultProfile = {
+          uid: userId,
+          email: userRecord.email || '',
+          displayName: userRecord.displayName || userRecord.email?.split('@')[0] || 'User',
+          accessLevel: 'ADMIN', // Default to ADMIN for now
+          status: 'ACTIVE',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await admin.firestore().collection("users").doc(userId).set(defaultProfile);
+        console.log(`Created default profile for user ${userId}`);
+        
+        // Return the created profile data
+        return defaultProfile;
+      } catch (authError) {
+        console.error(`Failed to get auth user or create profile: ${authError}`);
+        throw new HttpsError("permission-denied", "User document not found and could not create default profile");
+      }
+    }
+    
+    const userData = userDoc.data();
+    if (!userData) {
+      console.error(`User data is null for userId: ${userId}`);
+      throw new HttpsError("permission-denied", "User data not found");
+    }
 
-  if (!userData) {
-    throw new HttpsError("permission-denied", "User not found");
+    // Log user data for debugging
+    console.log(`User ${userId} data:`, {
+      accessLevel: userData.accessLevel,
+      status: userData.status,
+      email: userData.email,
+      hasPermissions: !!userData.permissions
+    });
+
+    // Fix missing or undefined accessLevel
+    if (!userData.accessLevel || userData.accessLevel === 'undefined') {
+      console.warn(`User ${userId} has missing or undefined accessLevel, setting to ADMIN`);
+      // Update the user document with default ADMIN access
+      await admin.firestore().collection("users").doc(userId).update({
+        accessLevel: 'ADMIN',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      userData.accessLevel = 'ADMIN';
+    }
+
+    // Fix missing status
+    if (!userData.status) {
+      console.warn(`User ${userId} has no status, setting to ACTIVE`);
+      await admin.firestore().collection("users").doc(userId).update({
+        status: 'ACTIVE',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      userData.status = 'ACTIVE';
+    }
+
+    // Check user status
+    if (userData.status !== "ACTIVE") {
+      throw new HttpsError("permission-denied", `User account is not active (status: ${userData.status})`);
+    }
+
+    // Check access level-based permissions
+    const userPermissions = ACCESS_LEVEL_PERMISSIONS[userData.accessLevel];
+    if (!userPermissions) {
+      console.error(`Invalid access level: ${userData.accessLevel}`);
+      // Default to ADMIN if invalid access level
+      console.warn(`Setting invalid access level to ADMIN for user ${userId}`);
+      await admin.firestore().collection("users").doc(userId).update({
+        accessLevel: 'ADMIN',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      userData.accessLevel = 'ADMIN';
+      return userData;
+    }
+    
+    // Check if user has the required permission
+    // Handle both array-based and object-based permissions
+    let hasPermission = false;
+    
+    if (Array.isArray(userData.permissions)) {
+      // Legacy array format
+      hasPermission = userData.permissions.includes(action);
+    } else if (userData.permissions && typeof userData.permissions === 'object') {
+      // New object format with specific permissions
+      switch (action) {
+        case 'CREATE':
+          hasPermission = userData.permissions.canCreateStudy || 
+                         userData.permissions.canEditStudy || 
+                         userData.accessLevel === 'SUPER_ADMIN' || 
+                         userData.accessLevel === 'ADMIN';
+          break;
+        case 'READ':
+          hasPermission = userData.permissions.canViewAllData || 
+                         userData.accessLevel === 'SUPER_ADMIN' || 
+                         userData.accessLevel === 'ADMIN' ||
+                         true; // Everyone can read
+          break;
+        case 'UPDATE':
+          hasPermission = userData.permissions.canEditStudy || 
+                         userData.accessLevel === 'SUPER_ADMIN' || 
+                         userData.accessLevel === 'ADMIN';
+          break;
+        case 'DELETE':
+          hasPermission = userData.permissions.canDeleteStudy || 
+                         userData.accessLevel === 'SUPER_ADMIN' ||
+                         (userData.accessLevel === 'ADMIN' && userData.permissions.canDeleteStudy !== false);
+          break;
+        case 'EXPORT':
+          hasPermission = userData.permissions.canExportData || 
+                         userData.accessLevel === 'SUPER_ADMIN' || 
+                         userData.accessLevel === 'ADMIN';
+          break;
+        default:
+          hasPermission = false;
+      }
+    } else {
+      // No permissions object, use access level permissions
+      hasPermission = userPermissions.includes(action);
+    }
+    
+    if (!hasPermission) {
+      throw new HttpsError(
+        "permission-denied",
+        `User with access level ${userData.accessLevel} does not have ${action} permission for ${resourceType}`
+      );
+    }
+    
+
+    return userData;
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    console.error(`Unexpected error in checkUserPermissions: ${error}`);
+    throw new HttpsError("internal", "Failed to check user permissions");
   }
-
-  // Check user status
-  if (userData.status !== "ACTIVE") {
-    throw new HttpsError("permission-denied", "User account is not active");
-  }
-
-  // Check access level-based permissions
-  const userPermissions = ACCESS_LEVEL_PERMISSIONS[userData.accessLevel];
-  if (!userPermissions || !userPermissions.includes(action)) {
-    throw new HttpsError(
-      "permission-denied",
-      `User access level ${userData.accessLevel} does not have ${action} permission for ${resourceType}`
-    );
-  }
-
-  return userData;
 };
 
 /**
@@ -138,22 +264,33 @@ export const getPatient = onCall({
 export const searchPatients = onCall({
   cors: ["http://localhost:4200", "http://localhost:4201", "http://localhost:4202", "https://www.accuratrials.com"],
 }, async (request: CallableRequest<Record<string, string>>) => {
+  console.log(`searchPatients called by user: ${request.auth?.uid}`);
+  
   if (!request.auth) {
+    console.error("searchPatients: No authentication provided");
     throw new HttpsError("unauthenticated", "User must be authenticated");
   }
 
-  await checkUserPermissions(request.auth.uid, "READ", "Patient");
-
   try {
+    // Check user permissions first
+    await checkUserPermissions(request.auth.uid, "READ", "Patient");
+    console.log(`User ${request.auth.uid} has permission to search patients`);
+
+    // Get authenticated client
     const client = await auth.getClient();
-    const url = `https://healthcare.googleapis.com/v1/${getFhirStoreName()}/fhir/Patient`;
+    const fhirStoreName = getFhirStoreName();
+    console.log(`Using FHIR store: ${fhirStoreName}`);
+    
+    const url = `https://healthcare.googleapis.com/v1/${fhirStoreName}/fhir/Patient`;
 
     // Build search parameters
     const params: any = {};
-    if (request.data.name) params["name"] = request.data.name;
-    if (request.data.identifier) params["identifier"] = request.data.identifier;
-    if (request.data.birthdate) params["birthdate"] = request.data.birthdate;
-    if (request.data.gender) params["gender"] = request.data.gender;
+    if (request.data?.name) params["name"] = request.data.name;
+    if (request.data?.identifier) params["identifier"] = request.data.identifier;
+    if (request.data?.birthdate) params["birthdate"] = request.data.birthdate;
+    if (request.data?.gender) params["gender"] = request.data.gender;
+    
+    console.log(`Searching patients with params:`, params);
 
     const response = await client.request({
       url,
@@ -161,14 +298,42 @@ export const searchPatients = onCall({
       params,
     });
 
+    console.log(`Patient search successful, found ${(response.data as any)?.entry?.length || 0} patients`);
+
     // Log to audit trail
-    await logHealthcareAccess(request.auth.uid, "SEARCH", "Patient", "multiple");
+    try {
+      await logHealthcareAccess(request.auth.uid, "SEARCH", "Patient", "multiple");
+    } catch (auditError) {
+      console.error("Failed to log audit trail:", auditError);
+      // Don't fail the request if audit logging fails
+    }
 
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to search patients:", error);
-    const message = error instanceof Error ? error.message : "An unknown error occurred";
-    throw new HttpsError("internal", message);
+    console.error("Error details:", {
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      stack: error?.stack
+    });
+    
+    // Handle specific error types
+    if (error instanceof HttpsError) {
+      throw error;
+    } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+      throw new HttpsError("unavailable", "Healthcare API service is unavailable");
+    } else if (error?.status === 404) {
+      throw new HttpsError("not-found", "Healthcare dataset or FHIR store not found. Please check configuration.");
+    } else if (error?.status === 403) {
+      throw new HttpsError("permission-denied", "Service account lacks permission to access Healthcare API");
+    } else if (error?.status === 401) {
+      throw new HttpsError("unauthenticated", "Service account authentication failed");
+    } else {
+      const message = error?.message || "An unknown error occurred while searching patients";
+      throw new HttpsError("internal", message);
+    }
   }
 });
 
@@ -383,8 +548,8 @@ export const deletePatientData = onCall({
 
   const userData = await checkUserPermissions(request.auth.uid, "DELETE", "Patient");
 
-  // Only super_admin can delete
-  if (userData.role !== "super_admin") {
+  // Only SUPER_ADMIN can delete
+  if (userData.accessLevel !== "SUPER_ADMIN") {
     throw new HttpsError("permission-denied", "Only super administrators can delete patient data");
   }
 

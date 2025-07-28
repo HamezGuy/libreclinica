@@ -14,6 +14,7 @@ import { HealthcareApiService, Patient as HealthcarePatient } from '../../servic
 import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
+import { TemplateManagementComponent } from '../template-management/template-management.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -73,7 +74,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, FormPreviewComponent, ProfileEditPopupComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -116,6 +117,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showStudyGroupModal = false;
   showFormAssignmentModal = false;
   showSectionModal = false;
+  showStudyCreationModal = false;
+  studyCreationForm!: FormGroup;
+  isCreatingStudy = false;
   
   // Form assignment state
   availableTemplates: FormTemplate[] = [];
@@ -149,7 +153,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   templateFilter: 'all' | 'draft' | 'published' = 'all';
   filteredTemplates: FormTemplate[] = [];
   
-  private allTemplates: FormTemplate[] = [];
+  allTemplates: FormTemplate[] = [];
   searchQuery = '';
   currentUserProfile: UserProfile | null = null;
 
@@ -174,6 +178,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   activeSidebarItem = 'patients';
 
   ngOnInit(): void {
+    // Initialize study creation form
+    this.initializeStudyCreationForm();
+    
     // First ensure permissions are set up before any API calls
     this.setupPermissions().then(() => {
       // Only load data after permissions are confirmed
@@ -199,6 +206,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     // Initialize template data for the enhanced modal
     this.templates$.pipe(takeUntil(this.destroy$)).subscribe(templates => {
+      console.log('[Dashboard] Templates received from service:', templates.map(t => ({
+        name: t.name,
+        id: t.id,
+        hasInternalId: !!(t as any)._internalId
+      })));
       this.allTemplates = templates;
       this.filterTemplates();
     });
@@ -291,6 +303,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
       age--;
     }
     return age;
+  }
+
+  private initializeStudyCreationForm(): void {
+    this.studyCreationForm = this.fb.group({
+      // Basic Information
+      protocolNumber: ['', [Validators.required, Validators.pattern(/^[A-Z0-9-]+$/)]], 
+      title: ['', [Validators.required, Validators.minLength(5)]],
+      shortTitle: [''],
+      description: ['', [Validators.required, Validators.minLength(20)]],
+      version: ['1.0', Validators.required],
+      
+      // Study Classification
+      phase: ['phase_i', Validators.required],
+      studyType: ['interventional', Validators.required],
+      therapeuticArea: ['', Validators.required],
+      indication: ['', Validators.required],
+      
+      // Study Status and Timeline
+      status: ['planning', Validators.required],
+      plannedStartDate: [''],
+      plannedEndDate: [''],
+      
+      // Enrollment Information
+      plannedEnrollment: [0, [Validators.required, Validators.min(1)]],
+      actualEnrollment: [0],
+      enrollmentStatus: ['not_started'],
+      
+      // Regulatory Information
+      regulatoryRequirements: [[]],
+      irbApprovalRequired: [true],
+      consentRequired: [true],
+      
+      // CFR 21 Part 11 Compliance
+      requiresElectronicSignatures: [true],
+      auditTrailRequired: [true],
+      dataIntegrityLevel: ['enhanced', Validators.required],
+      
+      // Data Retention
+      dataRetentionPeriod: [120, [Validators.required, Validators.min(12)]], // in months
+      
+      // Study Team
+      principalInvestigator: [''],
+      studyCoordinator: [''],
+      dataManager: [''],
+      
+      // Tags
+      tags: [[]]
+    });
   }
 
   private getPatientDisplayName(patient: PatientListItem): string {
@@ -426,8 +486,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
     
+    console.log('[Dashboard] editTemplate called with template:', template);
+    console.log('[Dashboard] Template ID being set:', template.id);
+    console.log('[Dashboard] CRITICAL: Using Firebase document ID for editing:', template.id);
+    
+    // IMPORTANT: template.id MUST be the Firebase document ID, not the internal template ID
+    // The form-template.service ensures this by overwriting any internal ID with the doc ID
     this.selectedTemplateForEdit = template;
-    this.editingTemplateId = template.id;
+    this.editingTemplateId = template.id; // This MUST be the Firebase document ID
     this.showFormBuilderModal = true;
   }
 
@@ -580,10 +646,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     alert('Template duplication is not yet implemented');
   }
   
-  exportTemplate(template: FormTemplate): void {
-    // TODO: Implement template export logic
-    console.log('Exporting template:', template);
-    alert('Template export is not yet implemented');
+  async exportTemplate(template: FormTemplate) {
+    // TODO: Implement template export
+    console.log('Export template:', template);
+    alert('Template export functionality coming soon');
+  }
+
+  /**
+   * Temporary method to fix template IDs in Firestore
+   * This removes internal id fields that conflict with document IDs
+   */
+  async fixTemplateIds() {
+    try {
+      console.log('Running template ID fix...');
+      await this.templateService.fixTemplateIds();
+      alert('Template IDs have been fixed. Please try editing the template again.');
+    } catch (error) {
+      console.error('Failed to fix template IDs:', error);
+      alert('Failed to fix template IDs. Check console for details.');
+    }
   }
   
   trackTemplate(index: number, template: FormTemplate): string {
@@ -674,13 +755,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   async createNewStudy(): Promise<void> {
+    console.log('createNewStudy called');
     if (!this.permissions.canCreate) {
       alert('You do not have permission to create studies');
       return;
     }
     
-    // TODO: Open study creation modal
-    console.log('Create new study modal would open here');
+    console.log('Permissions check passed, opening modal');
+    // Reset form and open modal
+    this.studyCreationForm.reset({
+      phase: 'phase_i',
+      studyType: 'interventional',
+      status: 'planning',
+      enrollmentStatus: 'not_started',
+      plannedEnrollment: 0,
+      actualEnrollment: 0,
+      irbApprovalRequired: true,
+      consentRequired: true,
+      requiresElectronicSignatures: true,
+      auditTrailRequired: true,
+      dataIntegrityLevel: 'enhanced',
+      dataRetentionPeriod: 120 // 10 years default
+    });
+    
+    this.showStudyCreationModal = true;
+    console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
   }
 
   async editStudy(study: Study): Promise<void> {
@@ -698,7 +797,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     try {
       // Load patient templates from observable
       const allTemplates = await firstValueFrom(this.templates$);
-      this.patientTemplates = allTemplates.filter((template: FormTemplate) => template.templateType === 'patient');
+      // Filter for patient templates - check templateType property
+      this.patientTemplates = allTemplates.filter((template: FormTemplate) => 
+        template.templateType === 'patient' || 
+        template.isPatientTemplate === true
+      );
+      
+      console.log('[Dashboard] Filtered patient templates:', this.patientTemplates.length);
+      console.log('[Dashboard] Patient templates:', this.patientTemplates.map(t => ({
+        name: t.name,
+        templateType: t.templateType,
+        isPatientTemplate: t.isPatientTemplate
+      })));
       
       // Load available studies for patient assignment
       this.availableStudies = this.studies; // Use existing studies data
@@ -725,10 +835,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
     
-    // Close patient template modal and open form builder for patient template
+    // Close patient template modal
     this.closePatientTemplateModal();
-    this.openFormBuilder();
-    // TODO: Set form builder to patient template mode
+    
+    // Reset any existing template selection
+    this.selectedTemplateForEdit = null;
+    this.editingTemplateId = undefined;
+    
+    // Open form builder modal in create mode
+    this.showFormBuilderModal = true;
+    
+    // Note: The form builder should be configured to create a patient template
+    // This can be done by passing initial data to the form builder component
   }
 
   async createPatientFromTemplate(): Promise<void> {
@@ -970,6 +1088,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   trackStudy(index: number, study: Study): string {
     return study.id || `study-${index}`;
+  }
+
+  async saveNewStudy(): Promise<void> {
+    if (this.studyCreationForm.invalid) {
+      // Mark all fields as touched to show validation errors
+      Object.keys(this.studyCreationForm.controls).forEach(key => {
+        this.studyCreationForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    this.isCreatingStudy = true;
+    
+    try {
+      const formValue = this.studyCreationForm.value;
+      
+      // Create the study object
+      const newStudy: Study = {
+        ...formValue,
+        sections: [], // Initialize empty sections
+        substudies: [],
+        studyGroups: [],
+        eligibilityCriteria: {
+          inclusionCriteria: [],
+          exclusionCriteria: [],
+          ageRange: {
+            minimum: 18,
+            maximum: 99,
+            unit: 'years'
+          },
+          genderRestriction: 'any'
+        },
+        sites: [],
+        archivalRequirements: [],
+        changeHistory: [],
+        createdBy: this.currentUserProfile?.uid || 'unknown',
+        createdAt: new Date(),
+        lastModifiedBy: this.currentUserProfile?.uid || 'unknown',
+        lastModifiedAt: new Date()
+      };
+
+      // Save to Firebase via StudyService
+      const savedStudy = await this.studyService.createStudy(newStudy);
+      
+      // Success - close modal and refresh studies list
+      this.showStudyCreationModal = false;
+      this.studyCreationForm.reset();
+      
+      // Show success message
+      alert(`Study "${savedStudy.title}" created successfully!`);
+      
+      // Refresh studies list
+      this.loadStudies();
+    } catch (error) {
+      console.error('Error creating study:', error);
+      alert('Failed to create study. Please try again.');
+    } finally {
+      this.isCreatingStudy = false;
+    }
+  }
+
+  closeStudyCreationModal(): void {
+    this.showStudyCreationModal = false;
+    this.studyCreationForm.reset();
+  }
+
+  loadStudies(): void {
+    // Refresh the studies list
+    this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   getSectionsForStudy(studyId: string): EnhancedStudySection[] {

@@ -264,11 +264,9 @@ export class AdminUserManagementComponent implements OnInit {
       const formData = this.inviteForm.value;
       await this.orgService.inviteUser(this.currentOrganization.id, {
         email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        role: formData.role,
-        department: formData.department,
-        invitationMessage: formData.message
+        invitedRole: formData.role,
+        assignedStudies: [],
+        personalMessage: formData.message
       });
 
       this.successMessage = `Invitation sent to ${formData.email} successfully!`;
@@ -571,6 +569,6 @@ export class AdminUserManagementComponent implements OnInit {
   }
 
   trackStudy(index: number, study: Study): string {
-    return study.id;
+    return study.id || `study-${index}`;
   }
 }
