@@ -29,6 +29,7 @@ export interface PatientListItem {
   displayName: string;
   studyId?: string;
   lastVisit?: Date;
+  enrollmentDate?: Date;
   formsCount: number;
   status: 'active' | 'completed' | 'withdrawn';
   canViewPhi: boolean;
@@ -173,8 +174,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { id: 'reports', label: 'Reports', icon: 'assessment', active: false },
     { id: 'audit', label: 'Audit Logs', icon: 'history', active: false }
   ];
-
   activeSidebarItem = 'patients';
+  
+  // Study-Patient Hierarchy Sidebar State
+  expandedStudies = new Set<string>();
+  expandedPatients = new Set<string>();
 
   ngOnInit(): void {
     // Initialize study creation form
@@ -1392,6 +1396,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
     console.log('Resolving care indicator:', indicator.id);
     // TODO: Implement care indicator resolution
     alert('Care indicator resolution - Coming soon!');
+  }
+
+  // Study-Patient Hierarchy Sidebar Methods
+  toggleStudyExpansion(studyId: string): void {
+    if (this.expandedStudies.has(studyId)) {
+      this.expandedStudies.delete(studyId);
+    } else {
+      this.expandedStudies.add(studyId);
+    }
+  }
+
+  togglePatientExpansion(patientId: string): void {
+    if (this.expandedPatients.has(patientId)) {
+      this.expandedPatients.delete(patientId);
+    } else {
+      this.expandedPatients.add(patientId);
+    }
+  }
+
+  getStudyPatients(studyId: string): PatientListItem[] {
+    // Filter patients by study ID or return all patients if study has no specific patients
+    return this.patients.filter(patient => patient.studyId === studyId || !patient.studyId);
+  }
+
+  getStudyPatientCount(studyId: string): number {
+    return this.getStudyPatients(studyId).length;
+  }
+
+  selectPatientFromSidebar(patient: PatientListItem): void {
+    // Navigate to patient view and load patient details
+    this.activeSidebarItem = 'patients';
+    this.selectPatient(patient);
+  }
+
+  getPatientStatusIcon(status: string): string {
+    switch (status) {
+      case 'active':
+        return 'check_circle';
+      case 'completed':
+        return 'task_alt';
+      case 'withdrawn':
+        return 'remove_circle';
+      default:
+        return 'help';
+    }
+  }
+
+  trackPatient(index: number, patient: PatientListItem): string {
+    return patient.id || index.toString();
+  }
+
+  // Navigation method for horizontal navigation bar
+  navigateToSection(item: any): void {
+    this.activeSidebarItem = item.id;
+    console.log('Navigating to:', item.id);
   }
 
 }

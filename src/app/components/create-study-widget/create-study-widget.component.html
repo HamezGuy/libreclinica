@@ -285,6 +285,12 @@
         </div>
       </div>
       
+      <!-- Form Validation Warning -->
+      <div class="form-validation-warning" *ngIf="!studyCreationForm.valid && studyCreationForm.touched">
+        <i class="material-icons">warning</i>
+        <span>Please fill in all required fields to create study</span>
+      </div>
+      
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="closeStudyCreationModal()">
           Cancel
