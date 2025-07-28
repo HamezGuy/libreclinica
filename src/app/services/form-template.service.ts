@@ -346,6 +346,11 @@ export class FormTemplateService {
     const template = await this.getTemplate(templateId);
     if (!template) throw new Error('Template not found');
 
+    // Cannot delete already archived templates
+    if (template.status === 'archived') {
+      throw new Error('Template is already archived and cannot be deleted again');
+    }
+
     // Check permissions - only ADMIN can delete
     if (currentUser.accessLevel !== AccessLevel.ADMIN && currentUser.accessLevel !== AccessLevel.SUPER_ADMIN) {
       throw new Error('Only administrators can delete form templates');
@@ -443,21 +448,89 @@ export class FormTemplateService {
    * Get templates by study ID
    */
   getTemplatesByStudy(studyId: string): Observable<FormTemplate[]> {
-    return from(runInInjectionContext(this.injector, async () => {
-      const templatesRef = collection(this.firestore, 'formTemplates');
-      const q = query(
-        templatesRef,
-        where('studyId', '==', studyId),
-        where('status', 'in', ['published', 'review']),
-        orderBy('name')
-      );
+    const templatesRef = collection(this.firestore, 'formTemplates');
+    const q = query(templatesRef, 
+      where('studyId', '==', studyId),
+      where('status', '==', 'published'),
+      orderBy('updatedAt', 'desc')
+    );
 
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as FormTemplate));
-    }));
+    return from(getDocs(q)).pipe(
+      map(snapshot => 
+        snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        } as FormTemplate))
+      )
+    );
+  }
+
+  /**
+   * Get templates by patient visit subcomponent
+   */
+  getTemplatesBySubcomponent(patientVisitSubcomponentId: string): Observable<FormTemplate[]> {
+    const templatesRef = collection(this.firestore, 'formTemplates');
+    const q = query(templatesRef, 
+      where('patientVisitSubcomponentId', '==', patientVisitSubcomponentId),
+      where('status', '==', 'published'),
+      orderBy('updatedAt', 'desc')
+    );
+
+    return from(getDocs(q)).pipe(
+      map(snapshot => 
+        snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        } as FormTemplate))
+      )
+    );
+  }
+
+  /**
+   * Assign templates to a patient visit subcomponent
+   */
+  async assignTemplatesToSubcomponent(
+    templateIds: string[], 
+    patientVisitSubcomponentId: string
+  ): Promise<void> {
+    const currentUser = await this.authService.getCurrentUserProfile();
+    if (!currentUser) throw new Error('User not authenticated');
+
+    if (!this.canCreateTemplate(currentUser)) {
+      throw new Error('Insufficient permissions to assign templates');
+    }
+
+    const batch = writeBatch(this.firestore);
+    
+    for (const templateId of templateIds) {
+      const templateRef = doc(this.firestore, 'formTemplates', templateId);
+      batch.update(templateRef, {
+        patientVisitSubcomponentId,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+    }
+
+    await batch.commit();
+
+    // Emit events for each template assignment
+    for (const templateId of templateIds) {
+      const template = await this.getTemplate(templateId);
+      if (template) {
+        this.eventBus.publish({
+          type: 'FORM_TEMPLATE_MODIFIED',
+          templateId,
+          templateName: template.name,
+          studyId: template.studyId,
+          modifiedBy: currentUser.uid,
+          changes: { patientVisitSubcomponentId },
+          oldVersion: template.version,
+          newVersion: template.version,
+          timestamp: new Date(),
+          userId: currentUser.uid
+        } as FormTemplateModifiedEvent);
+      }
+    }
   }
 
   /**
@@ -541,7 +614,10 @@ export class FormTemplateService {
   private canEditTemplate(user: UserProfile, template: FormTemplate): boolean {
     if (user.status !== 'ACTIVE') return false;
     
-    // Admins can edit any template
+    // Archived templates cannot be edited by anyone
+    if (template.status === 'archived') return false;
+    
+    // Admins can edit any non-archived template
     if (user.accessLevel === AccessLevel.ADMIN || user.accessLevel === AccessLevel.SUPER_ADMIN) {
       return true;
     }
@@ -556,6 +632,9 @@ export class FormTemplateService {
   }
 
   private canPublishTemplate(user: UserProfile, template: FormTemplate): boolean {
+    // Cannot publish archived templates
+    if (template.status === 'archived') return false;
+    
     return this.canEditTemplate(user, template) && 
            (user.accessLevel === AccessLevel.ADMIN || 
             user.accessLevel === AccessLevel.SUPER_ADMIN || 

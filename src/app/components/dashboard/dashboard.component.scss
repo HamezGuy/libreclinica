@@ -3001,3 +3001,332 @@
 .rotating {
   animation: rotate 1s linear infinite;
 }
+
+// Patient Template Modal Styles
+.patient-template-modal {
+  .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 8px 8px 0 0;
+    
+    h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      
+      .material-icons {
+        font-size: 1.8rem;
+      }
+    }
+    
+    .close-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+      }
+    }
+  }
+  
+  .modal-body {
+    padding: 2rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    
+    .template-selection-info {
+      background: #f0f4ff;
+      border: 1px solid #d0deff;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      
+      h3 {
+        margin: 0 0 0.5rem 0;
+        color: #4a5568;
+        font-size: 1.1rem;
+      }
+      
+      p {
+        margin: 0;
+        color: #718096;
+        font-size: 0.95rem;
+      }
+    }
+    
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      
+      .template-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        
+        &:hover {
+          border-color: #667eea;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(102, 126, 234, 0.1);
+        }
+        
+        &.selected {
+          border-color: #667eea;
+          background: #f0f4ff;
+          
+          &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+          }
+        }
+        
+        .template-icon {
+          width: 60px;
+          height: 60px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 1rem;
+          position: relative;
+          
+          .material-icons {
+            color: white;
+            font-size: 2rem;
+          }
+          
+          .phi-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff6b6b;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          }
+        }
+        
+        .template-info {
+          h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2d3748;
+            font-size: 1.1rem;
+            font-weight: 600;
+          }
+          
+          p {
+            margin: 0 0 1rem 0;
+            color: #718096;
+            font-size: 0.9rem;
+            line-height: 1.4;
+          }
+          
+          .template-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            
+            .field-count {
+              display: flex;
+              align-items: center;
+              gap: 0.3rem;
+              color: #4a5568;
+              font-size: 0.85rem;
+              
+              .material-icons {
+                font-size: 1rem;
+                color: #667eea;
+              }
+            }
+            
+            .template-status {
+              font-size: 0.75rem;
+              font-weight: 600;
+              padding: 4px 8px;
+              border-radius: 4px;
+              text-transform: uppercase;
+              
+              &.published {
+                background: #d4edda;
+                color: #155724;
+              }
+              
+              &.draft {
+                background: #fff3cd;
+                color: #856404;
+              }
+              
+              &.archived {
+                background: #f8d7da;
+                color: #721c24;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    .no-templates {
+      text-align: center;
+      padding: 3rem;
+      
+      .material-icons {
+        font-size: 4rem;
+        color: #cbd5e0;
+        margin-bottom: 1rem;
+      }
+      
+      h3 {
+        color: #4a5568;
+        margin: 0 0 0.5rem 0;
+      }
+      
+      p {
+        color: #718096;
+        margin: 0 0 1.5rem 0;
+      }
+      
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    }
+    
+    .selected-template-preview {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+      
+      h4 {
+        margin: 0 0 1rem 0;
+        color: #2d3748;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      
+      .field-preview-list {
+        .field-preview-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0;
+          border-bottom: 1px solid #e2e8f0;
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          .material-icons {
+            color: #667eea;
+            font-size: 1.2rem;
+          }
+          
+          .field-name {
+            flex: 1;
+            color: #4a5568;
+            font-size: 0.95rem;
+          }
+          
+          .phi-indicator {
+            .material-icons {
+              color: #ff6b6b;
+              font-size: 1rem;
+            }
+          }
+        }
+        
+        .more-fields {
+          color: #718096;
+          font-size: 0.85rem;
+          font-style: italic;
+          padding-top: 0.5rem;
+        }
+      }
+    }
+  }
+  
+  .modal-footer {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    border-radius: 0 0 8px 8px;
+    
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      
+      &.btn-secondary {
+        background: #e2e8f0;
+        color: #4a5568;
+        
+        &:hover {
+          background: #cbd5e0;
+        }
+      }
+      
+      &.btn-success {
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        
+        &:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(72, 187, 120, 0.3);
+        }
+        
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+      
+      .material-icons {
+        font-size: 1.2rem;
+      }
+    }
+  }
+}

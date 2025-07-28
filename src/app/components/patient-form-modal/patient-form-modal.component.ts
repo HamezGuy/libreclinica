@@ -4,6 +4,7 @@ import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } 
 import { FormTemplate, FormField, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { Study } from '../../models/study.model';
 import { Patient } from '../../services/healthcare-api.service';
+import { StudyService } from '../../services/study.service';
 
 @Component({
   selector: 'app-patient-form-modal',
@@ -15,11 +16,12 @@ import { Patient } from '../../services/healthcare-api.service';
 export class PatientFormModalComponent implements OnInit, OnChanges {
   @Input() show = false;
   @Input() template: FormTemplate | null = null;
-  @Input() availableStudies: any[] = [];
+  @Input() availableStudies: Study[] = [];
   @Output() close = new EventEmitter<void>();
   @Output() submit = new EventEmitter<any>();
 
   private fb = inject(FormBuilder);
+  private studyService = inject(StudyService);
   
   patientForm: FormGroup = this.fb.group({});
   isSubmitting = false;
@@ -37,6 +39,7 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.buildForm();
+    this.loadStudies();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -46,14 +49,14 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
   }
 
   private buildForm(): void {
-    if (!this.template) {
-      this.patientForm = this.fb.group({});
-      return;
-    }
-
-    const formControls: { [key: string]: FormControl } = {};
+    // Always include studyId as a required field
+    const formControls: { [key: string]: FormControl } = {
+      studyId: new FormControl('', Validators.required)
+    };
     
-    this.template.fields.forEach(field => {
+    // Add template fields if template exists
+    if (this.template) {
+      this.template.fields.forEach(field => {
       const validators = [];
       
       if (field.required) {
@@ -85,13 +88,30 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
         });
       }
       
-      formControls[field.id] = new FormControl(
-        field.defaultValue || '', 
-        validators
-      );
-    });
+        formControls[field.id] = new FormControl(
+          field.defaultValue || '', 
+          validators
+        );
+      });
+    }
     
     this.patientForm = this.fb.group(formControls);
+  }
+
+  private loadStudies(): void {
+    // If studies are not passed as input, load them from the service
+    if (!this.availableStudies || this.availableStudies.length === 0) {
+      this.studyService.getStudiesByStatus('active').subscribe({
+        next: (studies) => {
+          this.availableStudies = studies;
+        },
+        error: (error) => {
+          console.error('Error loading studies:', error);
+          // Continue with empty studies array if loading fails
+          this.availableStudies = [];
+        }
+      });
+    }
   }
 
   onClose(): void {
@@ -124,11 +144,12 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
     this.isSubmitting = true;
     const formData = this.patientForm.value;
     
-    // Add template information
+    // Add template information and study ID
     const patientData = {
       ...formData,
       templateId: this.template?.id,
-      templateName: this.template?.name
+      templateName: this.template?.name,
+      studyId: formData.studyId // Ensure studyId is included
     };
     
     this.submit.emit(patientData);

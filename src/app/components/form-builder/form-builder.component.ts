@@ -117,6 +117,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.setupFormChangeTracking();
+    this.setupTemplateTypeListener();
     
     if (this.templateId) {
       console.log('Loading template with ID:', this.templateId);
@@ -202,6 +203,35 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       .subscribe(() => {
         this.hasUnsavedChanges = true;
       });
+  }
+
+  private setupTemplateTypeListener(): void {
+    this.builderForm.get('templateType')?.valueChanges.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((templateType: string) => {
+      // Automatically set boolean flags based on template type
+      switch (templateType) {
+        case 'patient_template':
+          this.builderForm.patchValue({
+            isPatientTemplate: true,
+            isStudySubjectTemplate: false
+          }, { emitEvent: false });
+          break;
+        case 'study_subject':
+          this.builderForm.patchValue({
+            isPatientTemplate: false,
+            isStudySubjectTemplate: true
+          }, { emitEvent: false });
+          break;
+        case 'form':
+        default:
+          this.builderForm.patchValue({
+            isPatientTemplate: false,
+            isStudySubjectTemplate: false
+          }, { emitEvent: false });
+          break;
+      }
+    });
   }
 
   private async loadTemplate(): Promise<void> {

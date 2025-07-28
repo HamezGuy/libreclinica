@@ -82,15 +82,15 @@
                 <button 
                   class="btn-icon" 
                   (click)="onEditTemplate(template)"
-                  [disabled]="!permissions.canEdit"
-                  title="Edit Template">
+                  [disabled]="!permissions.canEdit || template.status === 'archived'"
+                  [title]="template.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
                   <i class="material-icons">edit</i>
                 </button>
                 <button 
                   class="btn-icon danger" 
                   (click)="onDeleteTemplate(template)"
-                  [disabled]="!permissions.canDelete"
-                  title="Delete Template">
+                  [disabled]="!permissions.canDelete || template.status === 'archived'"
+                  [title]="template.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
                   <i class="material-icons">delete</i>
                 </button>
               </div>
@@ -134,14 +134,16 @@
               <button 
                 class="btn btn-sm btn-primary" 
                 (click)="onEditTemplate(selectedTemplate)"
-                [disabled]="!permissions.canEdit">
+                [disabled]="!permissions.canEdit || selectedTemplate.status === 'archived'"
+                [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
                 <i class="material-icons">edit</i>
                 Edit Template
               </button>
               <button 
                 class="btn btn-sm btn-success" 
                 (click)="onPublishTemplate(selectedTemplate)"
-                [disabled]="!permissions.canPublish || selectedTemplate.status === 'published'">
+                [disabled]="!permissions.canPublish || selectedTemplate.status === 'published' || selectedTemplate.status === 'archived'"
+                [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be published' : 'Publish Template'">
                 <i class="material-icons">publish</i>
                 Publish
               </button>
@@ -161,7 +163,8 @@
               <button 
                 class="btn btn-sm btn-danger" 
                 (click)="onDeleteTemplate(selectedTemplate)"
-                [disabled]="!permissions.canDelete">
+                [disabled]="!permissions.canDelete || selectedTemplate.status === 'archived'"
+                [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
                 <i class="material-icons">delete</i>
                 Delete
               </button>

@@ -11,11 +11,13 @@ import { DataSeparationService } from '../../services/data-separation.service';
 import { StudyService } from '../../services/study.service';
 import { EventBusService } from '../../core/services/event-bus.service';
 import { HealthcareApiService, Patient as HealthcarePatient } from '../../services/healthcare-api.service';
+import { PatientService } from '../../services/patient.service';
 import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { TemplateManagementComponent } from '../template-management/template-management.component';
 import { CreateStudyWidgetComponent } from '../create-study-widget/create-study-widget.component';
+import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -76,7 +78,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent, PatientFormModalComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -92,6 +94,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private eventBus = inject(EventBusService);
   private fb = inject(FormBuilder);
   private phiEncryptionService = inject(PhiEncryptionService);
+  private patientService = inject(PatientService);
   
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
@@ -744,7 +747,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Filter for patient templates - check templateType property
       this.patientTemplates = allTemplates.filter((template: FormTemplate) => 
         template.templateType === 'patient' || 
-        template.isPatientTemplate === true
+        template.templateType === 'study_subject' ||
+        template.isPatientTemplate === true ||
+        template.isStudySubjectTemplate === true
       );
       
       console.log('[Dashboard] Filtered patient templates:', this.patientTemplates.length);
@@ -939,6 +944,100 @@ export class DashboardComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error creating patient:', error);
       alert('Failed to create patient');
+    } finally {
+      this.isCreatingPatient = false;
+    }
+  }
+
+  async onPatientFormSubmit(patientData: any): Promise<void> {
+    if (!this.selectedPatientTemplate) {
+      alert('No patient template selected');
+      return;
+    }
+    
+    this.isCreatingPatient = true;
+    
+    try {
+      // Ensure studyId is included
+      if (!patientData.studyId) {
+        alert('Please select a study for the patient');
+        return;
+      }
+      
+      // Build demographics from form data
+      const demographics: any = {
+        firstName: patientData.firstName || patientData.first_name || '',
+        lastName: patientData.lastName || patientData.last_name || '',
+        middleName: patientData.middleName || patientData.middle_name,
+        dateOfBirth: patientData.dateOfBirth || patientData.date_of_birth || new Date(),
+        gender: patientData.gender || 'unknown',
+        race: patientData.race,
+        ethnicity: patientData.ethnicity,
+        preferredLanguage: patientData.preferredLanguage || patientData.preferred_language,
+        email: patientData.email,
+        phone: patientData.phone,
+        alternatePhone: patientData.alternatePhone || patientData.alternate_phone
+      };
+      
+      // Add address if provided
+      if (patientData.street || patientData.city || patientData.state) {
+        demographics.address = {
+          street: patientData.street || '',
+          city: patientData.city || '',
+          state: patientData.state || '',
+          postalCode: patientData.postalCode || patientData.postal_code || '',
+          country: patientData.country || 'USA'
+        };
+      }
+      
+      // Add emergency contact if provided
+      if (patientData.emergency_contact_name) {
+        demographics.emergencyContact = {
+          name: patientData.emergency_contact_name,
+          relationship: patientData.emergency_contact_relationship || '',
+          phone: patientData.emergency_contact_phone || '',
+          email: patientData.emergency_contact_email
+        };
+      }
+      
+      // Create patient data structure
+      const newPatient: any = {
+        studyId: patientData.studyId,
+        demographics,
+        enrollmentDate: new Date(),
+        enrollmentStatus: 'screening' as const,
+        identifiers: [],
+        consents: [],
+        // Store template data for reference
+        templateData: {
+          templateId: this.selectedPatientTemplate.id!,
+          templateName: this.selectedPatientTemplate.name,
+          formData: patientData
+        }
+      };
+      
+      // Add optional fields only if they exist
+      if (patientData.siteId) {
+        newPatient.siteId = patientData.siteId;
+      }
+      if (patientData.treatmentArm) {
+        newPatient.treatmentArm = patientData.treatmentArm;
+      }
+      
+      // Create patient using the service
+      console.log('Creating patient with data:', newPatient);
+      const patientId = await this.patientService.createPatient(patientData.studyId, newPatient);
+      
+      console.log('Patient created successfully with ID:', patientId);
+      alert('Patient created successfully!');
+      this.closePatientFormModal();
+      
+      // Refresh patients list
+      await this.loadPatients();
+      
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      alert('Failed to create patient: ' + (error as Error).message);
     } finally {
       this.isCreatingPatient = false;
     }

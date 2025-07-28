@@ -1,182 +1,173 @@
 <!-- Patient Form Modal -->
-<div class="modal-overlay patient-form-modal" *ngIf="show" (click)="onBackdropClick($event)">
-  <div class="modal-content" (click)="$event.stopPropagation()">
+<div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
     <div class="modal-header">
-      <h2>
-        <i class="material-icons">person</i>
-        New Patient: {{ template?.name }}
-      </h2>
-      <button class="close-button" (click)="onClose()" [disabled]="isSubmitting">
+      <div class="header-content">
+        <i class="material-icons header-icon">person_add</i>
+        <div>
+          <h2>Create New Patient</h2>
+          <p class="header-subtitle">Add a patient to a study with the appropriate form template</p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="onClose()" title="Close">
         <i class="material-icons">close</i>
       </button>
     </div>
-    
-    <div class="modal-body patient-form-container">
-      <div class="phi-warning">
-        <i class="material-icons">security</i>
-        <span>This form contains Protected Health Information (PHI). Data will be encrypted and access will be logged.</span>
-      </div>
-      
-      <div class="patient-form" *ngIf="template">
-        <form [formGroup]="patientForm" (ngSubmit)="onSubmit()">
-          <div 
-            *ngFor="let field of template.fields" 
-            class="form-group" 
-            [class.phi-field]="field.isPhiField">
-            
-            <label [for]="field.id">
-              {{ field.label }}
-              <span class="required" *ngIf="field.required">*</span>
-              <span class="phi-badge" *ngIf="field.isPhiField">PHI</span>
-            </label>
-            
-            <!-- Text Input -->
-            <input 
-              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'phone'"
-              [type]="field.type === 'phone' ? 'tel' : field.type"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="field.placeholder"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            
-            <!-- Number Input -->
-            <input 
-              *ngIf="field.type === 'number'"
-              type="number"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="field.placeholder"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            
-            <!-- Date Input -->
-            <input 
-              *ngIf="field.type === 'date'"
-              type="date"
-              [id]="field.id"
-              [formControlName]="field.id"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            
-            <!-- Select Dropdown -->
-            <select 
-              *ngIf="field.type === 'select'"
-              [id]="field.id"
-              [formControlName]="field.id"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-              <option value="">{{ field.placeholder || 'Select...' }}</option>
-              <option *ngFor="let option of field.options" [value]="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-            
-            <!-- Radio Buttons -->
-            <div *ngIf="field.type === 'radio'" class="radio-group">
-              <label *ngFor="let option of field.options" class="radio-label">
-                <input 
-                  type="radio"
-                  [name]="field.id"
-                  [value]="option.value"
-                  [formControlName]="field.id">
-                <span>{{ option.label }}</span>
-              </label>
-            </div>
-            
-            <!-- Checkbox -->
-            <label *ngIf="field.type === 'checkbox'" class="checkbox-label">
-              <input 
-                type="checkbox"
-                [id]="field.id"
-                [formControlName]="field.id">
-              <span>{{ field.label }}</span>
-            </label>
-            
-            <!-- Textarea -->
-            <textarea 
-              *ngIf="field.type === 'textarea'"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="field.placeholder"
-              rows="3"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            </textarea>
-            
-            <!-- PHI Fields -->
-            <div *ngIf="field.phiClassification?.phiType === phiFieldTypes.NAME" class="name-fields">
-              <input 
-                type="text"
-                [formControlName]="field.id + '_first'"
-                placeholder="First Name"
-                class="form-control">
-              <input 
-                type="text"
-                [formControlName]="field.id + '_last'"
-                placeholder="Last Name"
-                class="form-control">
-            </div>
-            
-            <input 
-              *ngIf="field.phiClassification?.phiType === phiFieldTypes.SSN"
-              type="text"
-              [id]="field.id"
-              [formControlName]="field.id"
-              placeholder="XXX-XX-XXXX"
-              pattern="^\d{3}-\d{2}-\d{4}$"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            
-            <input 
-              *ngIf="field.phiClassification?.phiType === phiFieldTypes.DOB"
-              type="date"
-              [id]="field.id"
-              [formControlName]="field.id"
-              class="form-control"
-              [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-            
-            <!-- Help Text -->
-            <small class="help-text" *ngIf="field.helpText">{{ field.helpText }}</small>
-            
-            <!-- Error Messages -->
-            <div class="error-messages" *ngIf="getFieldErrors(field).length > 0">
-              <span class="error-message" *ngFor="let error of getFieldErrors(field)">
-                {{ error }}
-              </span>
-            </div>
+
+    <div class="modal-body">
+      <form [formGroup]="patientForm" (ngSubmit)="onSubmit()">
+        <!-- Step 1: Study Selection -->
+        <div class="form-section">
+          <div class="section-header">
+            <span class="step-number">1</span>
+            <h3>Select Study</h3>
+            <span class="required-indicator">Required</span>
           </div>
           
-          <!-- Study Assignment (if applicable) -->
-          <div class="form-group" *ngIf="availableStudies.length > 0">
-            <label for="studyAssignment">
-              Assign to Study
-              <span class="help-text">Optional: Enroll patient in a study</span>
+          <div class="study-selection">
+            <label for="study-select" class="form-label">
+              Choose the study this patient will be enrolled in
             </label>
-            <select id="studyAssignment" formControlName="studyId" class="form-control">
-              <option value="">No study assignment</option>
+            <select 
+              id="study-select"
+              formControlName="studyId"
+              class="form-control study-select"
+              [class.error]="patientForm.get('studyId')?.invalid && patientForm.get('studyId')?.touched">
+              <option value="" disabled>Select a study...</option>
               <option *ngFor="let study of availableStudies" [value]="study.id">
                 {{ study.title }} ({{ study.protocolNumber }})
               </option>
             </select>
+            <div class="error-message" *ngIf="patientForm.get('studyId')?.invalid && patientForm.get('studyId')?.touched">
+              Please select a study
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <!-- Step 2: Patient Information -->
+        <div class="form-section" [class.disabled]="!patientForm.get('studyId')?.value">
+          <div class="section-header">
+            <span class="step-number">2</span>
+            <h3>Patient Information</h3>
+            <div class="template-info" *ngIf="template">
+              <i class="material-icons">description</i>
+              <span>{{ template.name }}</span>
+            </div>
+          </div>
+
+          <div class="form-grid" *ngIf="template && patientForm.get('studyId')?.value">
+            <div class="form-field" 
+                 *ngFor="let field of template?.fields"
+                 [class.full-width]="field.type === 'textarea'">
+              <label [for]="field.id" class="field-label">
+                {{ field.label }}
+                <span class="required" *ngIf="field.required">*</span>
+                <i class="material-icons help-icon" 
+                   *ngIf="field.helpText" 
+                   [title]="field.helpText">help_outline</i>
+              </label>
+              
+              <!-- Text Input -->
+              <input 
+                *ngIf="field.type === 'text'"
+                [id]="field.id"
+                type="text"
+                [formControlName]="field.id"
+                [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()"
+                class="form-control"
+                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              
+              <!-- Number Input -->
+              <input 
+                *ngIf="field.type === 'number'"
+                [id]="field.id"
+                type="number"
+                [formControlName]="field.id"
+                [placeholder]="field.placeholder || 'Enter number'"
+                class="form-control"
+                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              
+              <!-- Date Input -->
+              <div class="date-input-wrapper" *ngIf="field.type === 'date'">
+                <input 
+                  [id]="field.id"
+                  type="date"
+                  [formControlName]="field.id"
+                  class="form-control"
+                  [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+                <i class="material-icons date-icon">calendar_today</i>
+              </div>
+              
+              <!-- Select Dropdown -->
+              <select 
+                *ngIf="field.type === 'select'"
+                [id]="field.id"
+                [formControlName]="field.id"
+                class="form-control"
+                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+                <option value="">{{ field.placeholder || 'Select ' + field.label.toLowerCase() }}</option>
+                <option *ngFor="let option of field.options" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+              
+              <!-- Textarea -->
+              <textarea 
+                *ngIf="field.type === 'textarea'"
+                [id]="field.id"
+                [formControlName]="field.id"
+                [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()"
+                rows="4"
+                class="form-control"
+                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              </textarea>
+              
+              <!-- Checkbox -->
+              <div class="checkbox-wrapper" *ngIf="field.type === 'checkbox'">
+                <input 
+                  [id]="field.id"
+                  type="checkbox"
+                  [formControlName]="field.id"
+                  class="checkbox">
+                <label [for]="field.id" class="checkbox-label">
+                  {{ field.placeholder || field.label }}
+                </label>
+              </div>
+              
+              <!-- Error Messages -->
+              <div class="error-messages" *ngIf="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+                <span class="error-message" *ngFor="let error of getFieldErrors(field)">
+                  <i class="material-icons">error_outline</i>
+                  {{ error }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- No study selected message -->
+          <div class="empty-state" *ngIf="!patientForm.get('studyId')?.value">
+            <i class="material-icons">info</i>
+            <p>Please select a study first to continue with patient information</p>
+          </div>
+        </div>
+      </form>
     </div>
-    
+
+    <!-- Footer -->
     <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
+      <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
+        <i class="material-icons">close</i>
         Cancel
       </button>
-      <button 
-        class="btn btn-primary" 
-        (click)="onSubmit()"
-        [disabled]="patientForm.invalid || isSubmitting">
+      <button type="submit" 
+              class="btn btn-primary" 
+              (click)="onSubmit()" 
+              [disabled]="patientForm.invalid || isSubmitting || !patientForm.get('studyId')?.value">
+        <i class="material-icons" *ngIf="!isSubmitting">check</i>
+        <i class="material-icons spinning" *ngIf="isSubmitting">refresh</i>
         <span *ngIf="!isSubmitting">Create Patient</span>
-        <span *ngIf="isSubmitting">
-          <i class="material-icons spin">refresh</i>
-          Creating...
-        </span>
+        <span *ngIf="isSubmitting">Creating...</span>
       </button>
     </div>
   </div>

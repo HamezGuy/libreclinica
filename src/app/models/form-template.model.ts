@@ -198,6 +198,7 @@ export interface TemplateLink {
 export interface FormTemplate {
   id?: string;
   studyId?: string; // Optional - templates can be global or study-specific
+  patientVisitSubcomponentId?: string; // Links template to a specific patient visit subcomponent
   name: string;
   description: string;
   version: number;
@@ -327,6 +328,7 @@ export interface FormInstance {
   studyId?: string;
   patientId?: string;
   visitId?: string;
+  patientVisitSubcomponentId?: string; // Links instance to patient visit subcomponent
   
   // Form Data
   data: Record<string, any>; // Field ID -> Value mapping
