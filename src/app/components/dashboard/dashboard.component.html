@@ -88,105 +88,21 @@
   
   <!-- Main Content Area -->
   <div class="main-content">
-    <!-- Left Study-Patient Hierarchy Sidebar -->
-    <aside class="study-patient-sidebar">
-      <div class="sidebar-header">
-        <h3>
-          <i class="material-icons">account_tree</i>
-          Studies & Patients
-        </h3>
-      </div>
-      
-      <div class="sidebar-content">
-        <div class="study-tree">
-          <div 
-            *ngFor="let study of studies; trackBy: trackStudy" 
-            class="study-node"
-            [class.expanded]="expandedStudies.has(study.id || '')">
-            
-            <!-- Study Header -->
-            <div 
-              class="study-node-header"
-              (click)="toggleStudyExpansion(study.id || '')">
-              <i class="material-icons expand-icon">
-                {{ expandedStudies.has(study.id || '') ? 'expand_more' : 'chevron_right' }}
-              </i>
-              <i class="material-icons study-icon">folder</i>
-              <span class="study-title">{{ study.title }}</span>
-              <span class="patient-count">({{ getStudyPatientCount(study.id || '') }})</span>
-            </div>
-            
-            <!-- Expandable Patient List -->
-            <div 
-              class="patient-list"
-              *ngIf="expandedStudies.has(study.id || '')">
-              <div 
-                *ngFor="let patient of getStudyPatients(study.id || ''); trackBy: trackPatient" 
-                class="patient-node"
-                [class.expanded]="expandedPatients.has(patient.id || '')">
-                
-                <!-- Patient Header -->
-                <div 
-                  class="patient-node-header"
-                  (click)="togglePatientExpansion(patient.id || '')">
-                  <i class="material-icons expand-icon">
-                    {{ expandedPatients.has(patient.id || '') ? 'expand_more' : 'chevron_right' }}
-                  </i>
-                  <i class="material-icons patient-icon">person</i>
-                  <span class="patient-id">{{ patient.identifier }}</span>
-                  <span class="enrollment-date">{{ patient.enrollmentDate | date:'MMM dd' }}</span>
-                </div>
-                
-                <!-- Patient Quick Info -->
-                <div 
-                  class="patient-quick-info"
-                  *ngIf="expandedPatients.has(patient.id || '')">
-                  <div class="quick-info-item" (click)="selectPatientFromSidebar(patient)">
-                    <i class="material-icons">visibility</i>
-                    <span>View Details</span>
-                  </div>
-                  <div class="quick-info-item">
-                    <i class="material-icons">assignment</i>
-                    <span>{{ patient.formsCount || 0 }} Forms</span>
-                  </div>
-                  <div class="quick-info-item">
-                    <i class="material-icons">schedule</i>
-                    <span>{{ patient.lastVisit ? (patient.lastVisit | date:'short') : 'No visits' }}</span>
-                  </div>
-                  <div class="quick-info-item">
-                    <i class="material-icons status-icon" [class]="'status-' + (patient.status || 'unknown')">
-                      {{ getPatientStatusIcon(patient.status || 'unknown') }}
-                    </i>
-                    <span class="status-text" [class]="'status-' + (patient.status || 'unknown')">
-                      {{ patient.status || 'Unknown' }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Empty state for study with no patients -->
-              <div *ngIf="getStudyPatients(study.id || '').length === 0" class="no-patients">
-                <i class="material-icons">people_outline</i>
-                <span>No patients enrolled</span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Empty state for no studies -->
-          <div *ngIf="studies.length === 0" class="no-studies">
-            <i class="material-icons">folder_open</i>
-            <p>No studies available</p>
-            <button 
-              class="btn btn-primary btn-sm"
-              (click)="createNewStudy()"
-              *ngIf="permissions.canCreate">
-              <i class="material-icons">add</i>
-              Create Study
-            </button>
-          </div>
-        </div>
-      </div>
-    </aside>
+    <!-- Dashboard Sidebar Widget -->
+    <app-dashboard-sidebar
+      [activeSidebarItem]="activeSidebarItem"
+      [studies]="studies"
+      [patients]="patients"
+      [permissions]="permissions"
+      [activeSidebarItem]="activeSidebarItem"
+      (activeSidebarItemChange)="selectSidebarItem($event)"
+      (createTemplate)="createNewTemplate()"
+      (createStudy)="createNewStudy()"
+      (selectPatient)="selectPatientFromSidebar($event)"
+      (deletePatient)="deletePatientFromStudy($event.patient, $event.studyId)"
+      (viewPatientForms)="viewPatientForms($event)"
+      (viewPatientHistory)="viewPatientHistory($event)">
+    </app-dashboard-sidebar>
     
     <!-- Main Panel -->
     <main class="main-panel">
@@ -196,7 +112,11 @@
         <div class="section-header">
           <h2>Patients</h2>
           <div class="section-actions">
-            <button class="btn btn-primary" title="Add New Patient" (click)="openPatientTemplateSelector()">
+            <button 
+              class="btn btn-primary" 
+              [disabled]="!permissions.canAddPatients"
+              [title]="permissions.canAddPatients ? 'Add New Patient' : 'Insufficient permissions to add patients'"
+              (click)="openPatientTemplateSelector()">
               <i class="material-icons">person_add</i>
               Add Patient
             </button>
@@ -878,13 +798,35 @@
           <div class="create-form-section" *ngIf="(templates$ | async) as templates">
             <h5>Create New Form</h5>
             <div class="template-selector">
-              <button 
-                *ngFor="let template of templates" 
-                class="btn btn-sm btn-outline"
-                (click)="createLegacyFormInstance(template, selectedPatient!)"
-                [disabled]="template.status !== 'published'">
-                {{ template.name }}
-              </button>
+              <div class="template-dropdown">
+                <select 
+                  class="form-select"
+                  [(ngModel)]="selectedTemplateForPatient"
+                  (change)="onTemplateSelected()">
+                  <option value="" disabled selected>Select a template...</option>
+                  <option 
+                    *ngFor="let template of templates" 
+                    [value]="template.id"
+                    [disabled]="template.status !== 'published'">
+                    {{ template.name }} 
+                    <span *ngIf="template.status !== 'published'">({{ template.status }})</span>
+                  </option>
+                </select>
+                <button 
+                  class="btn btn-primary btn-sm"
+                  (click)="createFormForSelectedTemplate()"
+                  [disabled]="!selectedTemplateForPatient || !permissions.canCreate">
+                  <i class="material-icons">add</i>
+                  Create Form
+                </button>
+              </div>
+              <div class="template-info" *ngIf="getSelectedTemplateInfo() as templateInfo">
+                <p class="template-description">{{ templateInfo.description || 'No description available' }}</p>
+                <div class="template-meta">
+                  <span><i class="material-icons">category</i> {{ templateInfo.category || 'General' }}</span>
+                  <span><i class="material-icons">input</i> {{ templateInfo.fields.length || 0 }} fields</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

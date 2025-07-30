@@ -61,17 +61,15 @@ export class PatientService {
     const patientId = patientRef.id;
     const now = new Date();
 
-    const newPatient: Patient = {
+    // Build the patient object with required fields
+    const newPatient: any = {
       id: patientId,
       studyId, // REQUIRED - Patient must belong to a study
-      siteId: patientData.siteId,
       patientNumber: patientData.patientNumber || await this.generatePatientNumber(studyId),
       identifiers: patientData.identifiers || [],
       demographics: patientData.demographics!,
       enrollmentDate: patientData.enrollmentDate || now,
       enrollmentStatus: patientData.enrollmentStatus || 'screening',
-      treatmentArm: patientData.treatmentArm,
-      randomizationId: patientData.randomizationId,
       consents: patientData.consents || [],
       hasValidConsent: this.checkValidConsent(patientData.consents || []),
       visitSubcomponents: [], // Will be created separately
@@ -100,8 +98,22 @@ export class PatientService {
       }]
     };
 
+    // Add optional fields only if they are defined
+    if (patientData.siteId !== undefined) {
+      newPatient.siteId = patientData.siteId;
+    }
+    if (patientData.treatmentArm !== undefined) {
+      newPatient.treatmentArm = patientData.treatmentArm;
+    }
+    if (patientData.randomizationId !== undefined) {
+      newPatient.randomizationId = patientData.randomizationId;
+    }
+
+    // Clean the patient object to remove any undefined values
+    const cleanedPatient = this.cleanUndefinedValues(newPatient) as Patient;
+
     // Save patient document
-    await setDoc(patientRef, this.prepareForFirestore(newPatient));
+    await setDoc(patientRef, this.prepareForFirestore(cleanedPatient));
 
     // Create reference in study's patients subcollection
     const studyPatientRef: StudyPatientReference = {
@@ -109,11 +121,17 @@ export class PatientService {
       patientNumber: newPatient.patientNumber,
       enrollmentDate: now,
       status: 'screening',
-      treatmentArm: patientData.treatmentArm,
-      siteId: patientData.siteId,
       addedBy: currentUser.uid,
       addedAt: now
     };
+    
+    // Add optional fields only if they are defined
+    if (patientData.treatmentArm !== undefined) {
+      studyPatientRef.treatmentArm = patientData.treatmentArm;
+    }
+    if (patientData.siteId !== undefined) {
+      studyPatientRef.siteId = patientData.siteId;
+    }
     
     const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
     await addDoc(studyPatientsRef, studyPatientRef);
@@ -197,6 +215,30 @@ export class PatientService {
         );
       })
     );
+  }
+
+  // Delete patient by ID
+  async deletePatient(patientId: string): Promise<void> {
+    const currentUser = await this.authService.getCurrentUserProfile();
+    if (!currentUser) throw new Error('User not authenticated');
+
+    // Check permissions
+    const hasPermission = ['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR'].includes(currentUser.accessLevel);
+    if (!hasPermission) {
+      throw new Error('Insufficient permissions to delete patients');
+    }
+
+    try {
+      // Delete the patient document
+      const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
+      await deleteDoc(patientRef);
+
+      // TODO: Add audit logging when audit service is available
+      console.log(`Patient ${patientId} deleted by ${currentUser.email}`);
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      throw error;
+    }
   }
 
   // Get patients by study using the hierarchical structure
@@ -628,6 +670,37 @@ export class PatientService {
     });
     
     return converted;
+  }
+
+  private cleanUndefinedValues(obj: any): any {
+    if (obj === undefined) {
+      return undefined;
+    }
+    
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      // Filter out undefined values and recursively clean remaining items
+      return obj
+        .filter(item => item !== undefined)
+        .map(item => this.cleanUndefinedValues(item));
+    }
+    
+    // For objects, create a new object without undefined values
+    const cleaned: any = {};
+    Object.keys(obj).forEach(key => {
+      const value = obj[key];
+      if (value !== undefined) {
+        const cleanedValue = this.cleanUndefinedValues(value);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      }
+    });
+    
+    return cleaned;
   }
 
   private async getClientIP(): Promise<string> {

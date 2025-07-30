@@ -853,6 +853,187 @@ export class StudyService implements IStudyService {
     throw new Error('Method not implemented');
   }
 
+  // ============================================================================
+  // Patient Management Methods
+  // ============================================================================
+
+  /**
+   * Get all patients for a study by their IDs
+   */
+  async getStudyPatients(studyId: string): Promise<any[]> {
+    const study = await this.getStudy(studyId);
+    if (!study || !study.patientIds || study.patientIds.length === 0) {
+      return [];
+    }
+
+    return await runInInjectionContext(this.injector, async () => {
+      const patients: any[] = [];
+      const patientsRef = collection(this.firestore, 'patients');
+      
+      // Get patients in batches (Firestore 'in' query limit is 10)
+      const batches = [];
+      for (let i = 0; i < study.patientIds.length; i += 10) {
+        const batch = study.patientIds.slice(i, i + 10);
+        const q = query(patientsRef, where('id', 'in', batch));
+        batches.push(getDocs(q));
+      }
+      
+      const results = await Promise.all(batches);
+      results.forEach(snapshot => {
+        snapshot.docs.forEach(doc => {
+          patients.push({ id: doc.id, ...doc.data() });
+        });
+      });
+      
+      return patients;
+    });
+  }
+
+  /**
+   * Add a patient to a study
+   */
+  async addPatientToStudy(studyId: string, patientId: string): Promise<void> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) {
+        throw new Error('User must be authenticated to add patients to studies');
+      }
+
+      // Update study with new patient ID
+      const studyRef = doc(this.firestore, 'studies', studyId);
+      const studyDoc = await getDoc(studyRef);
+      
+      if (!studyDoc.exists()) {
+        throw new Error('Study not found');
+      }
+
+      const studyData = studyDoc.data() as Study;
+      const currentPatientIds = studyData.patientIds || [];
+      
+      // Check if patient is already in study
+      if (currentPatientIds.includes(patientId)) {
+        console.warn(`Patient ${patientId} is already enrolled in study ${studyId}`);
+        return;
+      }
+
+      // Add patient to study's patient list
+      const updatedPatientIds = [...currentPatientIds, patientId];
+      await updateDoc(studyRef, {
+        patientIds: updatedPatientIds,
+        actualEnrollment: updatedPatientIds.length,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+
+      // Update patient with study ID
+      const patientRef = doc(this.firestore, 'patients', patientId);
+      await updateDoc(patientRef, {
+        studyId: studyId,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+
+      // Log audit event
+      await this.auditService.logAuditEvent({
+        action: 'patient_added_to_study',
+        resourceType: 'study',
+        resourceId: studyId,
+        userId: currentUser.uid,
+        details: JSON.stringify({
+          patientId,
+          studyId,
+          newEnrollmentCount: updatedPatientIds.length
+        })
+      });
+    });
+  }
+
+  /**
+   * Remove a patient from a study
+   */
+  async removePatientFromStudy(studyId: string, patientId: string, reason?: string): Promise<void> {
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      if (!currentUser) {
+        throw new Error('User must be authenticated to remove patients from studies');
+      }
+
+      // Update study - remove patient ID
+      const studyRef = doc(this.firestore, 'studies', studyId);
+      const studyDoc = await getDoc(studyRef);
+      
+      if (!studyDoc.exists()) {
+        throw new Error('Study not found');
+      }
+
+      const studyData = studyDoc.data() as Study;
+      const currentPatientIds = studyData.patientIds || [];
+      
+      // Remove patient from study's patient list
+      const updatedPatientIds = currentPatientIds.filter(id => id !== patientId);
+      
+      await updateDoc(studyRef, {
+        patientIds: updatedPatientIds,
+        actualEnrollment: updatedPatientIds.length,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+
+      // Clear patient's study ID (set to empty string or null)
+      const patientRef = doc(this.firestore, 'patients', patientId);
+      await updateDoc(patientRef, {
+        studyId: '', // Clear the study association
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+
+      // Log audit event
+      await this.auditService.logAuditEvent({
+        action: 'patient_removed_from_study',
+        resourceType: 'study',
+        resourceId: studyId,
+        userId: currentUser.uid,
+        details: JSON.stringify({
+          patientId,
+          studyId,
+          reason: reason || 'No reason provided',
+          newEnrollmentCount: updatedPatientIds.length
+        })
+      });
+    });
+  }
+
+  /**
+   * Get study information for a specific patient
+   */
+  async getPatientStudy(patientId: string): Promise<Study | null> {
+    return await runInInjectionContext(this.injector, async () => {
+      const patientRef = doc(this.firestore, 'patients', patientId);
+      const patientDoc = await getDoc(patientRef);
+      
+      if (!patientDoc.exists()) {
+        return null;
+      }
+
+      const patientData = patientDoc.data();
+      const studyId = patientData['studyId'];
+      
+      if (!studyId) {
+        return null;
+      }
+
+      return await this.getStudy(studyId);
+    });
+  }
+
+  /**
+   * Get patient count for a study
+   */
+  async getStudyPatientCount(studyId: string): Promise<number> {
+    const study = await this.getStudy(studyId);
+    return study?.patientIds?.length || 0;
+  }
+
   // Organization-specific study methods
   async getStudiesForOrganization(organizationId: string): Promise<Study[]> {
     return await runInInjectionContext(this.injector, async () => {

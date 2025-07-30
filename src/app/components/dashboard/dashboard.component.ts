@@ -18,6 +18,7 @@ import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-po
 import { TemplateManagementComponent } from '../template-management/template-management.component';
 import { CreateStudyWidgetComponent } from '../create-study-widget/create-study-widget.component';
 import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
+import { DashboardSidebarComponent } from '../dashboard-sidebar/dashboard-sidebar.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -50,10 +51,12 @@ interface FormInstance {
 // Form Permissions interface
 export interface FormPermissions {
   canView: boolean;
-  canCreate: boolean;
-  canEdit: boolean;
-  canDelete: boolean;
-  canPublish: boolean;
+  canCreate: boolean;  // For templates
+  canEdit: boolean;    // For templates
+  canDelete: boolean;  // For templates
+  canPublish: boolean; // For templates
+  canAddPatients?: boolean;    // For patients
+  canDeletePatients?: boolean; // For patients
 }
 
 // Patient PHI data interface
@@ -78,7 +81,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent, PatientFormModalComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent, PatientFormModalComponent, DashboardSidebarComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -123,7 +126,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showFormAssignmentModal = false;
   showSectionModal = false;
   showStudyCreationModal = false;
-  
+
   // Form assignment state
   availableTemplates: FormTemplate[] = [];
   selectedTemplateForAssignment: FormTemplate | null = null;
@@ -131,7 +134,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedPatient: PatientListItem | null = null;
   selectedPatientForms: FormInstance[] = [];
   selectedPatientPhiData: Patient | null = null;
-  
+
   // Modal state
   showTemplateModal = false;
   showFormBuilderModal = false;
@@ -139,7 +142,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedTemplateForEdit: FormTemplate | null = null;
   formBuilderTemplateId: string | undefined = undefined;
   editingTemplateId: string | undefined = undefined;
-  
+
   // Patient Template Modal state
   showPatientTemplateModal = false;
   showPatientFormModal = false;
@@ -148,14 +151,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   patientForm: FormGroup = this.fb.group({});
   isCreatingPatient = false;
   availableStudies: Study[] = [];
-  
+  selectedTemplateForPatient: string = ''; // For the improved dropdown UI
+
   // Enhanced template modal properties
   selectedTemplate: FormTemplate | null = null;
   viewMode: 'details' | 'preview' = 'details';
   templateSearchTerm = '';
   templateFilter: 'all' | 'draft' | 'published' = 'all';
   filteredTemplates: FormTemplate[] = [];
-  
+
   allTemplates: FormTemplate[] = [];
   searchQuery = '';
   currentUserProfile: UserProfile | null = null;
@@ -178,20 +182,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { id: 'audit', label: 'Audit Logs', icon: 'history', active: false }
   ];
   activeSidebarItem = 'patients';
-  
+
   // Study-Patient Hierarchy Sidebar State
   expandedStudies = new Set<string>();
   expandedPatients = new Set<string>();
 
+  // Additional properties and methods
+  showPatientTemplateSelector = false;
+  showTemplateQuickSetupModal = false;
+  sidebarCollapsed = false;
+
   ngOnInit(): void {
     // Initialize study creation form
 
-    
     // First ensure permissions are set up before any API calls
     this.setupPermissions().then(() => {
       // Only load data after permissions are confirmed
       this.loadPatients();
-      
+
       // Load care indicators
       this.studyService.getCareIndicators().pipe(takeUntil(this.destroy$)).subscribe(indicators => {
         this.careIndicators = indicators;
@@ -200,7 +208,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       console.error('Failed to setup permissions:', error);
       // Don't load data if permissions setup fails
     });
-    
+
     // Subscribe to current user profile changes
     this.userProfile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
       this.currentUserProfile = profile;
@@ -209,7 +217,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.setupPermissions();
       }
     });
-    
+
     // Initialize template data for the enhanced modal
     this.templates$.pipe(takeUntil(this.destroy$)).subscribe(templates => {
       console.log('[Dashboard] Templates received from service:', templates.map(t => ({
@@ -220,7 +228,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.allTemplates = templates;
       this.filterTemplates();
     });
-    
+
     // Subscribe to studies observable
     this.studies$.pipe(takeUntil(this.destroy$)).subscribe(studies => {
       this.studies = studies;
@@ -240,15 +248,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
         accessLevel: userProfile?.accessLevel,
         status: userProfile?.status
       });
-      
+
+      const userRole = userProfile?.accessLevel || AccessLevel.VIEWER;
+
+      // Updated permissions based on requirements:
+      // - Studies/Patients: viewable by all roles
+      // - Templates: only ADMIN and SUPER_ADMIN can create/edit
+      // - Patients: everyone except VIEWER can add/delete
       this.permissions = {
-        canView: userProfile?.accessLevel !== AccessLevel.DATA_ENTRY,
-        canCreate: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN, AccessLevel.INVESTIGATOR].includes(userProfile?.accessLevel || AccessLevel.VIEWER),
-        canEdit: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN, AccessLevel.INVESTIGATOR].includes(userProfile?.accessLevel || AccessLevel.VIEWER),
-        canDelete: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userProfile?.accessLevel || AccessLevel.VIEWER),
-        canPublish: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userProfile?.accessLevel || AccessLevel.VIEWER)
+        canView: true, // All roles can view studies and patients
+        canCreate: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userRole), // Only ADMIN/SUPER_ADMIN can create templates
+        canEdit: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userRole), // Only ADMIN/SUPER_ADMIN can edit templates
+        canDelete: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userRole), // Only ADMIN/SUPER_ADMIN can delete templates
+        canPublish: [AccessLevel.SUPER_ADMIN, AccessLevel.ADMIN].includes(userRole), // Only ADMIN/SUPER_ADMIN can publish templates
+        canAddPatients: userRole !== AccessLevel.VIEWER, // Everyone except VIEWER can add patients
+        canDeletePatients: userRole !== AccessLevel.VIEWER // Everyone except VIEWER can delete patients
       };
-      
+
       console.log('✅ Permissions set:', this.permissions);
     } catch (error) {
       console.error('❌ Error setting up permissions:', error);
@@ -265,37 +281,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   async loadPatients(): Promise<void> {
     try {
-      // Load patients with non-PHI data only
-      const patients = await this.healthcareService.searchPatients({});
-      this.patients = patients.map(patient => {
-        const healthcarePatient = patient as HealthcarePatient;
-        const patientName = healthcarePatient.name;
-        let displayName = 'Unknown Patient';
-        
-        if (patientName) {
-          if (typeof patientName === 'string') {
-            displayName = patientName;
-          } else if (Array.isArray(patientName) && patientName.length > 0) {
-            const firstNameEntry = patientName[0];
-            const given = firstNameEntry.given?.join(' ') || '';
-            const family = firstNameEntry.family || '';
-            displayName = `${given} ${family}`.trim() || 'Unknown Patient';
-          }
-        }
-        
+      // Load patients directly from Firestore (avoids Healthcare API FHIR store 404 errors)
+      const { collection, getDocs, getFirestore } = await import('@angular/fire/firestore');
+      const firestore = getFirestore();
+
+      const patientsRef = collection(firestore, 'patients');
+      const snapshot = await getDocs(patientsRef);
+
+      this.patients = snapshot.docs.map(doc => {
+        const patient = { id: doc.id, ...doc.data() } as any;
+
+        // Build display name from demographics
+        const demographics = patient.demographics || {};
+        const displayName = `${demographics.firstName || 'Unknown'} ${demographics.lastName || 'Patient'}`.trim();
+
         return {
-          id: healthcarePatient.id || 'unknown',
-          identifier: healthcarePatient.identifier?.[0]?.value || 'N/A',
-          displayName: displayName,
-          studyId: undefined,
-          lastVisit: undefined,
-          formsCount: 0,
-          status: 'active' as const,
+          id: patient.id,
+          identifier: patient.patientNumber || patient.id,
+          displayName,
+          studyId: patient.studyId,
+          enrollmentDate: patient.enrollmentDate ? new Date(patient.enrollmentDate.seconds ? patient.enrollmentDate.seconds * 1000 : patient.enrollmentDate) : undefined,
+          lastVisit: patient.lastVisit ? new Date(patient.lastVisit.seconds ? patient.lastVisit.seconds * 1000 : patient.lastVisit) : undefined,
+          formsCount: patient.visitSubcomponents?.length || 0,
+          status: patient.enrollmentStatus || 'active' as const,
           canViewPhi: this.permissions.canView
         };
       });
+
+      console.log(`Loaded ${this.patients.length} patients from Firestore`);
     } catch (error) {
-      console.error('Error loading patients:', error);
+      console.error('Error loading patients from Firestore:', error);
       this.patients = [];
     }
   }
@@ -311,8 +326,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return age;
   }
 
-
-
   private getPatientDisplayName(patient: PatientListItem): string {
     const displayName = patient.displayName;
     if (displayName && displayName.length > 0) {
@@ -323,7 +336,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   async selectPatient(patient: PatientListItem) {
     this.selectedPatient = patient;
-    
+
     try {
       // Load patient forms using observable pattern
       this.instanceService.getFormInstancesByPatient(patient.id).subscribe({
@@ -351,17 +364,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.selectedPatientForms = [];
         }
       });
-      
+
       // Load PHI data if user has permission
       if (this.permissions.canView) {
         try {
           const phiData = await this.healthcareService.getPatient(patient.id);
           // Map healthcare patient to dashboard patient interface
           const name = phiData.name?.[0] || { given: [], family: '' };
-          const birthDate = phiData.birthDate ? 
-            (typeof phiData.birthDate === 'string' ? new Date(phiData.birthDate) : phiData.birthDate) : 
+          const birthDate = phiData.birthDate ?
+            (typeof phiData.birthDate === 'string' ? new Date(phiData.birthDate) : phiData.birthDate) :
             new Date();
-          
+
           this.selectedPatientPhiData = {
             id: phiData.id || '',
             name: {
@@ -373,8 +386,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             contactInfo: {
               phone: phiData.telecom?.find(t => t.system === 'phone')?.value,
               email: phiData.telecom?.find(t => t.system === 'email')?.value,
-              address: phiData.address?.[0] ? 
-                `${phiData.address[0].line?.join(', ') || ''}, ${phiData.address[0].city || ''}, ${phiData.address[0].state || ''} ${phiData.address[0].postalCode || ''}`.trim() : 
+              address: phiData.address?.[0] ?
+                `${phiData.address[0].line?.join(', ') || ''}, ${phiData.address[0].city || ''}, ${phiData.address[0].state || ''} ${phiData.address[0].postalCode || ''}`.trim() :
                 undefined
             }
           };
@@ -426,7 +439,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private calculateCompletionPercentage(instance: TemplateFormInstance): number {
     if (!instance.data || !instance.templateId) return 0;
     // Simple calculation based on filled fields vs total fields
-    const filledFields = Object.keys(instance.data).filter(key => 
+    const filledFields = Object.keys(instance.data).filter(key =>
       instance.data![key] !== null && instance.data![key] !== undefined && instance.data![key] !== ''
     ).length;
     const totalFields = Object.keys(instance.data).length;
@@ -438,7 +451,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to create templates');
       return;
     }
-    
+
     this.openFormBuilder();
   }
 
@@ -447,11 +460,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to edit templates');
       return;
     }
-    
+
     console.log('[Dashboard] editTemplate called with template:', template);
     console.log('[Dashboard] Template ID being set:', template.id);
     console.log('[Dashboard] CRITICAL: Using Firebase document ID for editing:', template.id);
-    
+
     // IMPORTANT: template.id MUST be the Firebase document ID, not the internal template ID
     // The form-template.service ensures this by overwriting any internal ID with the doc ID
     this.selectedTemplateForEdit = template;
@@ -464,7 +477,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to publish templates');
       return;
     }
-    
+
     try {
       await this.templateService.publishTemplate(template.id!, true);
       alert('Template published successfully');
@@ -479,10 +492,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to delete templates');
       return;
     }
-    
+
     const reason = prompt('Please provide a reason for deleting this template:');
     if (!reason) return;
-    
+
     try {
       await this.templateService.deleteTemplate(template.id!, reason);
       alert('Template deleted successfully');
@@ -500,7 +513,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         patient.id,
         template.studyId
       );
-      
+
       // Navigate to form filling interface
       this.router.navigate(['/form-instance', instance.id]);
     } catch (error) {
@@ -513,7 +526,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectSidebarItem(itemId: string) {
     this.sidebarItems.forEach(item => item.active = item.id === itemId);
     this.activeSidebarItem = itemId;
-    
+
     // Handle navigation based on selected item
     switch (itemId) {
       case 'patients':
@@ -537,9 +550,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Search functionality
   get filteredPatients(): PatientListItem[] {
     if (!this.searchQuery) return this.patients;
-    
+
     const query = this.searchQuery.toLowerCase();
-    return this.patients.filter(patient => 
+    return this.patients.filter(patient =>
       patient.displayName.toLowerCase().includes(query) ||
       patient.identifier.toLowerCase().includes(query)
     );
@@ -548,7 +561,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Enhanced template modal methods
   filterTemplates(): void {
     let templates = this.allTemplates;
-    
+
     // Apply status filter
     if (this.templateFilter !== 'all') {
       templates = templates.filter(template => {
@@ -560,30 +573,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
         return true;
       });
     }
-    
+
     // Apply search filter
     if (this.templateSearchTerm) {
       const search = this.templateSearchTerm.toLowerCase();
-      templates = templates.filter(template => 
+      templates = templates.filter(template =>
         template.name.toLowerCase().includes(search) ||
         template.description.toLowerCase().includes(search) ||
         (template.category && template.category.toLowerCase().includes(search))
       );
     }
-    
+
     this.filteredTemplates = templates;
   }
-  
+
   setTemplateFilter(filter: 'all' | 'draft' | 'published'): void {
     this.templateFilter = filter;
     this.filterTemplates();
   }
-  
+
   selectTemplate(template: FormTemplate): void {
     this.selectedTemplate = template;
     this.viewMode = 'details';
   }
-  
+
   setViewMode(mode: 'details' | 'preview'): void {
     this.viewMode = mode;
   }
@@ -591,23 +604,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   isViewMode(mode: 'details' | 'preview'): boolean {
     return this.viewMode === mode;
   }
-  
+
   previewTemplate(template: FormTemplate): void {
     this.selectedTemplate = template;
     this.viewMode = 'preview';
   }
-  
+
   duplicateTemplate(template: FormTemplate): void {
     if (!this.permissions.canCreate) {
       alert('You do not have permission to duplicate templates');
       return;
     }
-    
+
     // TODO: Implement template duplication logic
     console.log('Duplicating template:', template);
     alert('Template duplication is not yet implemented');
   }
-  
+
   async exportTemplate(template: FormTemplate) {
     // TODO: Implement template export
     console.log('Export template:', template);
@@ -628,15 +641,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('Failed to fix template IDs. Check console for details.');
     }
   }
-  
+
   trackTemplate(index: number, template: FormTemplate): string {
     return template.id || index.toString();
   }
-  
+
   trackField(index: number, field: any): string {
     return field.id || index.toString();
   }
-  
+
   getFieldIcon(fieldType: string): string {
     const iconMap: { [key: string]: string } = {
       'text': 'text_fields',
@@ -651,11 +664,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'file': 'attach_file',
       'signature': 'draw'
     };
-    
+
     return iconMap[fieldType] || 'text_fields';
   }
-
-
 
   // Profile edit methods
   openProfileEditModal(): void {
@@ -710,7 +721,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   async loadStudyEnrollments(studyId: string): Promise<void> {
     try {
-      this.studyEnrollments = await this.studyService.getPatientsByStudy(studyId);
+      // Use the new getStudyPatients method that retrieves patients by their IDs
+      const patients = await this.studyService.getStudyPatients(studyId);
+
+      // Convert patient data to enrollment format for compatibility
+      this.studyEnrollments = patients.map(patient => ({
+        id: patient.id || '',
+        studyId: studyId,
+        patientId: patient.id || '',
+        enrollmentDate: patient.enrollmentDate || new Date(),
+        enrollmentNumber: patient.patientNumber || '',
+        status: patient.enrollmentStatus || 'enrolled',
+        currentSection: patient.currentVisitId || undefined,
+        completedSections: [],
+        sectionsInProgress: [],
+        overdueSections: [],
+        careIndicators: patient.activeAlerts?.map((alert: any) => ({
+          id: alert.id,
+          type: alert.type as any,
+          severity: alert.severity as any,
+          title: alert.message,
+          description: alert.message,
+          studyId: studyId,
+          patientId: patient.id,
+          status: alert.resolvedDate ? 'resolved' : 'open',
+          createdAt: alert.createdDate,
+          createdBy: 'system',
+          escalationLevel: alert.severity === 'critical' ? 3 : alert.severity === 'high' ? 2 : 1
+        })) || [],
+        enrolledBy: patient.createdBy || '',
+        lastModifiedBy: patient.lastModifiedBy || '',
+        lastModifiedAt: patient.lastModifiedAt || new Date(),
+        changeHistory: []
+      }));
     } catch (error) {
       console.error('Error loading study enrollments:', error);
     }
@@ -722,7 +765,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to create studies');
       return;
     }
-    
+
     console.log('Permissions check passed, opening modal');
     // Open the Create Study widget modal
     this.showStudyCreationModal = true;
@@ -734,7 +777,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to edit studies');
       return;
     }
-    
+
     // TODO: Open study edit modal
     console.log('Edit study modal would open here:', study);
   }
@@ -745,23 +788,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Load patient templates from observable
       const allTemplates = await firstValueFrom(this.templates$);
       // Filter for patient templates - check templateType property
-      this.patientTemplates = allTemplates.filter((template: FormTemplate) => 
-        template.templateType === 'patient' || 
+      this.patientTemplates = allTemplates.filter((template: FormTemplate) =>
+        template.templateType === 'patient' ||
         template.templateType === 'study_subject' ||
         template.isPatientTemplate === true ||
         template.isStudySubjectTemplate === true
       );
-      
+
       console.log('[Dashboard] Filtered patient templates:', this.patientTemplates.length);
       console.log('[Dashboard] Patient templates:', this.patientTemplates.map(t => ({
         name: t.name,
         templateType: t.templateType,
         isPatientTemplate: t.isPatientTemplate
       })));
-      
+
       // Load available studies for patient assignment
       this.availableStudies = this.studies; // Use existing studies data
-      
+
       this.showPatientTemplateModal = true;
     } catch (error) {
       console.error('Error loading patient templates:', error);
@@ -784,17 +827,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to create templates');
       return;
     }
-    
+
     // Close patient template modal
     this.closePatientTemplateModal();
-    
+
     // Reset any existing template selection
     this.selectedTemplateForEdit = null;
     this.editingTemplateId = undefined;
-    
+
     // Open form builder modal in create mode
     this.showFormBuilderModal = true;
-    
+
     // Note: The form builder should be configured to create a patient template
     // This can be done by passing initial data to the form builder component
   }
@@ -804,11 +847,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('Please select a patient template first');
       return;
     }
-    
+
     try {
       // Build dynamic form based on selected template fields
       this.buildPatientForm(this.selectedPatientTemplate);
-      
+
       // Show patient form modal
       this.showPatientFormModal = true;
       this.showPatientTemplateModal = false;
@@ -825,26 +868,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
         'You have unsaved changes in the patient form. Are you sure you want to close without saving?\n\n' +
         'Click "OK" to close without saving, or "Cancel" to continue editing.'
       );
-      
+
       if (!confirmClose) {
         return; // Don't close the modal
       }
     }
-    
+
     this.showPatientFormModal = false;
     this.patientForm.reset();
   }
 
   private buildPatientForm(template: FormTemplate): void {
     const formControls: { [key: string]: FormControl } = {};
-    
+
     template.fields.forEach(field => {
       const validators = [];
-      
+
       if (field.required) {
         validators.push(Validators.required);
       }
-      
+
       if (field.validationRules && field.validationRules.length > 0) {
         field.validationRules.forEach((rule: any) => {
           // Apply validation rules based on type
@@ -857,20 +900,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
         });
       }
-      
+
       // Add email validation for email fields
       if (field.type === 'email') {
         validators.push(Validators.email);
       }
-      
+
       formControls[field.name] = new FormControl(field.defaultValue || '', validators);
     });
-    
+
     // Add study selection if available studies exist
     if (this.availableStudies.length > 0) {
       formControls['studyId'] = new FormControl('', Validators.required);
     }
-    
+
     this.patientForm = this.fb.group(formControls);
   }
 
@@ -879,16 +922,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('Please fill out all required fields');
       return;
     }
-    
+
     this.isCreatingPatient = true;
-    
+
     try {
       const formData = this.patientForm.value;
-      
+
       // Separate PHI and non-PHI data
       const phiData: { [key: string]: any } = {};
       const regularData: { [key: string]: any } = {};
-      
+
       this.selectedPatientTemplate.fields.forEach(field => {
         const value = formData[field.name];
         if (field.isPhiField || (field.phiClassification && field.phiClassification.isPhiField)) {
@@ -897,7 +940,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           regularData[field.name] = value;
         }
       });
-      
+
       // Encrypt PHI data
       let encryptedPhiData = null;
       if (Object.keys(phiData).length > 0) {
@@ -911,13 +954,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         };
         encryptedPhiData = await this.phiEncryptionService.encryptPhiData(phiData, phiClassification);
       }
-      
+
       // Create FHIR Patient resource
       const fhirPatient = await this.phiEncryptionService.createFhirPatient({
         ...phiData,
         ...regularData
       });
-      
+
       // Create patient record
       const patientData = {
         templateId: this.selectedPatientTemplate.id!,
@@ -929,18 +972,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
         createdBy: this.currentUserProfile?.uid || 'unknown',
         status: 'active'
       };
-      
+
       // Save patient (this would need a patient service)
       console.log('Creating patient with data:', patientData);
-      
+
       // Note: PHI access logging would be handled internally by the encryption service
-      
+
       alert('Patient created successfully!');
       this.closePatientFormModal();
-      
+
       // Refresh patients list
       await this.loadPatients();
-      
+
     } catch (error) {
       console.error('Error creating patient:', error);
       alert('Failed to create patient');
@@ -954,16 +997,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('No patient template selected');
       return;
     }
-    
+
     this.isCreatingPatient = true;
-    
+
     try {
       // Ensure studyId is included
       if (!patientData.studyId) {
         alert('Please select a study for the patient');
         return;
       }
-      
+
       // Build demographics from form data
       const demographics: any = {
         firstName: patientData.firstName || patientData.first_name || '',
@@ -978,7 +1021,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         phone: patientData.phone,
         alternatePhone: patientData.alternatePhone || patientData.alternate_phone
       };
-      
+
       // Add address if provided
       if (patientData.street || patientData.city || patientData.state) {
         demographics.address = {
@@ -989,7 +1032,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           country: patientData.country || 'USA'
         };
       }
-      
+
       // Add emergency contact if provided
       if (patientData.emergency_contact_name) {
         demographics.emergencyContact = {
@@ -999,7 +1042,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           email: patientData.emergency_contact_email
         };
       }
-      
+
       // Create patient data structure
       const newPatient: any = {
         studyId: patientData.studyId,
@@ -1015,7 +1058,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           formData: patientData
         }
       };
-      
+
       // Add optional fields only if they exist
       if (patientData.siteId) {
         newPatient.siteId = patientData.siteId;
@@ -1023,18 +1066,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (patientData.treatmentArm) {
         newPatient.treatmentArm = patientData.treatmentArm;
       }
-      
+
+      // Clean the patient object to remove any undefined values
+      const cleanedPatient = this.cleanUndefinedValues(newPatient);
+
       // Create patient using the service
-      console.log('Creating patient with data:', newPatient);
-      const patientId = await this.patientService.createPatient(patientData.studyId, newPatient);
-      
+      console.log('Creating patient with data:', cleanedPatient);
+      const patientId = await this.createPatientDirectly(cleanedPatient);
       console.log('Patient created successfully with ID:', patientId);
+
       alert('Patient created successfully!');
       this.closePatientFormModal();
-      
+
       // Refresh patients list
       await this.loadPatients();
-      
+
     } catch (error) {
       console.error('Error creating patient:', error);
       alert('Failed to create patient: ' + (error as Error).message);
@@ -1043,31 +1089,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-
-
   getCareIndicatorCount(studyId?: string, severity?: 'low' | 'medium' | 'high' | 'critical'): number {
     let indicators = this.careIndicators;
-    
+
     if (studyId) {
       indicators = indicators.filter(indicator => indicator.studyId === studyId);
     }
-    
+
     if (severity) {
       indicators = indicators.filter(indicator => indicator.severity === severity);
     }
-    
+
     return indicators.length;
   }
 
   // Removed duplicate - using the simpler placeholder implementation below
 
-
-
   // Helper methods for UI
   getStatusColor(status: string): string {
     const colors: { [key: string]: string } = {
       'active': '#28a745',
-      'completed': '#28a745', 
+      'completed': '#28a745',
       'recruiting': '#17a2b8',
       'paused': '#ffc107',
       'cancelled': '#dc3545',
@@ -1082,27 +1124,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   convertTimestampToDate(timestamp: any): Date | null {
     if (!timestamp) return null;
-    
+
     // Handle Firestore Timestamp objects
     if (timestamp && typeof timestamp.toDate === 'function') {
       return timestamp.toDate();
     }
-    
+
     // Handle already converted Date objects
     if (timestamp instanceof Date) {
       return timestamp;
     }
-    
+
     // Handle string dates
     if (typeof timestamp === 'string') {
       return new Date(timestamp);
     }
-    
+
     // Handle timestamp numbers (milliseconds)
     if (typeof timestamp === 'number') {
       return new Date(timestamp);
     }
-    
+
     return null;
   }
 
@@ -1122,7 +1164,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   calculateStudyProgress(study: Study): number {
     const enrollments = this.studyEnrollments.filter(e => e.studyId === study.id);
     if (enrollments.length === 0) return 0;
-    
+
     const completedEnrollments = enrollments.filter(e => e.status === 'completed').length;
     return Math.round((completedEnrollments / enrollments.length) * 100);
   }
@@ -1146,13 +1188,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return study.id || `study-${index}`;
   }
 
-
-
-  loadStudies(): void {
-    // Refresh the studies list
-    this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
-  }
-
   // Create Study Widget Event Handlers
   onStudyWidgetClosed(): void {
     this.showStudyCreationModal = false;
@@ -1160,9 +1195,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onStudyCreated(study: Study): void {
     console.log('Study created:', study);
-    // Study is already added to the list by the widget refresh call
-    // Just close the modal
     this.showStudyCreationModal = false;
+    // Refresh the studies list
+    this.loadStudies();
+    alert('Study created successfully!');
+  }
+  
+  // Load studies
+  loadStudies(): void {
+    this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   onRefreshStudies(): void {
@@ -1203,7 +1244,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('You do not have permission to delete studies');
       return;
     }
-    
+
     if (confirm(`Are you sure you want to delete the study "${study.title}"?`)) {
       console.log('Deleting study:', study.title);
       // TODO: Implement actual deletion via StudyService
@@ -1215,16 +1256,192 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  enrollPatientInStudy(study: Study): void {
+  async enrollPatientInStudy(study: Study): Promise<void> {
     if (!this.permissions.canCreate) {
       alert('You do not have permission to enroll patients');
       return;
     }
-    
-    console.log('Enrolling patient in study:', study.title);
-    // TODO: Implement patient enrollment modal
-    alert(`Patient enrollment for "${study.title}" - Coming soon!`);
+
+    try {
+      // For now, create a demo patient or show modal to select existing patient
+      // In a real application, this would show a patient selection modal
+      const patientId = await this.createDemoPatientForStudy(study.id!);
+
+      if (patientId) {
+        // Use the new bidirectional relationship method
+        await this.studyService.addPatientToStudy(study.id!, patientId);
+        
+        // Refresh study data to show updated enrollment
+        await this.loadStudies();
+        
+        alert(`Patient successfully enrolled in "${study.title}"!`);
+      }
+    } catch (error) {
+      console.error('Error enrolling patient:', error);
+      alert('Failed to enroll patient. Please try again.');
+    }
   }
+
+  /**
+   * Create a demo patient for testing purposes
+   * In production, this would be replaced with patient selection modal
+   */
+  private async createDemoPatientForStudy(studyId: string): Promise<string | null> {
+    try {
+      const patientNumber = `P${Date.now().toString().slice(-6)}`; // Generate unique patient number
+      const uniquePatientId = `patient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Generate unique patient ID
+      
+      // Create patient data that matches Patient model - only include defined values
+      const currentUser = await firstValueFrom(this.authService.user$);
+      const userId = currentUser?.uid || 'system';
+      const now = new Date();
+      
+      // Template-based patient creation - build minimal required structure
+      // In production, this would be based on patient enrollment form templates
+      const patientData = {
+        // Required unique ID field (needed before Firestore document creation)
+        id: uniquePatientId,
+        
+        // Core required fields from Patient model
+        studyId: studyId,
+        patientNumber: patientNumber,
+        
+        // Minimal identifiers array with only defined values
+        identifiers: [{
+          type: 'study_id',
+          value: patientNumber,
+          system: 'EDC_SYSTEM'
+        }],
+        
+        // Minimal demographics with only required fields
+        demographics: {
+          firstName: 'Demo',
+          lastName: `Patient ${patientNumber}`,
+          dateOfBirth: new Date(1990, 0, 1), // Use fixed date to avoid random issues
+          gender: 'unknown' // Use valid enum value
+        },
+        
+        // Required enrollment fields
+        enrollmentDate: now,
+        enrollmentStatus: 'screening',
+        
+        // Required arrays (empty but defined)
+        consents: [],
+        visitSubcomponents: [],
+        activeAlerts: [],
+        protocolDeviations: [],
+        changeHistory: [],
+        
+        // Required boolean
+        hasValidConsent: true,
+        
+        // Required progress object
+        studyProgress: {
+          totalVisits: 0,
+          completedVisits: 0,
+          missedVisits: 0,
+          upcomingVisits: 0,
+          overallCompletionPercentage: 0
+        },
+        
+        // Required audit fields
+        createdBy: userId,
+        createdAt: now,
+        lastModifiedBy: userId,
+        lastModifiedAt: now
+      };
+      
+      console.log('Creating patient with minimal template-based data:', patientData);
+      
+      // Validate that required fields are present
+      if (!patientData.identifiers || patientData.identifiers.length === 0) {
+        console.error('ERROR: Patient identifiers array is empty or missing!');
+        console.log('Original identifiers before cleaning:', {
+          type: 'study_id',
+          value: patientNumber,
+          system: 'EDC_SYSTEM'
+        });
+      }
+
+      // Use PatientService to create the patient (assuming it exists)
+      // If PatientService doesn't have createPatient method, we'll create it via Firestore directly
+      const patient = await this.createPatientDirectly(patientData);
+      return patient.id;
+    } catch (error) {
+      console.error('Error creating demo patient - Full error details:');
+      console.error('Error message:', error);
+      console.error('Error stack:', (error as any)?.stack);
+      console.error('Error code:', (error as any)?.code);
+      console.error('Error name:', (error as any)?.name);
+      return null;
+    }
+  }
+
+  /**
+   * Clean object data to remove undefined values (Firestore doesn't allow undefined)
+   */
+  private cleanUndefinedValues(obj: any): any {
+    // Handle null - keep it as is
+    if (obj === null) {
+      return null;
+    }
+    
+    // Handle undefined - this should be removed
+    if (obj === undefined) {
+      return undefined;
+    }
+    
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      const cleanedArray = obj
+        .map(item => this.cleanUndefinedValues(item))
+        .filter(item => item !== undefined); // Only filter out undefined, keep null and other values
+      return cleanedArray;
+    }
+    
+    // Handle plain objects
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          const cleanedValue = this.cleanUndefinedValues(value);
+          // Only add the property if the cleaned value is not undefined
+          if (cleanedValue !== undefined) {
+            cleaned[key] = cleanedValue;
+          }
+        }
+      }
+      return cleaned;
+    }
+    
+    // For primitives (string, number, boolean, etc.), return as-is
+    return obj;
+  }
+
+  /**
+   * Create patient directly in Firestore
+   * This is a temporary method - in production, use proper PatientService
+   */
+  private async createPatientDirectly(patientData: any): Promise<{id: string}> {
+    const { collection, addDoc, getFirestore } = await import('@angular/fire/firestore');
+    const firestore = getFirestore();
+    
+    // Clean the data to remove any undefined values
+    const cleanedData = this.cleanUndefinedValues({
+      ...patientData,
+      createdAt: new Date(),
+      lastModifiedAt: new Date()
+    });
+    
+    console.log('Creating patient with cleaned data:', cleanedData);
+    
+    const patientsRef = collection(firestore, 'patients');
+    const docRef = await addDoc(patientsRef, cleanedData);
+    
+    return { id: docRef.id };
+  }
+
+
 
   // Enhanced Study Management Methods
   
@@ -1375,6 +1592,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.templates$.subscribe(templates => {
       this.availableTemplates = templates;
     });
+  }
+
+  // Patient Template Dropdown Methods
+  onTemplateSelected(): void {
+    // Optional: Can be used to show template preview or info when selection changes
+    console.log('Template selected:', this.selectedTemplateForPatient);
+  }
+
+  async createFormForSelectedTemplate(): Promise<void> {
+    if (!this.selectedTemplateForPatient || !this.selectedPatient) {
+      return;
+    }
+
+    // Find the selected template
+    const templates = await firstValueFrom(this.templates$);
+    const template = templates.find(t => t.id === this.selectedTemplateForPatient);
+    
+    if (template) {
+      await this.createLegacyFormInstance(template, this.selectedPatient);
+      // Reset selection after creating form
+      this.selectedTemplateForPatient = '';
+    }
+  }
+
+  getSelectedTemplateInfo(): FormTemplate | null {
+    if (!this.selectedTemplateForPatient) {
+      return null;
+    }
+
+    // Get templates from observable synchronously if available
+    const templates = this.allTemplates.length > 0 ? this.allTemplates : [];
+    return templates.find(t => t.id === this.selectedTemplateForPatient) || null;
   }
 
   closeFormAssignmentModal(): void {
@@ -1545,11 +1794,88 @@ export class DashboardComponent implements OnInit, OnDestroy {
   trackPatient(index: number, patient: PatientListItem): string {
     return patient.id || index.toString();
   }
+  
+  // Delete patient from study - overloaded method for sidebar
+  deletePatientFromStudy(patient: PatientListItem | string, studyId: string) {
+    if (!this.permissions.canDeletePatients) {
+      console.error('You do not have permission to remove patients from studies');
+      alert('You do not have permission to remove patients from studies');
+      return;
+    }
+    
+    const patientId = typeof patient === 'string' ? patient : patient.id;
+    const patientName = typeof patient === 'string' ? 'this patient' : patient.displayName;
+    
+    if (confirm(`Are you sure you want to remove ${patientName} from this study?`)) {
+      // Call the async version
+      this.deletePatientFromStudyAsync(patientId, studyId);
+    }
+  }
+  
+  // View patient forms
+  viewPatientForms(patient: PatientListItem) {
+    this.selectPatient(patient);
+    this.activeSidebarItem = 'forms';
+    // Filter forms for this patient
+    this.searchQuery = patient.identifier;
+    console.log(`Viewing forms for patient ${patient.displayName}`);
+  }
+  
+  // View patient history
+  viewPatientHistory(patient: PatientListItem) {
+    this.selectPatient(patient);
+    // In a real app, this would navigate to patient history view
+    console.log(`Viewing history for patient ${patient.displayName}`);
+  }
+  
+  // Toggle sidebar
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+  
+  // Create new patient
+  createNewPatient() {
+    this.openPatientTemplateSelector();
+  }
 
   // Navigation method for horizontal navigation bar
   navigateToSection(item: any): void {
     this.activeSidebarItem = item.id;
     console.log('Navigating to:', item.id);
+  }
+
+  // Delete patient from study - async implementation
+  async deletePatientFromStudyAsync(patientId: string, studyId: string): Promise<void> {
+    const confirmDelete = confirm(
+      'Are you sure you want to remove this patient from the study?\n\n' +
+      'This action cannot be undone. The patient data will be permanently deleted.'
+    );
+    
+    if (!confirmDelete) {
+      return;
+    }
+    
+    try {
+      console.log('Deleting patient:', patientId, 'from study:', studyId);
+      
+      // Call the patient service to delete the patient
+      await this.patientService.deletePatient(patientId);
+      
+      // Show success message
+      alert('Patient removed successfully');
+      
+      // Refresh the patients list to update the UI
+      await this.loadPatients();
+      
+      // If the deleted patient was selected, clear the selection
+      if (this.selectedPatient && this.selectedPatient.id === patientId) {
+        this.selectedPatient = null;
+      }
+      
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      alert('Failed to remove patient: ' + (error as Error).message);
+    }
   }
 
 }

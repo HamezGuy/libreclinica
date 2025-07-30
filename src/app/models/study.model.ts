@@ -288,6 +288,9 @@ export interface Study {
   actualEnrollment: number;
   enrollmentStatus: 'not_started' | 'recruiting' | 'completed' | 'terminated';
   
+  // Patient Management
+  patientIds: string[]; // Direct list of patient Firebase GUIDs for quick access
+  
   // Enhanced Study Structure
   sections: EnhancedStudySection[];
   substudies: Substudy[];

@@ -1,0 +1,123 @@
+<aside class="dashboard-sidebar">
+  <!-- Logo/Header -->
+  <div class="sidebar-header">
+    <div class="app-logo">
+      <i class="material-icons">medical_services</i>
+      <span>EDC System</span>
+    </div>
+  </div>
+  
+  <!-- Search Bar -->
+  <div class="sidebar-search">
+    <div class="search-container">
+      <i class="material-icons search-icon">search</i>
+      <input 
+        type="text" 
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search..." 
+        class="search-input">
+    </div>
+  </div>
+  
+  <!-- Navigation Items -->
+  <nav class="sidebar-nav">
+    <ul class="nav-list">
+      <!-- Studies with nested patients -->
+      <li class="nav-item" 
+          [class.active]="activeSidebarItem === 'studies'"
+          (click)="selectSidebarItem({id: 'studies', label: 'Studies', icon: 'science'})">
+        <span class="material-icons">science</span>
+        <span class="nav-label">Studies</span>
+        <span class="nav-count">{{ studies.length }}</span>
+      </li>
+      
+      <!-- Nested studies list -->
+      <div class="nested-studies" *ngIf="activeSidebarItem === 'studies'">
+        <div *ngFor="let study of studies" class="study-item">
+          <div class="study-header" (click)="toggleStudyExpansion(study.id!, $event)">
+            <span class="expand-icon material-icons" title="Click to {{ isStudyExpanded(study.id!) ? 'collapse' : 'expand' }}">
+              {{ isStudyExpanded(study.id!) ? 'keyboard_arrow_down' : 'keyboard_arrow_right' }}
+            </span>
+            <span class="study-title">{{ study.title }}</span>
+            <span class="patient-count" title="{{ getStudyPatients(study.id!).length }} patients">{{ getStudyPatients(study.id!).length }}</span>
+          </div>
+          
+          <!-- Nested patients under study -->
+          <div class="nested-patients" *ngIf="isStudyExpanded(study.id!)">
+            <div *ngFor="let patient of getStudyPatients(study.id!)" class="patient-item" [class.expanded]="isPatientExpanded(patient.id)">
+              <div class="patient-header">
+                <button class="patient-expand-btn" 
+                        (click)="togglePatientExpansion(patient.id, $event)"
+                        title="{{ isPatientExpanded(patient.id) ? 'Collapse' : 'Expand' }} patient options">
+                  <span class="material-icons">
+                    {{ isPatientExpanded(patient.id) ? 'keyboard_arrow_down' : 'keyboard_arrow_right' }}
+                  </span>
+                </button>
+                <div class="patient-content" (click)="onSelectPatient(patient, $event)">
+                  <span class="patient-icon material-icons" [title]="patient.status">
+                    {{ getPatientStatusIcon(patient.status) }}
+                  </span>
+                  <span class="patient-info">
+                    <span class="patient-name">{{ patient.displayName }}</span>
+                    <span class="patient-id">{{ patient.identifier }}</span>
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Patient dropdown options -->
+              <div class="patient-options" *ngIf="isPatientExpanded(patient.id)">
+                <button class="option-item" (click)="onSelectPatient(patient, $event)">
+                  <span class="material-icons">visibility</span>
+                  <span>View Details</span>
+                </button>
+                <button class="option-item" (click)="onViewPatientForms(patient, $event)">
+                  <span class="material-icons">description</span>
+                  <span>View Forms</span>
+                </button>
+                <button class="option-item" (click)="onViewPatientHistory(patient, $event)">
+                  <span class="material-icons">history</span>
+                  <span>View History</span>
+                </button>
+                <button class="option-item delete" 
+                        *ngIf="permissions?.canDeletePatients"
+                        (click)="onDeletePatient(patient, study.id!, $event)">
+                  <span class="material-icons">delete</span>
+                  <span>Remove from Study</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Other navigation items -->
+      <li *ngFor="let item of sidebarItems.slice(1)" 
+          class="nav-item" 
+          [class.active]="item.active"
+          (click)="selectSidebarItem(item)">
+        <span class="material-icons">{{ item.icon }}</span>
+        <span class="nav-label">{{ item.label }}</span>
+        <span class="nav-count" *ngIf="item.count !== undefined">{{ item.count }}</span>
+      </li>
+    </ul>
+  </nav>
+  
+  <!-- Quick Actions -->
+  <div class="quick-actions">
+    <button class="action-btn" 
+            *ngIf="activeSidebarItem === 'studies' && permissions?.canCreateStudies"
+            (click)="onCreateStudy()">
+      <span class="material-icons">add</span>
+      Create Study
+    </button>
+  </div>
+  
+  <!-- User Section -->
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <i class="material-icons">account_circle</i>
+      <span class="user-role">{{ permissions.userRole || 'User' }}</span>
+    </div>
+  </div>
+</aside>

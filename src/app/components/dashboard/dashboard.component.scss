@@ -140,6 +140,149 @@
   }
 }
 
+// Patient Template Dropdown Styles
+.create-form-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  
+  h5 {
+    margin: 0 0 1rem 0;
+    color: #2d3748;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    &::before {
+      content: 'add_circle';
+      font-family: 'Material Icons';
+      color: #667eea;
+      font-size: 1.2rem;
+    }
+  }
+  
+  .template-selector {
+    .template-dropdown {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      
+      .form-select {
+        flex: 1;
+        padding: 0.625rem 1rem;
+        font-size: 0.95rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        background: white;
+        color: #2d3748;
+        transition: all 0.2s ease;
+        
+        &:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        &:hover:not(:focus) {
+          border-color: #cbd5e1;
+        }
+        
+        option {
+          padding: 0.5rem;
+          
+          &:disabled {
+            color: #a0aec0;
+            font-style: italic;
+          }
+        }
+      }
+      
+      .btn {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        
+        &.btn-primary {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          
+          &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+          }
+          
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #cbd5e1;
+          }
+        }
+        
+        .material-icons {
+          font-size: 1.1rem;
+        }
+      }
+    }
+    
+    .template-info {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 1rem;
+      animation: fadeIn 0.3s ease;
+      
+      .template-description {
+        margin: 0 0 0.75rem 0;
+        color: #4a5568;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      
+      .template-meta {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        
+        span {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.85rem;
+          color: #718096;
+          
+          .material-icons {
+            font-size: 1rem;
+            color: #a0aec0;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Horizontal Navigation - Force Horizontal Layout */
 .edc-dashboard .horizontal-nav {
   background: white !important;
