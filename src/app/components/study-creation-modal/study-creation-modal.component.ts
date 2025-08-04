@@ -568,14 +568,36 @@ export class StudyCreationModalComponent implements OnInit {
           this.studyCreationForm.get(controlName)?.valid ?? false
         );
       case 2:
-        // At least one section required
-        return this.sectionsArray.length > 0 && 
-               this.sectionsArray.controls.every(section => section.valid);
+        // Step 2 is optional - sections are not required
+        // If sections exist, they must be valid
+        if (this.sectionsArray.length === 0) {
+          return true; // Allow proceeding without sections
+        }
+        return this.sectionsArray.controls.every(section => section.valid);
       case 3:
         // Review step - always valid if reached
         return true;
       default:
         return false;
+    }
+  }
+  
+  // Get validation message for current step
+  getStepValidationMessage(): string {
+    if (this.isStepValid(this.currentStep)) {
+      return '';
+    }
+    
+    switch (this.currentStep) {
+      case 1:
+        return 'Please fill in all required fields before proceeding.';
+      case 2:
+        if (this.sectionsArray.length > 0) {
+          return 'Please complete all section details (name and type are required).';
+        }
+        return '';
+      default:
+        return '';
     }
   }
 

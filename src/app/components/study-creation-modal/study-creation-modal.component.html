@@ -577,33 +577,36 @@
           <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isCreatingStudy">
             Cancel
           </button>
+          <div class="validation-message" *ngIf="getStepValidationMessage()">
+            <i class="material-icons">info</i>
+            {{ getStepValidationMessage() }}
+          </div>
         </div>
         <div class="footer-right">
           <button 
             type="button" 
             class="btn btn-secondary" 
             (click)="previousStep()"
-            *ngIf="currentStep > 1"
-            [disabled]="isCreatingStudy">
-            <i class="material-icons">chevron_left</i> Previous
+            [disabled]="currentStep === 1 || isCreatingStudy">
+            <i class="material-icons">arrow_back</i> Previous
           </button>
           <button 
             type="button" 
             class="btn btn-primary" 
             (click)="nextStep()"
-            *ngIf="currentStep < totalSteps"
-            [disabled]="!isStepValid(currentStep) || isCreatingStudy">
-            Next <i class="material-icons">chevron_right</i>
+            [disabled]="!isStepValid(currentStep) || currentStep === totalSteps || isCreatingStudy"
+            [title]="!isStepValid(currentStep) ? getStepValidationMessage() : ''"
+            *ngIf="currentStep < totalSteps">
+            Next <i class="material-icons">arrow_forward</i>
           </button>
           <button 
             type="submit" 
-            class="btn btn-primary" 
-            *ngIf="currentStep === totalSteps"
-            [disabled]="studyCreationForm.invalid || isCreatingStudy">
+            class="btn btn-success" 
+            [disabled]="!studyCreationForm.valid || isCreatingStudy"
+            *ngIf="currentStep === totalSteps">
             <span *ngIf="!isCreatingStudy">Create Study</span>
             <span *ngIf="isCreatingStudy">
-              <i class="material-icons spin">refresh</i>
-              Creating...
+              <i class="material-icons spin">refresh</i> Creating...
             </span>
           </button>
         </div>
