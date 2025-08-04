@@ -1,0 +1,235 @@
+.patient-phase-progress {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  
+  .progress-title {
+    margin: 0 0 24px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  
+  .phase-timeline {
+    position: relative;
+    padding: 20px 0;
+  }
+  
+  .phase-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    &:hover:not(.disabled) {
+      transform: translateX(5px);
+      
+      .phase-content {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+    }
+    
+    &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      
+      .phase-content {
+        background: #e9ecef;
+      }
+    }
+    
+    &.active {
+      .phase-circle {
+        animation: pulse 2s infinite;
+      }
+    }
+  }
+  
+  .phase-connector {
+    position: absolute;
+    left: 20px;
+    top: 40px;
+    width: 2px;
+    height: 60px;
+    background: #dee2e6;
+    z-index: 0;
+  }
+  
+  .phase-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 3px solid #dee2e6;
+    z-index: 1;
+    flex-shrink: 0;
+    margin-right: 16px;
+    transition: all 0.3s ease;
+    
+    i {
+      font-size: 16px;
+      color: #6c757d;
+    }
+    
+    &.status-completed {
+      background: #28a745;
+      border-color: #28a745;
+      
+      i {
+        color: white;
+      }
+    }
+    
+    &.status-in-progress {
+      background: #ffc107;
+      border-color: #ffc107;
+      
+      i {
+        color: white;
+      }
+    }
+    
+    &.status-not-started {
+      background: #fff;
+      border-color: #dee2e6;
+      
+      i {
+        color: #6c757d;
+      }
+    }
+  }
+  
+  .phase-content {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+  }
+  
+  .phase-name {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .optional-badge {
+    font-size: 12px;
+    font-weight: normal;
+    color: #6c757d;
+    background: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  
+  .phase-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .progress-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+    transition: width 0.3s ease;
+    
+    &.complete {
+      background: linear-gradient(90deg, #28a745 0%, #218838 100%);
+    }
+  }
+  
+  .progress-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    color: #6c757d;
+  }
+  
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    i {
+      font-size: 12px;
+    }
+  }
+  
+  .blocking-reasons {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #856404;
+  }
+  
+  .blocking-reason {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    i {
+      font-size: 12px;
+    }
+  }
+  
+  .can-progress {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #155724;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    i {
+      font-size: 12px;
+    }
+  }
+  
+  .loading-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    
+    i {
+      margin-right: 8px;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+  }
+}

@@ -1,0 +1,114 @@
+<div class="phase-forms-container">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading phase forms...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-state">
+    <span class="material-icons">error_outline</span>
+    <p>{{ error }}</p>
+    <button class="btn-primary" (click)="loadPhaseData()">Retry</button>
+  </div>
+
+  <!-- Main Content -->
+  <div *ngIf="!isLoading && !error" class="phase-content">
+    <!-- Header -->
+    <div class="phase-header">
+      <button class="back-button" (click)="goBack()">
+        <span class="material-icons">arrow_back</span>
+        Back to Dashboard
+      </button>
+      
+      <div class="header-info">
+        <h1>{{ phaseFolder?.name || 'Phase Forms' }}</h1>
+        <div class="patient-info">
+          <span class="material-icons">person</span>
+          <span>{{ patient?.displayName || patient?.identifier }}</span>
+          <span class="separator">|</span>
+          <span>{{ patient?.studyId }}</span>
+        </div>
+      </div>
+      
+      <div class="phase-status" *ngIf="phaseProgress">
+        <div class="progress-info">
+          <span class="progress-label">Progress:</span>
+          <span class="progress-value">{{ phaseProgress.completedTemplates }}/{{ phaseProgress.totalTemplates }} forms</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="phaseProgress.progressPercentage"></div>
+        </div>
+        <div class="phase-ready" *ngIf="canProgressToNextPhase()">
+          <span class="material-icons ready">check_circle</span>
+          <span>Ready to progress to next phase</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forms Grid -->
+    <div class="forms-section">
+      <h2>Forms in this Phase</h2>
+      
+      <div class="forms-grid">
+        <div *ngFor="let instance of formInstances" 
+             class="form-card"
+             [class.selected]="selectedFormInstance?.id === instance.id"
+             [class]="getFormStatusClass(instance)"
+             (click)="selectFormInstance(instance)">
+          
+          <div class="form-header">
+            <span class="material-icons status-icon">{{ getFormStatusIcon(instance) }}</span>
+            <h3>{{ templates.get(instance.templateId)?.name || 'Loading...' }}</h3>
+            <span class="required-badge" *ngIf="isFormRequired(instance.templateId)">Required</span>
+          </div>
+          
+          <div class="form-info">
+            <p class="form-description">{{ templates.get(instance.templateId)?.description }}</p>
+            <div class="form-meta">
+              <span class="status">Status: {{ instance.status }}</span>
+              <span class="completion" *ngIf="instance.status === 'draft'">
+                {{ instance.completionPercentage }}% complete
+              </span>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button class="btn-primary" 
+                    *ngIf="instance.status !== 'completed' && instance.status !== 'locked'"
+                    (click)="selectFormInstance(instance); $event.stopPropagation()">
+              <span class="material-icons">edit</span>
+              {{ instance.status === 'draft' ? 'Continue' : 'Start' }}
+            </button>
+            <button class="btn-secondary" 
+                    *ngIf="instance.status === 'completed'"
+                    (click)="selectFormInstance(instance); $event.stopPropagation()">
+              <span class="material-icons">visibility</span>
+              View
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Editor -->
+    <div class="form-editor" *ngIf="selectedFormInstance">
+      <div class="editor-header">
+        <h2>{{ templates.get(selectedFormInstance.templateId)?.name }}</h2>
+        <button class="close-button" (click)="selectedFormInstance = null">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      
+      <div class="editor-content">
+        <app-form-viewer
+          [template]="templates.get(selectedFormInstance.templateId)"
+          [initialData]="selectedFormInstance.data"
+          [readOnly]="selectedFormInstance.status === 'completed' || selectedFormInstance.status === 'locked'"
+          (formSubmit)="onFormSubmit($event)"
+          (formSave)="onFormSave($event)">
+        </app-form-viewer>
+      </div>
+    </div>
+  </div>
+</div>

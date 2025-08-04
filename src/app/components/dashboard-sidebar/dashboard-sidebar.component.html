@@ -48,7 +48,7 @@
             <div *ngFor="let patient of getStudyPatients(study.id!)" class="patient-item" [class.expanded]="isPatientExpanded(patient.id)">
               <div class="patient-header">
                 <button class="patient-expand-btn" 
-                        (click)="togglePatientExpansion(patient.id, $event)"
+                        (click)="togglePatientExpansion(patient.id)"
                         title="{{ isPatientExpanded(patient.id) ? 'Collapse' : 'Expand' }} patient options">
                   <span class="material-icons">
                     {{ isPatientExpanded(patient.id) ? 'keyboard_arrow_down' : 'keyboard_arrow_right' }}
@@ -67,24 +67,63 @@
               
               <!-- Patient dropdown options -->
               <div class="patient-options" *ngIf="isPatientExpanded(patient.id)">
-                <button class="option-item" (click)="onSelectPatient(patient, $event)">
-                  <span class="material-icons">visibility</span>
-                  <span>View Details</span>
-                </button>
-                <button class="option-item" (click)="onViewPatientForms(patient, $event)">
-                  <span class="material-icons">description</span>
-                  <span>View Forms</span>
-                </button>
-                <button class="option-item" (click)="onViewPatientHistory(patient, $event)">
-                  <span class="material-icons">history</span>
-                  <span>View History</span>
-                </button>
-                <button class="option-item delete" 
-                        *ngIf="permissions?.canDeletePatients"
-                        (click)="onDeletePatient(patient, study.id!, $event)">
-                  <span class="material-icons">delete</span>
-                  <span>Remove from Study</span>
-                </button>
+                <!-- Phase-based folders -->
+                <div class="patient-folders" *ngIf="getPatientFolders(patient.id).length > 0">
+                  <div *ngFor="let folder of getPatientFolders(patient.id)" 
+                       class="folder-item" 
+                       [class.phase-folder]="folder.isPhaseFolder"
+                       [class]="getFolderCompletionClass(folder)"
+                       [class.clickable]="folder.isPhaseFolder"
+                       (click)="folder.isPhaseFolder && onPhaseClick(study.id!, patient.id, folder.phaseId!, folder.id, $event)">
+                    <span class="material-icons folder-icon">{{ getFolderIcon(folder) }}</span>
+                    <div class="folder-info">
+                      <span class="folder-name">{{ folder.name }}</span>
+                      <div class="folder-metadata" *ngIf="folder.isPhaseFolder">
+                        <span class="template-count" *ngIf="folder.requiredTemplateIds?.length">
+                          {{ folder.completedTemplates || 0 }}/{{ folder.requiredTemplateIds.length }} required
+                        </span>
+                        <span class="optional-count" *ngIf="folder.optionalTemplateIds?.length">
+                          ({{ folder.optionalTemplateIds.length }} optional)
+                        </span>
+                        <span class="phase-status" *ngIf="folder.canProgressToNextPhase !== undefined">
+                          <span class="material-icons status-icon" 
+                                [class.ready]="folder.canProgressToNextPhase"
+                                [title]="folder.canProgressToNextPhase ? 'Ready to progress' : 'Complete required forms'">
+                            {{ folder.canProgressToNextPhase ? 'check_circle' : 'pending' }}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div class="loading-folders" *ngIf="loadingFolders.has(patient.id)">
+                  <span class="material-icons spinning">refresh</span>
+                  <span>Loading folders...</span>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="patient-actions">
+                  <button class="option-item" (click)="onSelectPatient(patient, $event)">
+                    <span class="material-icons">visibility</span>
+                    <span>View Details</span>
+                  </button>
+                  <button class="option-item" (click)="onViewPatientForms(patient, $event)">
+                    <span class="material-icons">description</span>
+                    <span>View Forms</span>
+                  </button>
+                  <button class="option-item" (click)="onViewPatientHistory(patient, $event)">
+                    <span class="material-icons">history</span>
+                    <span>View History</span>
+                  </button>
+                  <button class="option-item delete" 
+                          *ngIf="permissions?.canDeletePatients"
+                          (click)="onDeletePatient(patient, study.id!, $event)">
+                    <span class="material-icons">delete</span>
+                    <span>Remove from Study</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

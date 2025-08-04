@@ -163,28 +163,35 @@
         <!-- Field Input - Checkbox Group -->
         <div *ngIf="field.type === 'checkbox'" class="checkbox-group">
           <div 
-            *ngFor="let option of field.options"
+            *ngFor="let option of field.options; let i = index"
             class="checkbox-option">
             <input 
               type="checkbox"
               [id]="field.id + '_' + option.value"
               [value]="option.value"
-              [disabled]="option.disabled || false">
+              [checked]="isCheckboxChecked(field.id, option.value)"
+              (change)="onCheckboxChange(field.id, option.value, $event)"
+              [disabled]="option.disabled || readonly"
+              class="form-check-input">
             <label [for]="field.id + '_' + option.value" class="checkbox-label">
               {{ option.label }}
             </label>
           </div>
         </div>
 
-        <!-- Field Input - Boolean -->
+        <!-- Field Input - Boolean (Yes/No) -->
         <div *ngIf="field.type === 'boolean'" class="boolean-field">
-          <input 
-            type="checkbox"
-            [id]="field.id"
-            [formControlName]="field.id">
-          <label [for]="field.id" class="boolean-label">
-            {{ field.placeholder || 'Yes/No' }}
-          </label>
+          <div class="boolean-toggle">
+            <input 
+              type="checkbox"
+              [id]="field.id"
+              [formControlName]="field.id"
+              class="boolean-checkbox">
+            <label [for]="field.id" class="boolean-label">
+              <span class="toggle-switch"></span>
+              <span class="toggle-text">{{ getFieldControl(field.id)?.value ? 'Yes' : 'No' }}</span>
+            </label>
+          </div>
         </div>
 
         <!-- Field Input - File Upload -->

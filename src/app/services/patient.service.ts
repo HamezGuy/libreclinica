@@ -35,6 +35,7 @@ import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { UserProfile } from '../models/user-profile.model';
 import { AccessLevel } from '../enums/access-levels.enum';
 import { StudyPatientReference } from '../models/study-patient-reference.model';
+import { StudyPhaseService } from './study-phase.service';
 
 @Injectable({
   providedIn: 'root'
@@ -45,7 +46,8 @@ export class PatientService {
 
   constructor(
     private firestore: Firestore,
-    private authService: EdcCompliantAuthService
+    private authService: EdcCompliantAuthService,
+    private studyPhaseService: StudyPhaseService
   ) {}
 
   // Create a new patient under a study
@@ -136,8 +138,14 @@ export class PatientService {
     const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
     await addDoc(studyPatientsRef, studyPatientRef);
 
-    // Create default visit subcomponents based on study protocol
-    await this.createDefaultVisitSubcomponents(patientId, studyId);
+    // Create phase-based folders for the patient
+    const studyPhases = await this.studyPhaseService.getStudyPhases(studyId);
+    if (studyPhases.length > 0) {
+      await this.studyPhaseService.createPatientPhaseFolders(patientId, studyId, studyPhases);
+    } else {
+      // Fallback to default visit subcomponents if no phases are defined
+      await this.createDefaultVisitSubcomponents(patientId, studyId);
+    }
 
     return patientId;
   }
@@ -166,11 +174,16 @@ export class PatientService {
         name: component.name,
         type: component.type as any,
         order: component.order,
+        isPhaseFolder: false, // Will be updated when linked to phases
         status: 'scheduled',
         completionPercentage: 0,
         templateIds: [],
+        requiredTemplateIds: [],
+        optionalTemplateIds: [],
         completedTemplates: [],
         inProgressTemplates: [],
+        canProgressToNextPhase: true,
+        blockingTemplates: [],
         createdBy: currentUser!.uid,
         createdAt: now,
         lastModifiedBy: currentUser!.uid,

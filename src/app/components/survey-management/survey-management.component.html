@@ -1,0 +1,187 @@
+<div class="survey-management">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1>
+        <i class="fas fa-poll"></i>
+        Survey Management
+      </h1>
+      <p class="subtitle">Create and manage surveys, feedback forms, and questionnaires</p>
+    </div>
+    <button class="btn btn-primary" (click)="createSurvey()">
+      <i class="fas fa-plus"></i>
+      Create Survey
+    </button>
+  </div>
+  
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>Status</label>
+      <select [(ngModel)]="statusFilter" (change)="applyFilters()" class="form-control">
+        <option value="all">All Statuses</option>
+        <option value="draft">Draft</option>
+        <option value="active">Active</option>
+        <option value="paused">Paused</option>
+        <option value="completed">Completed</option>
+        <option value="archived">Archived</option>
+      </select>
+    </div>
+    
+    <div class="filter-group">
+      <label>Type</label>
+      <select [(ngModel)]="typeFilter" (change)="applyFilters()" class="form-control">
+        <option value="all">All Types</option>
+        <option value="feedback">Feedback</option>
+        <option value="satisfaction">Satisfaction</option>
+        <option value="nps">NPS</option>
+        <option value="research">Research</option>
+        <option value="screening">Screening</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    
+    <div class="filter-group search-group">
+      <label>Search</label>
+      <div class="search-input">
+        <i class="fas fa-search"></i>
+        <input type="text" 
+               [(ngModel)]="searchQuery" 
+               (input)="applyFilters()"
+               placeholder="Search surveys..."
+               class="form-control">
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading state -->
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="fas fa-spinner fa-spin"></i>
+    Loading surveys...
+  </div>
+  
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!isLoading && filteredSurveys.length === 0">
+    <i class="fas fa-poll"></i>
+    <h3>No surveys found</h3>
+    <p *ngIf="surveys.length === 0">Create your first survey to get started</p>
+    <p *ngIf="surveys.length > 0">Try adjusting your filters</p>
+    <button class="btn btn-primary" (click)="createSurvey()" *ngIf="surveys.length === 0">
+      Create Survey
+    </button>
+  </div>
+  
+  <!-- Survey list -->
+  <div class="survey-list" *ngIf="!isLoading && filteredSurveys.length > 0">
+    <div class="survey-card" *ngFor="let survey of paginatedSurveys">
+      <div class="survey-header">
+        <div class="survey-icon" [class]="getSurveyIcon(survey.type)"></div>
+        <div class="survey-info">
+          <h3>{{ survey.title }}</h3>
+          <p class="description" *ngIf="survey.description">{{ survey.description }}</p>
+          <div class="survey-meta">
+            <span class="badge" [ngClass]="getSurveyStatusClass(survey.status)">
+              {{ survey.status }}
+            </span>
+            <span class="meta-item">
+              <i class="fas fa-tag"></i>
+              {{ getSurveyTypeLabel(survey.type) }}
+            </span>
+            <span class="meta-item">
+              <i class="fas fa-question-circle"></i>
+              {{ survey.questions.length }} questions
+            </span>
+            <span class="meta-item" *ngIf="survey.responseCount">
+              <i class="fas fa-users"></i>
+              {{ survey.responseCount }} responses
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="survey-stats" *ngIf="survey.responseCount && survey.responseCount > 0">
+        <div class="stat">
+          <span class="stat-value">{{ survey.completionRate || 0 }}%</span>
+          <span class="stat-label">Completion Rate</span>
+        </div>
+        <div class="stat" *ngIf="survey.averageCompletionTime">
+          <span class="stat-value">{{ getCompletionTimeInMinutes(survey.averageCompletionTime) }}m</span>
+          <span class="stat-label">Avg. Time</span>
+        </div>
+      </div>
+      
+      <div class="survey-actions">
+        <button class="btn btn-sm btn-icon" 
+                (click)="previewSurvey(survey)"
+                title="Preview">
+          <i class="fas fa-eye"></i>
+        </button>
+        
+        <button class="btn btn-sm btn-icon" 
+                (click)="editSurvey(survey)"
+                title="Edit">
+          <i class="fas fa-edit"></i>
+        </button>
+        
+        <button class="btn btn-sm btn-icon" 
+                (click)="duplicateSurvey(survey)"
+                title="Duplicate">
+          <i class="fas fa-copy"></i>
+        </button>
+        
+        <button class="btn btn-sm btn-icon" 
+                (click)="viewAnalytics(survey)"
+                title="Analytics"
+                *ngIf="survey.responseCount && survey.responseCount > 0">
+          <i class="fas fa-chart-bar"></i>
+        </button>
+        
+        <button class="btn btn-sm btn-icon" 
+                (click)="toggleSurveyStatus(survey)"
+                [title]="survey.status === 'active' ? 'Pause' : 'Activate'"
+                *ngIf="survey.status === 'active' || survey.status === 'paused'">
+          <i [class]="survey.status === 'active' ? 'fas fa-pause' : 'fas fa-play'"></i>
+        </button>
+        
+        <button class="btn btn-sm btn-icon btn-danger" 
+                (click)="deleteSurvey(survey)"
+                title="Delete">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="totalPages > 1">
+      <button class="btn btn-sm" 
+              (click)="previousPage()"
+              [disabled]="currentPage === 1">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <span class="page-info">
+        Page {{ currentPage }} of {{ totalPages }}
+      </span>
+      <button class="btn btn-sm" 
+              (click)="nextPage()"
+              [disabled]="currentPage === totalPages">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Survey Editor Modal -->
+<app-survey-editor 
+  *ngIf="showEditor"
+  [survey]="editingSurvey"
+  (save)="onSurveySaved($event)"
+  (close)="onEditorClose()">
+</app-survey-editor>
+
+<!-- Survey Preview -->
+<app-survey-popup
+  *ngIf="selectedSurveyForPreview"
+  [survey]="selectedSurveyForPreview"
+  (close)="onPreviewClose()"
+  (complete)="onPreviewComplete($event)">
+</app-survey-popup>

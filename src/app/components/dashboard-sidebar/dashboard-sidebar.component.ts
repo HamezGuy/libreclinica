@@ -1,6 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { PatientVisitSubcomponent } from '../../models/patient.model';
+import { PatientService } from '../../services/patient.service';
+import { StudyPhaseService } from '../../services/study-phase.service';
+import { PatientPhaseProgress } from '../../models/study-phase.model';
+import { firstValueFrom } from 'rxjs';
 
 interface SidebarItem {
   id: string;
@@ -20,6 +26,8 @@ interface PatientListItem {
   formsCount: number;
   status: 'active' | 'completed' | 'withdrawn';
   canViewPhi: boolean;
+  visitSubcomponents?: PatientVisitSubcomponent[];
+  phaseProgress?: PatientPhaseProgress[];
 }
 
 interface Study {
@@ -41,7 +49,7 @@ interface Study {
   templateUrl: './dashboard-sidebar.component.html',
   styleUrls: ['./dashboard-sidebar.component.scss']
 })
-export class DashboardSidebarComponent {
+export class DashboardSidebarComponent implements OnInit, OnChanges {
   @Input() activeSidebarItem: string = 'studies';
   @Input() templates: any[] = [];
   @Input() studies: Study[] = [];
@@ -61,6 +69,15 @@ export class DashboardSidebarComponent {
   sidebarItems: SidebarItem[] = [];
   expandedStudies = new Set<string>();
   expandedPatients = new Set<string>();
+  patientFolders = new Map<string, PatientVisitSubcomponent[]>();
+  patientProgress = new Map<string, PatientPhaseProgress[]>();
+  loadingFolders = new Set<string>();
+  
+  constructor(
+    private patientService: PatientService,
+    private studyPhaseService: StudyPhaseService,
+    private router: Router
+  ) {}
   
   ngOnInit() {
     this.updateSidebarItems();
@@ -115,13 +132,68 @@ export class DashboardSidebarComponent {
   }
   
   // Patient expansion methods
-  togglePatientExpansion(patientId: string, event: Event) {
-    event.stopPropagation();
+  async togglePatientExpansion(patientId: string) {
     if (this.expandedPatients.has(patientId)) {
       this.expandedPatients.delete(patientId);
     } else {
       this.expandedPatients.add(patientId);
+      // Load patient folders if not already loaded
+      if (!this.patientFolders.has(patientId)) {
+        await this.loadPatientFolders(patientId);
+      }
     }
+  }
+  
+  async loadPatientFolders(patientId: string) {
+    if (this.loadingFolders.has(patientId)) return;
+    
+    this.loadingFolders.add(patientId);
+    try {
+      // Load visit subcomponents (folders)
+      const subcomponents$ = this.patientService.getPatientVisitSubcomponents(patientId);
+      const subcomponents = await firstValueFrom(subcomponents$);
+      this.patientFolders.set(patientId, subcomponents);
+      
+      // Load phase progress if patient has a study
+      const patient = this.patients.find(p => p.id === patientId);
+      if (patient?.studyId) {
+        const progress = await this.studyPhaseService.getPatientPhaseProgress(patientId, patient.studyId);
+        this.patientProgress.set(patientId, progress);
+      }
+    } catch (error) {
+      console.error('Error loading patient folders:', error);
+    } finally {
+      this.loadingFolders.delete(patientId);
+    }
+  }
+  
+  getPatientFolders(patientId: string): PatientVisitSubcomponent[] {
+    return this.patientFolders.get(patientId) || [];
+  }
+  
+  getPhaseProgress(patientId: string, phaseId: string): PatientPhaseProgress | undefined {
+    const progress = this.patientProgress.get(patientId) || [];
+    return progress.find(p => p.phaseId === phaseId);
+  }
+  
+  getFolderCompletionClass(folder: PatientVisitSubcomponent): string {
+    if (folder.status === 'completed') return 'completed';
+    if (folder.status === 'in_progress') return 'in-progress';
+    if (folder.status === 'missed') return 'missed';
+    return 'scheduled';
+  }
+  
+  getFolderIcon(folder: PatientVisitSubcomponent): string {
+    if (folder.isPhaseFolder) {
+      switch (folder.type) {
+        case 'screening': return 'search';
+        case 'baseline': return 'assessment';
+        case 'treatment': return 'medication';
+        case 'follow_up': return 'event_note';
+        default: return 'folder';
+      }
+    }
+    return 'folder_open';
   }
   
   isPatientExpanded(patientId: string): boolean {
@@ -142,9 +214,8 @@ export class DashboardSidebarComponent {
   // Patient deletion
   onDeletePatient(patient: PatientListItem, studyId: string, event: Event) {
     event.stopPropagation();
-    if (confirm(`Are you sure you want to remove ${patient.displayName} from this study?`)) {
-      this.deletePatient.emit({ patient, studyId });
-    }
+    // Emit deletion event - confirmation is handled by parent component
+    this.deletePatient.emit({ patient, studyId });
   }
   
   // Get patient status icon
@@ -171,5 +242,11 @@ export class DashboardSidebarComponent {
   onViewPatientHistory(patient: PatientListItem, event: Event) {
     event.stopPropagation();
     this.viewPatientHistory.emit(patient);
+  }
+  
+  // Navigate to phase forms
+  onPhaseClick(studyId: string, patientId: string, phaseId: string, visitSubcomponentId: string, event: Event) {
+    event.stopPropagation();
+    this.router.navigate(['/phase-forms', studyId, patientId, phaseId, visitSubcomponentId]);
   }
 }

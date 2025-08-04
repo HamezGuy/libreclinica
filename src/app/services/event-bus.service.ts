@@ -122,6 +122,39 @@ export interface FormTemplatePublishedEvent extends BaseEvent {
   publishedBy: string;
 }
 
+export interface FormCompletionStatusChangedEvent extends BaseEvent {
+  type: 'FORM_COMPLETION_STATUS_CHANGED';
+  patientId: string;
+  studyId: string;
+  phaseId: string;
+  templateId: string;
+  isCompleted: boolean;
+}
+
+export interface FormInstanceCreatedEvent extends BaseEvent {
+  type: 'FORM_INSTANCE_CREATED';
+  instanceId: string;
+  templateId: string;
+  patientId: string;
+  studyId: string;
+}
+
+export interface FormInstanceSubmittedEvent extends BaseEvent {
+  type: 'FORM_INSTANCE_SUBMITTED';
+  instanceId: string;
+  templateId: string;
+  patientId: string;
+  studyId: string;
+}
+
+export interface FormInstanceSignedEvent extends BaseEvent {
+  type: 'FORM_INSTANCE_SIGNED';
+  instanceId: string;
+  signatureId: string;
+  signedBy: string;
+  signatureType: string;
+}
+
 // Union type of all events
 export type AppEvent = 
   | UserLoginEvent 
@@ -137,6 +170,10 @@ export type AppEvent =
   | FormSubmittedEvent
   | FormTemplateCreatedEvent
   | FormTemplatePublishedEvent
+  | FormCompletionStatusChangedEvent
+  | FormInstanceCreatedEvent
+  | FormInstanceSubmittedEvent
+  | FormInstanceSignedEvent
   | ComplianceTermsAcceptedEvent
   | ComplianceTrainingCompletedEvent
   | FormTemplateUpdatedEvent;

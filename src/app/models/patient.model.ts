@@ -76,6 +76,11 @@ export interface PatientVisitSubcomponent {
   type: 'screening' | 'baseline' | 'treatment' | 'follow_up' | 'unscheduled' | 'adverse_event';
   order: number;
   
+  // Phase linkage
+  phaseId?: string; // Link to StudyPhaseConfig
+  phaseCode?: string; // Quick reference to phase code
+  isPhaseFolder: boolean; // True if this is a phase-based folder
+  
   // Visit Window
   scheduledDate?: Date;
   windowStartDate?: Date;
@@ -88,8 +93,14 @@ export interface PatientVisitSubcomponent {
   
   // Templates under this subcomponent
   templateIds: string[]; // Form template IDs assigned to this visit
+  requiredTemplateIds: string[]; // Required templates that must be completed
+  optionalTemplateIds: string[]; // Optional templates
   completedTemplates: string[];
   inProgressTemplates: string[];
+  
+  // Phase progression
+  canProgressToNextPhase: boolean;
+  blockingTemplates: string[]; // Templates blocking progression
   
   // Metadata
   createdBy: string;

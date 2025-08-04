@@ -484,6 +484,15 @@
                       class="form-control"
                       disabled>
                     
+                    <!-- Boolean Toggle -->
+                    <div *ngSwitchCase="'boolean'" class="boolean-preview">
+                      <label class="boolean-toggle-preview">
+                        <input type="checkbox" disabled>
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-text">Yes/No</span>
+                      </label>
+                    </div>
+                    
                     <!-- File Upload -->
                     <div *ngSwitchCase="'file'" class="file-upload-preview">
                       <span class="material-icons">upload_file</span>

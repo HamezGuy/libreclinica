@@ -1,0 +1,66 @@
+<div class="patient-phase-progress">
+  <h3 class="progress-title">Study Phase Progress</h3>
+  
+  <div class="loading-state" *ngIf="loading">
+    <i class="material-icons">hourglass_empty</i>
+    Loading phase progress...
+  </div>
+  
+  <div class="phase-timeline" *ngIf="!loading && phaseProgressData.length > 0">
+    <div 
+      *ngFor="let item of phaseProgressData; let i = index" 
+      class="phase-item"
+      [class.disabled]="!canAccessPhase(item, i, phaseProgressData)"
+      [class.active]="item.progress.status === 'in_progress'"
+      (click)="selectPhase(item.phase, item.progress)">
+      
+      <!-- Phase connector line -->
+      <div class="phase-connector" *ngIf="i < phaseProgressData.length - 1"></div>
+      
+      <!-- Phase circle -->
+      <div class="phase-circle" [ngClass]="getPhaseStatusClass(item.progress.status)">
+        <i [class]="getPhaseIcon(item.phase.phaseCode)"></i>
+      </div>
+      
+      <!-- Phase content -->
+      <div class="phase-content">
+        <h4 class="phase-name">
+          {{ item.phase.phaseName }}
+          <span class="optional-badge" *ngIf="item.phase.allowSkip">(Optional)</span>
+        </h4>
+        
+        <div class="phase-details">
+          <div class="progress-bar">
+            <div class="progress-fill" 
+                 [style.width.%]="item.progress.progressPercentage"
+                 [class.complete]="item.progress.progressPercentage === 100">
+            </div>
+          </div>
+          
+          <div class="progress-stats">
+            <span class="stat">
+              <i class="fas fa-check-circle"></i>
+              {{ item.progress.completedTemplates }}/{{ item.progress.totalTemplates }} Forms
+            </span>
+            <span class="stat" *ngIf="item.progress.requiredTemplates > 0">
+              <i class="fas fa-exclamation-circle"></i>
+              {{ item.progress.completedRequiredTemplates }}/{{ item.progress.requiredTemplates }} Required
+            </span>
+          </div>
+          
+          <!-- Blocking reasons -->
+          <div class="blocking-reasons" *ngIf="!item.progress.canProgress && item.progress.blockingReasons && item.progress.blockingReasons.length > 0">
+            <div class="blocking-reason" *ngFor="let reason of item.progress.blockingReasons">
+              <i class="fas fa-lock"></i> {{ reason }}
+            </div>
+          </div>
+          
+          <!-- Can progress indicator -->
+          <div class="can-progress" *ngIf="item.progress.canProgress && item.progress.status !== 'completed'">
+            <i class="fas fa-unlock"></i> Ready to progress
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

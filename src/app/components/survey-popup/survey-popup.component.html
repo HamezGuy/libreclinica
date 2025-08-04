@@ -1,0 +1,217 @@
+<div class="survey-popup-overlay" (click)="closeSurvey()">
+  <div class="survey-popup" (click)="$event.stopPropagation()" 
+       [ngClass]="'display-mode-' + survey.displayMode">
+    
+    <!-- Header -->
+    <div class="survey-header">
+      <h2>{{ survey.title }}</h2>
+      <button class="close-btn" (click)="closeSurvey()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <!-- Progress bar -->
+    <div class="progress-bar" *ngIf="!showWelcome && !showThankYou">
+      <div class="progress-fill" [style.width.%]="progress"></div>
+      <span class="progress-text">{{ progress }}% Complete</span>
+    </div>
+    
+    <!-- Content -->
+    <div class="survey-content">
+      <!-- Welcome screen -->
+      <div class="welcome-screen" *ngIf="showWelcome">
+        <div class="welcome-icon">
+          <i class="fas fa-clipboard-list"></i>
+        </div>
+        <h3>{{ survey.title }}</h3>
+        <p class="description" *ngIf="survey.description">{{ survey.description }}</p>
+        <div class="welcome-message" *ngIf="survey.welcomeMessage" 
+             [innerHTML]="survey.welcomeMessage"></div>
+        <div class="survey-info">
+          <div class="info-item">
+            <i class="fas fa-clock"></i>
+            <span>{{ survey.questions.length }} questions</span>
+          </div>
+          <div class="info-item" *ngIf="survey.averageCompletionTime">
+            <i class="fas fa-hourglass-half"></i>
+            <span>~{{ Math.ceil(survey.averageCompletionTime / 60) }} minutes</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" (click)="startSurvey()">
+          Start Survey
+        </button>
+      </div>
+      
+      <!-- Thank you screen -->
+      <div class="thank-you-screen" *ngIf="showThankYou">
+        <div class="thank-you-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <h3>Thank You!</h3>
+        <div class="thank-you-message" *ngIf="survey.thankYouMessage" 
+             [innerHTML]="survey.thankYouMessage"></div>
+        <p *ngIf="!survey.thankYouMessage">
+          Your response has been recorded. We appreciate your feedback!
+        </p>
+      </div>
+      
+      <!-- Question screen -->
+      <div class="question-screen" *ngIf="!showWelcome && !showThankYou && currentQuestion">
+        <div class="question-number">
+          Question {{ currentQuestionIndex + 1 }} of {{ visibleQuestions.length }}
+        </div>
+        
+        <div class="question-content">
+          <h4 class="question-text">
+            {{ currentQuestion.text }}
+            <span class="required-indicator" *ngIf="currentQuestion.required">*</span>
+          </h4>
+          <p class="question-description" *ngIf="currentQuestion.description">
+            {{ currentQuestion.description }}
+          </p>
+          
+          <!-- Question input based on type -->
+          <div class="question-input" [ngSwitch]="currentQuestion.type">
+            
+            <!-- Single choice -->
+            <div *ngSwitchCase="'single-choice'" class="radio-group">
+              <label *ngFor="let option of currentQuestion.options" class="radio-option">
+                <input type="radio" 
+                       [name]="currentQuestion.id"
+                       [value]="option.id"
+                       [formControlName]="currentQuestion.id">
+                <span class="radio-label">{{ option.text }}</span>
+              </label>
+            </div>
+            
+            <!-- Multiple choice -->
+            <div *ngSwitchCase="'multiple-choice'" class="checkbox-group">
+              <label *ngFor="let option of currentQuestion.options" class="checkbox-option">
+                <input type="checkbox" 
+                       [value]="option.id"
+                       (change)="onMultipleChoiceChange($event, currentQuestion.id, option.id)">
+                <span class="checkbox-label">{{ option.text }}</span>
+              </label>
+            </div>
+            
+            <!-- Text input -->
+            <div *ngSwitchCase="'text'" class="text-input">
+              <input type="text" 
+                     class="form-control"
+                     [formControlName]="currentQuestion.id"
+                     [placeholder]="currentQuestion.description || 'Enter your answer'">
+            </div>
+            
+            <!-- Textarea -->
+            <div *ngSwitchCase="'textarea'" class="textarea-input">
+              <textarea class="form-control"
+                        rows="4"
+                        [formControlName]="currentQuestion.id"
+                        [placeholder]="currentQuestion.description || 'Enter your answer'"></textarea>
+            </div>
+            
+            <!-- Number input -->
+            <div *ngSwitchCase="'number'" class="number-input">
+              <input type="number" 
+                     class="form-control"
+                     [formControlName]="currentQuestion.id"
+                     [min]="currentQuestion.validation?.minValue || null"
+                     [max]="currentQuestion.validation?.maxValue || null">
+            </div>
+            
+            <!-- Date input -->
+            <div *ngSwitchCase="'date'" class="date-input">
+              <input type="date" 
+                     class="form-control"
+                     [formControlName]="currentQuestion.id">
+            </div>
+            
+            <!-- Rating -->
+            <div *ngSwitchCase="'rating'" class="rating-input">
+              <div class="rating-stars">
+                <button *ngFor="let star of getRatingOptions(5)" 
+                        type="button"
+                        class="star-btn"
+                        [class.active]="form.get(currentQuestion.id)?.value >= star"
+                        (click)="form.get(currentQuestion.id)?.setValue(star)">
+                  <i class="fas fa-star"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Scale -->
+            <div *ngSwitchCase="'scale'" class="scale-input">
+              <div class="scale-options">
+                <button *ngFor="let value of getScaleOptions(1, 10)" 
+                        type="button"
+                        class="scale-btn"
+                        [class.active]="form.get(currentQuestion.id)?.value === value"
+                        (click)="form.get(currentQuestion.id)?.setValue(value)">
+                  {{ value }}
+                </button>
+              </div>
+              <div class="scale-labels">
+                <span>Strongly Disagree</span>
+                <span>Strongly Agree</span>
+              </div>
+            </div>
+            
+            <!-- NPS -->
+            <div *ngSwitchCase="'nps'" class="nps-input">
+              <div class="nps-options">
+                <button *ngFor="let value of getNPSOptions()" 
+                        type="button"
+                        class="nps-btn"
+                        [class.active]="form.get(currentQuestion.id)?.value === value"
+                        [class.detractor]="value <= 6"
+                        [class.passive]="value >= 7 && value <= 8"
+                        [class.promoter]="value >= 9"
+                        (click)="form.get(currentQuestion.id)?.setValue(value)">
+                  {{ value }}
+                </button>
+              </div>
+              <div class="nps-labels">
+                <span>Not at all likely</span>
+                <span>Extremely likely</span>
+              </div>
+            </div>
+            
+          </div>
+          
+          <!-- Validation errors -->
+          <div class="error-message" 
+               *ngIf="form.get(currentQuestion.id)?.invalid && form.get(currentQuestion.id)?.touched">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ currentQuestion.validation?.customMessage || 'This field is required' }}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer actions -->
+    <div class="survey-footer" *ngIf="!showWelcome && !showThankYou">
+      <button class="btn btn-secondary" 
+              (click)="previousQuestion()"
+              [disabled]="currentQuestionIndex === 0">
+        <i class="fas fa-arrow-left"></i> Previous
+      </button>
+      
+      <button class="btn btn-link" 
+              (click)="skipQuestion()"
+              *ngIf="currentQuestion && !currentQuestion.required">
+        Skip
+      </button>
+      
+      <button class="btn btn-primary" 
+              (click)="nextQuestion()"
+              [disabled]="isSubmitting">
+        <span *ngIf="currentQuestionIndex < visibleQuestions.length - 1">
+          Next <i class="fas fa-arrow-right"></i>
+        </span>
+        <span *ngIf="currentQuestionIndex === visibleQuestions.length - 1">
+          Submit <i class="fas fa-check"></i>
+        </span>
+      </button>
+    </div>
+  </div>
+</div>

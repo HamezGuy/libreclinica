@@ -8,26 +8,33 @@
       </button>
     </div>
     
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+      <div class="step" [class.active]="currentStep === 1" [class.completed]="currentStep > 1">
+        <div class="step-number">1</div>
+        <div class="step-label">Basic Information</div>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep > 1"></div>
+      <div class="step" [class.active]="currentStep === 2" [class.completed]="currentStep > 2">
+        <div class="step-number">2</div>
+        <div class="step-label">Phases & Templates</div>
+      </div>
+      <div class="step-connector" [class.completed]="currentStep > 2"></div>
+      <div class="step" [class.active]="currentStep === 3">
+        <div class="step-number">3</div>
+        <div class="step-label">Review & Create</div>
+      </div>
+    </div>
+    
     <form [formGroup]="studyCreationForm" (ngSubmit)="onSubmit()" class="study-creation-form">
       <div class="modal-body">
+        
+        <!-- Step 1: Basic Information -->
+        <div class="step-content" *ngIf="currentStep === 1">
         <!-- Basic Information Section -->
         <div class="form-section">
           <h3>Basic Information</h3>
           <div class="form-row">
-            <div class="form-group">
-              <label for="title">Study Title <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="title" 
-                formControlName="title" 
-                class="form-control"
-                placeholder="Enter study title">
-              <div class="error-message" *ngIf="studyCreationForm.get('title')?.touched && studyCreationForm.get('title')?.errors">
-                <span *ngIf="studyCreationForm.get('title')?.errors?.['required']">Study title is required</span>
-                <span *ngIf="studyCreationForm.get('title')?.errors?.['minlength']">Title must be at least 5 characters</span>
-              </div>
-            </div>
-            
             <div class="form-group">
               <label for="protocolNumber">Protocol Number <span class="required">*</span></label>
               <input 
@@ -41,6 +48,40 @@
                 <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['pattern']">Use uppercase letters, numbers, and hyphens only</span>
               </div>
             </div>
+            
+            <div class="form-group">
+              <label for="version">Version <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="version" 
+                formControlName="version" 
+                class="form-control"
+                placeholder="1.0">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="title">Study Title <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="title" 
+              formControlName="title" 
+              class="form-control"
+              placeholder="Enter the full study title">
+            <div class="error-message" *ngIf="studyCreationForm.get('title')?.touched && studyCreationForm.get('title')?.errors">
+              <span *ngIf="studyCreationForm.get('title')?.errors?.['required']">Title is required</span>
+              <span *ngIf="studyCreationForm.get('title')?.errors?.['minlength']">Title must be at least 5 characters</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="shortTitle">Short Title</label>
+            <input 
+              type="text" 
+              id="shortTitle" 
+              formControlName="shortTitle" 
+              class="form-control"
+              placeholder="Brief title or acronym">
           </div>
           
           <div class="form-group full-width">
@@ -66,22 +107,40 @@
             <div class="form-group">
               <label for="phase">Study Phase <span class="required">*</span></label>
               <select id="phase" formControlName="phase" class="form-control">
-                <option value="">Select phase</option>
-                <option *ngFor="let phase of studyPhases" [value]="phase.value">
-                  {{ phase.label }}
-                </option>
+                <option value="phase_i">Phase I</option>
+                <option value="phase_ii">Phase II</option>
+                <option value="phase_iii">Phase III</option>
+                <option value="phase_iv">Phase IV</option>
+                <option value="pre_clinical">Pre-Clinical</option>
+                <option value="pilot">Pilot Study</option>
+                <option value="feasibility">Feasibility Study</option>
               </select>
-              <div class="error-message" *ngIf="studyCreationForm.get('phase')?.touched && studyCreationForm.get('phase')?.errors?.['required']">
-                Study phase is required
-              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="studyType">Study Type <span class="required">*</span></label>
+              <select id="studyType" formControlName="studyType" class="form-control">
+                <option value="interventional">Interventional</option>
+                <option value="observational">Observational</option>
+                <option value="registry">Registry</option>
+                <option value="expanded_access">Expanded Access</option>
+              </select>
             </div>
             
             <div class="form-group">
               <label for="status">Study Status <span class="required">*</span></label>
               <select id="status" formControlName="status" class="form-control">
-                <option *ngFor="let status of studyStatuses" [value]="status.value">
-                  {{ status.label }}
-                </option>
+                <option value="planning">Planning</option>
+                <option value="protocol_development">Protocol Development</option>
+                <option value="regulatory_submission">Regulatory Submission</option>
+                <option value="approved">Approved</option>
+                <option value="enrolling">Enrolling</option>
+                <option value="active">Active</option>
+                <option value="closed_to_enrollment">Closed to Enrollment</option>
+                <option value="data_analysis">Data Analysis</option>
+                <option value="completed">Completed</option>
+                <option value="terminated">Terminated</option>
+                <option value="suspended">Suspended</option>
               </select>
             </div>
           </div>
@@ -148,27 +207,23 @@
           
           <div class="form-row">
             <div class="form-group">
-              <label for="enrollmentStartDate">Enrollment Start Date <span class="required">*</span></label>
+              <label for="plannedStartDate">Planned Start Date</label>
               <input 
                 type="date" 
-                id="enrollmentStartDate" 
-                formControlName="enrollmentStartDate" 
+                id="plannedStartDate" 
+                formControlName="plannedStartDate" 
                 class="form-control">
-              <div class="error-message" *ngIf="studyCreationForm.get('enrollmentStartDate')?.touched && studyCreationForm.get('enrollmentStartDate')?.errors?.['required']">
-                Start date is required
-              </div>
+
             </div>
             
             <div class="form-group">
-              <label for="enrollmentEndDate">Enrollment End Date <span class="required">*</span></label>
+              <label for="plannedEndDate">Planned End Date</label>
               <input 
                 type="date" 
-                id="enrollmentEndDate" 
-                formControlName="enrollmentEndDate" 
+                id="plannedEndDate" 
+                formControlName="plannedEndDate" 
                 class="form-control">
-              <div class="error-message" *ngIf="studyCreationForm.get('enrollmentEndDate')?.touched && studyCreationForm.get('enrollmentEndDate')?.errors?.['required']">
-                End date is required
-              </div>
+
             </div>
           </div>
         </div>
@@ -178,16 +233,14 @@
           <h3>Study Team</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="principalInvestigator">Principal Investigator <span class="required">*</span></label>
+              <label for="principalInvestigator">Principal Investigator</label>
               <input 
                 type="text" 
                 id="principalInvestigator" 
                 formControlName="principalInvestigator" 
                 class="form-control"
                 placeholder="PI Name">
-              <div class="error-message" *ngIf="studyCreationForm.get('principalInvestigator')?.touched && studyCreationForm.get('principalInvestigator')?.errors?.['required']">
-                Principal Investigator is required
-              </div>
+
             </div>
             
             <div class="form-group">
@@ -201,91 +254,359 @@
             </div>
           </div>
           
-          <div class="form-row">
-            <div class="form-group">
-              <label for="dataManager">Data Manager</label>
-              <input 
-                type="text" 
-                id="dataManager" 
-                formControlName="dataManager" 
-                class="form-control"
-                placeholder="Data Manager Name">
-            </div>
-            
-            <div class="form-group">
-              <label for="monitor">Clinical Monitor</label>
-              <input 
-                type="text" 
-                id="monitor" 
-                formControlName="monitor" 
-                class="form-control"
-                placeholder="Monitor Name">
-            </div>
+          <div class="form-group">
+            <label for="dataManager">Data Manager</label>
+            <input 
+              type="text" 
+              id="dataManager" 
+              formControlName="dataManager" 
+              class="form-control"
+              placeholder="Data Manager Name">
           </div>
         </div>
         
-        <!-- Regulatory Section -->
+        <!-- Regulatory & Compliance Section -->
         <div class="form-section">
-          <h3>Regulatory Information</h3>
+          <h3>Regulatory & Compliance</h3>
           <div class="form-row">
-            <div class="form-group">
-              <label for="irbApprovalNumber">IRB Approval Number</label>
-              <input 
-                type="text" 
-                id="irbApprovalNumber" 
-                formControlName="irbApprovalNumber" 
-                class="form-control"
-                placeholder="IRB Number">
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="irbApprovalRequired">
+                <span class="checkbox-label">IRB Approval Required</span>
+              </label>
             </div>
             
-            <div class="form-group">
-              <label for="irbApprovalDate">IRB Approval Date</label>
-              <input 
-                type="date" 
-                id="irbApprovalDate" 
-                formControlName="irbApprovalDate" 
-                class="form-control">
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="consentRequired">
+                <span class="checkbox-label">Informed Consent Required</span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="requiresElectronicSignatures">
+                <span class="checkbox-label">Electronic Signatures Required</span>
+              </label>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  formControlName="auditTrailRequired">
+                <span class="checkbox-label">Audit Trail Required</span>
+              </label>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="regulatoryBody">Regulatory Body</label>
-              <input 
-                type="text" 
-                id="regulatoryBody" 
-                formControlName="regulatoryBody" 
-                class="form-control"
-                placeholder="e.g., FDA, EMA">
+              <label for="dataIntegrityLevel">Data Integrity Level <span class="required">*</span></label>
+              <select id="dataIntegrityLevel" formControlName="dataIntegrityLevel" class="form-control">
+                <option value="basic">Basic</option>
+                <option value="enhanced">Enhanced</option>
+                <option value="maximum">Maximum</option>
+              </select>
             </div>
             
             <div class="form-group">
-              <label for="clinicalTrialId">Clinical Trial ID</label>
+              <label for="dataRetentionPeriod">Data Retention Period (months) <span class="required">*</span></label>
               <input 
-                type="text" 
-                id="clinicalTrialId" 
-                formControlName="clinicalTrialId" 
-                class="form-control"
-                placeholder="e.g., NCT12345678">
+                type="number" 
+                id="dataRetentionPeriod" 
+                formControlName="dataRetentionPeriod"
+                min="12"
+                placeholder="120"
+                class="form-control">
+              <div class="error-message" *ngIf="studyCreationForm.get('dataRetentionPeriod')?.touched && studyCreationForm.get('dataRetentionPeriod')?.errors">
+                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['required']">Retention period is required</span>
+                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['min']">Must be at least 12 months</span>
+              </div>
             </div>
           </div>
         </div>
+        </div> <!-- End Step 1 -->
+        
+        <!-- Step 2: Phases & Templates -->
+        <div class="step-content" *ngIf="currentStep === 2">
+          <div class="form-section">
+            <div class="section-header">
+              <h3>Study Phases/Sections</h3>
+              <button type="button" class="btn btn-primary btn-sm" (click)="addSection()">
+                <i class="material-icons">add</i> Add Phase/Section
+              </button>
+            </div>
+            
+            <div class="sections-container" *ngIf="sectionsArray">
+              <div class="section-card" *ngFor="let section of sectionsArray.controls; let i = index" [formGroupName]="i">
+                <div class="section-header">
+                  <h4>Phase {{i + 1}}</h4>
+                  <button type="button" class="btn btn-danger btn-sm" (click)="removeSection(i)">
+                    <i class="material-icons">delete</i>
+                  </button>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Phase Name <span class="required">*</span></label>
+                    <input type="text" formControlName="name" class="form-control" placeholder="e.g., Screening, Baseline, Treatment">
+                  </div>
+                  <div class="form-group">
+                    <label>Type <span class="required">*</span></label>
+                    <select formControlName="type" class="form-control">
+                      <option value="screening">Screening</option>
+                      <option value="baseline">Baseline</option>
+                      <option value="treatment">Treatment</option>
+                      <option value="follow_up">Follow-up</option>
+                      <option value="visit">Visit</option>
+                      <option value="unscheduled">Unscheduled</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Description</label>
+                    <textarea formControlName="description" class="form-control" rows="2" placeholder="Phase description"></textarea>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Scheduled Day</label>
+                    <input type="number" formControlName="scheduledDay" class="form-control" placeholder="Day number">
+                  </div>
+                  <div class="form-group">
+                    <label>Window Start (days before)</label>
+                    <input type="number" formControlName="windowStart" class="form-control" placeholder="e.g., 3">
+                  </div>
+                  <div class="form-group">
+                    <label>Window End (days after)</label>
+                    <input type="number" formControlName="windowEnd" class="form-control" placeholder="e.g., 3">
+                  </div>
+                  <div class="form-group checkbox-group">
+                    <label>
+                      <input type="checkbox" formControlName="isOptional">
+                      Optional Phase
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Templates Assignment -->
+                <div class="templates-section">
+                  <h5>Assigned Templates</h5>
+                  <div class="assigned-templates">
+                    <div class="template-item" *ngFor="let template of getFormTemplatesArray(i).controls; let j = index">
+                      <span class="template-name">{{ template.get('templateName')?.value }}</span>
+                      <label class="required-toggle">
+                        <input type="checkbox" [checked]="template.get('isRequired')?.value" 
+                               (change)="toggleTemplateRequired(i, j)">
+                        Required
+                      </label>
+                      <button type="button" class="btn btn-sm btn-danger" (click)="removeTemplateFromSection(i, j)">
+                        <i class="material-icons">remove</i>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="template-selector">
+                    <label>Select Templates for this Phase:</label>
+                    <app-template-gallery
+                      [templates]="availableTemplates"
+                      [selectedTemplates]="getSelectedTemplateIds(i)"
+                      (templateSelected)="onTemplateGallerySelect(i, $event)">
+                    </app-template-gallery>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="empty-state" *ngIf="!sectionsArray || sectionsArray.length === 0">
+                <i class="material-icons">folder_open</i>
+                <p>No phases/sections added yet</p>
+                <p class="text-muted">Click "Add Phase/Section" to get started</p>
+              </div>
+            </div>
+          </div>
+        </div> <!-- End Step 2 -->
+        
+        <!-- Step 3: Review & Create -->
+        <div class="step-content" *ngIf="currentStep === 3">
+          <div class="form-section">
+            <h3>Review Study Configuration</h3>
+            
+            <div class="review-section">
+              <h4>Basic Information</h4>
+              <div class="review-item">
+                <span class="label">Protocol Number:</span>
+                <span class="value">{{ studyCreationForm.get('protocolNumber')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Version:</span>
+                <span class="value">{{ studyCreationForm.get('version')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Title:</span>
+                <span class="value">{{ studyCreationForm.get('title')!.value }}</span>
+              </div>
+              <div class="review-item" *ngIf="studyCreationForm.get('shortTitle')!.value">
+                <span class="label">Short Title:</span>
+                <span class="value">{{ studyCreationForm.get('shortTitle')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Description:</span>
+                <span class="value">{{ studyCreationForm.get('description')!.value }}</span>
+              </div>
+            </div>
+            
+            <div class="review-section">
+              <h4>Study Classification</h4>
+              <div class="review-item">
+                <span class="label">Phase:</span>
+                <span class="value">{{ getPhaseLabel(studyCreationForm.get('phase')!.value) }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Study Type:</span>
+                <span class="value">{{ getStudyTypeLabel(studyCreationForm.get('studyType')!.value) }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Therapeutic Area:</span>
+                <span class="value">{{ studyCreationForm.get('therapeuticArea')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Indication:</span>
+                <span class="value">{{ studyCreationForm.get('indication')!.value }}</span>
+              </div>
+            </div>
+            
+            <div class="review-section">
+              <h4>Timeline & Enrollment</h4>
+              <div class="review-item">
+                <span class="label">Status:</span>
+                <span class="value">{{ studyCreationForm.get('status')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Planned Enrollment:</span>
+                <span class="value">{{ studyCreationForm.get('plannedEnrollment')!.value }} patients</span>
+              </div>
+              <div class="review-item" *ngIf="studyCreationForm.get('plannedStartDate')!.value">
+                <span class="label">Planned Start Date:</span>
+                <span class="value">{{ studyCreationForm.get('plannedStartDate')!.value | date }}</span>
+              </div>
+              <div class="review-item" *ngIf="studyCreationForm.get('plannedEndDate')!.value">
+                <span class="label">Planned End Date:</span>
+                <span class="value">{{ studyCreationForm.get('plannedEndDate')!.value | date }}</span>
+              </div>
+            </div>
+            
+            <div class="review-section">
+              <h4>Study Team</h4>
+              <div class="review-item" *ngIf="studyCreationForm.get('principalInvestigator')!.value">
+                <span class="label">Principal Investigator:</span>
+                <span class="value">{{ studyCreationForm.get('principalInvestigator')!.value }}</span>
+              </div>
+              <div class="review-item" *ngIf="studyCreationForm.get('studyCoordinator')!.value">
+                <span class="label">Study Coordinator:</span>
+                <span class="value">{{ studyCreationForm.get('studyCoordinator')!.value }}</span>
+              </div>
+              <div class="review-item" *ngIf="studyCreationForm.get('dataManager')!.value">
+                <span class="label">Data Manager:</span>
+                <span class="value">{{ studyCreationForm.get('dataManager')!.value }}</span>
+              </div>
+            </div>
+            
+            <div class="review-section">
+              <h4>Regulatory & Compliance</h4>
+              <div class="review-item">
+                <span class="label">IRB Approval Required:</span>
+                <span class="value">{{ studyCreationForm.get('irbApprovalRequired')!.value ? 'Yes' : 'No' }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Informed Consent Required:</span>
+                <span class="value">{{ studyCreationForm.get('consentRequired')!.value ? 'Yes' : 'No' }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Electronic Signatures:</span>
+                <span class="value">{{ studyCreationForm.get('requiresElectronicSignatures')!.value ? 'Required' : 'Not Required' }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Audit Trail:</span>
+                <span class="value">{{ studyCreationForm.get('auditTrailRequired')!.value ? 'Required' : 'Not Required' }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Data Integrity Level:</span>
+                <span class="value">{{ studyCreationForm.get('dataIntegrityLevel')!.value }}</span>
+              </div>
+              <div class="review-item">
+                <span class="label">Data Retention Period:</span>
+                <span class="value">{{ studyCreationForm.get('dataRetentionPeriod')!.value }} months</span>
+              </div>
+            </div>
+            
+            <div class="review-section">
+              <h4>Phases/Sections ({{ sectionsArray.length }})</h4>
+              <div class="phase-review" *ngFor="let section of sectionsArray.controls; let i = index">
+                <h5>{{ section.get('name')!.value }}</h5>
+                <p class="text-muted">{{ section.get('description')!.value || 'No description' }}</p>
+                <p><strong>Templates:</strong> {{ getFormTemplatesArray(i).length }} assigned</p>
+                <ul>
+                  <li *ngFor="let template of getFormTemplatesArray(i).controls">
+                    {{ template.get('templateName')!.value }}
+                    <span class="badge" [class.badge-required]="template.get('isRequired')!.value">
+                      {{ template.get('isRequired')!.value ? 'Required' : 'Optional' }}
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div> <!-- End Step 3 -->
+        
       </div>
       
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isCreatingStudy">
-          Cancel
-        </button>
-        <button 
-          type="submit" 
-          class="btn btn-primary" 
-          [disabled]="studyCreationForm.invalid || isCreatingStudy">
-          <span *ngIf="!isCreatingStudy">Create Study</span>
-          <span *ngIf="isCreatingStudy">
-            <i class="material-icons spin">refresh</i>
-            Creating...
-          </span>
-        </button>
+        <div class="footer-left">
+          <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isCreatingStudy">
+            Cancel
+          </button>
+        </div>
+        <div class="footer-right">
+          <button 
+            type="button" 
+            class="btn btn-secondary" 
+            (click)="previousStep()"
+            *ngIf="currentStep > 1"
+            [disabled]="isCreatingStudy">
+            <i class="material-icons">chevron_left</i> Previous
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            (click)="nextStep()"
+            *ngIf="currentStep < totalSteps"
+            [disabled]="!isStepValid(currentStep) || isCreatingStudy">
+            Next <i class="material-icons">chevron_right</i>
+          </button>
+          <button 
+            type="submit" 
+            class="btn btn-primary" 
+            *ngIf="currentStep === totalSteps"
+            [disabled]="studyCreationForm.invalid || isCreatingStudy">
+            <span *ngIf="!isCreatingStudy">Create Study</span>
+            <span *ngIf="isCreatingStudy">
+              <i class="material-icons spin">refresh</i>
+              Creating...
+            </span>
+          </button>
+        </div>
       </div>
     </form>
   </div>

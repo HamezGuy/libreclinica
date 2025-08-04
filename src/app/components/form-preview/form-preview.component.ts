@@ -139,7 +139,7 @@ export class FormPreviewComponent implements OnInit, OnDestroy {
     // Return appropriate default based on field type
     switch (field.type) {
       case 'checkbox':
-        return false;
+        return [];
       case 'multiselect':
         return [];
       case 'number':
@@ -283,5 +283,40 @@ export class FormPreviewComponent implements OnInit, OnDestroy {
 
   trackField(index: number, field: FormField): string {
     return field.id;
+  }
+
+  // Checkbox handling methods
+  isCheckboxChecked(fieldId: string, optionValue: string): boolean {
+    const control = this.getFieldControl(fieldId);
+    if (!control) return false;
+    
+    const value = control.value;
+    if (Array.isArray(value)) {
+      return value.includes(optionValue);
+    }
+    return false;
+  }
+
+  onCheckboxChange(fieldId: string, optionValue: string, event: any): void {
+    const control = this.getFieldControl(fieldId);
+    if (!control || this.readonly) return;
+    
+    let currentValue = control.value || [];
+    if (!Array.isArray(currentValue)) {
+      currentValue = [];
+    }
+    
+    if (event.target.checked) {
+      // Add the value if checked
+      if (!currentValue.includes(optionValue)) {
+        currentValue = [...currentValue, optionValue];
+      }
+    } else {
+      // Remove the value if unchecked
+      currentValue = currentValue.filter((v: string) => v !== optionValue);
+    }
+    
+    control.setValue(currentValue);
+    control.markAsTouched();
   }
 }

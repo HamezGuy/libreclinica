@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { Subject, takeUntil, Observable, combineLatest, map, of, withLatestFrom, firstValueFrom } from 'rxjs';
 
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
+import { StudyPhaseService } from '../../services/study-phase.service';
+import { ToastService } from '../../services/toast.service';
 import { FormTemplateService } from '../../services/form-template.service';
 import { FormInstanceService } from '../../services/form-instance.service';
 import { DataSeparationService } from '../../services/data-separation.service';
@@ -16,9 +18,11 @@ import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { TemplateManagementComponent } from '../template-management/template-management.component';
-import { CreateStudyWidgetComponent } from '../create-study-widget/create-study-widget.component';
+import { StudyCreationModalComponent } from '../study-creation-modal/study-creation-modal.component';
 import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
 import { DashboardSidebarComponent } from '../dashboard-sidebar/dashboard-sidebar.component';
+import { PatientPhaseProgressComponent } from '../patient-phase-progress/patient-phase-progress.component';
+import { SurveyManagementComponent } from '../survey-management/survey-management.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -81,7 +85,7 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, CreateStudyWidgetComponent, PatientFormModalComponent, DashboardSidebarComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, StudyCreationModalComponent, PatientFormModalComponent, DashboardSidebarComponent, PatientPhaseProgressComponent, SurveyManagementComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -98,6 +102,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private phiEncryptionService = inject(PhiEncryptionService);
   private patientService = inject(PatientService);
+  private toastService = inject(ToastService);
+  private studyPhaseService = inject(StudyPhaseService);
   
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
@@ -178,6 +184,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { id: 'patients', label: 'Patients', icon: 'people', active: true },
     { id: 'forms', label: 'Forms', icon: 'description', active: false },
     { id: 'studies', label: 'Studies', icon: 'folder', active: false },
+    { id: 'surveys', label: 'Surveys', icon: 'quiz', active: false },
     { id: 'reports', label: 'Reports', icon: 'assessment', active: false },
     { id: 'audit', label: 'Audit Logs', icon: 'history', active: false }
   ];
@@ -397,6 +404,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error in selectPatient:', error);
+    }
+  }
+
+  // Phase selection handler
+  async onPhaseSelected(event: { phase: any, progress: any }) {
+    console.log('Phase selected:', event);
+    
+    // You can add logic here to:
+    // 1. Navigate to phase-specific forms
+    // 2. Show phase details in a modal
+    // 3. Filter forms by phase
+    // 4. etc.
+    
+    // For now, let's filter the patient forms by the selected phase
+    if (this.selectedPatient && event.phase.id) {
+      // TODO: Implement phase-specific form filtering
+      this.toastService.info(`Selected phase: ${event.phase.phaseName}`, 3000);
     }
   }
 
@@ -1072,7 +1096,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       // Create patient using the service
       console.log('Creating patient with data:', cleanedPatient);
-      const patientId = await this.createPatientDirectly(cleanedPatient);
+      const patientId = await this.patientService.createPatient(patientData.studyId, cleanedPatient);
       console.log('Patient created successfully with ID:', patientId);
 
       alert('Patient created successfully!');
@@ -1193,12 +1217,73 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.showStudyCreationModal = false;
   }
 
-  onStudyCreated(study: Study): void {
-    console.log('Study created:', study);
-    this.showStudyCreationModal = false;
-    // Refresh the studies list
-    this.loadStudies();
-    alert('Study created successfully!');
+  async onStudyCreated(studyData: Study): Promise<void> {
+    try {
+      console.log('Creating study with data:', studyData);
+      
+      // Create the study first
+      const createdStudy = await this.studyService.createStudy(studyData);
+      console.log('Study created:', createdStudy);
+      
+      if (!createdStudy.id) {
+        throw new Error('Study created but no ID returned');
+      }
+      
+      // If the study has sections/phases, create them as StudyPhaseConfig entries
+      if (studyData.sections && studyData.sections.length > 0) {
+        console.log('Creating study phases:', studyData.sections);
+        
+        // Convert EnhancedStudySection to StudyPhaseConfig format
+        const phaseConfigs = studyData.sections.map((section, index) => ({
+          studyId: createdStudy.id!,
+          phaseName: section.name,
+          phaseCode: this.generatePhaseCode(section.type),
+          description: section.description,
+          order: index + 1,
+          plannedDurationDays: section.scheduledDay,
+          windowStartDays: section.windowStart,
+          windowEndDays: section.windowEnd,
+          templateAssignments: section.formTemplates.map(template => ({
+            templateId: template.templateId,
+            templateName: template.templateName,
+            templateVersion: template.templateVersion,
+            order: template.order,
+            isRequired: template.isRequired,
+            completionRequired: template.completionRequired,
+            signatureRequired: template.signatureRequired || false,
+            reviewRequired: template.reviewRequired || false,
+            daysToComplete: template.daysToComplete
+          })),
+          isActive: true,
+          allowSkip: section.isOptional || false,
+          allowParallel: false
+        }));
+        
+        // Create phases using the study phase service
+        await this.studyPhaseService.createStudyPhases(createdStudy.id, phaseConfigs);
+        console.log('Study phases created successfully');
+      }
+      
+      this.showStudyCreationModal = false;
+      // Refresh the studies list
+      this.loadStudies();
+      alert('Study created successfully with ' + (studyData.sections?.length || 0) + ' phases!');
+    } catch (error) {
+      console.error('Error creating study:', error);
+      alert('Error creating study: ' + (error as Error).message);
+    }
+  }
+  
+  private generatePhaseCode(sectionType: string): string {
+    const codeMap: { [key: string]: string } = {
+      'screening': 'SCR',
+      'baseline': 'BSL',
+      'treatment': 'TRT',
+      'follow_up': 'FUP',
+      'visit': 'VST',
+      'unscheduled': 'UNS'
+    };
+    return codeMap[sectionType] || 'GEN';
   }
   
   // Load studies
@@ -1795,8 +1880,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return patient.id || index.toString();
   }
   
-  // Delete patient from study - overloaded method for sidebar
-  deletePatientFromStudy(patient: PatientListItem | string, studyId: string) {
+  // Delete patient from study
+  deletePatientFromStudy(patient: string | PatientListItem, studyId: string) {
+    // Check permissions
     if (!this.permissions.canDeletePatients) {
       console.error('You do not have permission to remove patients from studies');
       alert('You do not have permission to remove patients from studies');
@@ -1806,9 +1892,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const patientId = typeof patient === 'string' ? patient : patient.id;
     const patientName = typeof patient === 'string' ? 'this patient' : patient.displayName;
     
-    if (confirm(`Are you sure you want to remove ${patientName} from this study?`)) {
+    // Single confirmation dialog
+    const confirmMessage = `Are you sure you want to remove ${patientName} from this study?\n\nThis action cannot be undone.`;
+    
+    if (confirm(confirmMessage)) {
       // Call the async version
-      this.deletePatientFromStudyAsync(patientId, studyId);
+      this.deletePatientFromStudyAsync(patientId, studyId, patientName);
     }
   }
   
@@ -1845,24 +1934,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // Delete patient from study - async implementation
-  async deletePatientFromStudyAsync(patientId: string, studyId: string): Promise<void> {
-    const confirmDelete = confirm(
-      'Are you sure you want to remove this patient from the study?\n\n' +
-      'This action cannot be undone. The patient data will be permanently deleted.'
-    );
-    
-    if (!confirmDelete) {
-      return;
-    }
-    
+  async deletePatientFromStudyAsync(patientId: string, studyId: string, patientName: string = 'Patient'): Promise<void> {
     try {
       console.log('Deleting patient:', patientId, 'from study:', studyId);
       
       // Call the patient service to delete the patient
       await this.patientService.deletePatient(patientId);
       
-      // Show success message
-      alert('Patient removed successfully');
+      // Show brief success message
+      this.toastService.success(`${patientName} removed from study successfully`);
       
       // Refresh the patients list to update the UI
       await this.loadPatients();
@@ -1874,7 +1954,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       
     } catch (error) {
       console.error('Error deleting patient:', error);
-      alert('Failed to remove patient: ' + (error as Error).message);
+      this.toastService.error('Failed to remove patient: ' + (error as Error).message);
     }
   }
 

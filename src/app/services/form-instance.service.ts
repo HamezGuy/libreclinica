@@ -18,7 +18,7 @@ import {
 import { Functions, httpsCallable } from '@angular/fire/functions';
 
 import { 
-  FormInstance, 
+  FormInstance,
   FormTemplate, 
   FormValidationResult, 
   ElectronicSignature,
@@ -29,12 +29,12 @@ import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { FormTemplateService } from './form-template.service';
 import { DataSeparationService } from './data-separation.service';
 import { 
-  IEventBus, 
   FormInstanceCreatedEvent,
   FormInstanceSubmittedEvent,
   FormInstanceSignedEvent
 } from '../core/interfaces';
-import { EVENT_BUS_TOKEN } from '../core/injection-tokens';
+import { EventBusService, FormCompletionStatusChangedEvent } from './event-bus.service';
+
 
 @Injectable({
   providedIn: 'root'
@@ -46,7 +46,8 @@ export class FormInstanceService {
   private templateService = inject(FormTemplateService);
   private dataSeparationService = inject(DataSeparationService);
   private injector = inject(Injector);
-  private eventBus = inject(EVENT_BUS_TOKEN);
+  private eventBus = inject(EventBusService);
+
   
   private instancesSubject = new BehaviorSubject<FormInstance[]>([]);
   public instances$ = this.instancesSubject.asObservable();
@@ -111,16 +112,14 @@ export class FormInstanceService {
       };
 
       // Publish event
-      this.eventBus.publish<FormInstanceCreatedEvent>({
-        id: crypto.randomUUID(),
+      this.eventBus.publish({
         type: 'FORM_INSTANCE_CREATED',
         timestamp: new Date(),
         userId: currentUser.uid,
         instanceId: docRef.id,
         templateId,
-        patientId,
-        studyId,
-        createdBy: currentUser.uid
+        patientId: patientId || '',
+        studyId: studyId || ''
       });
 
       return createdInstance;
@@ -250,19 +249,46 @@ export class FormInstanceService {
 
       const updatedInstance = await this.updateFormInstance(instanceId, updates, 'Form submitted');
 
+      // Emit event for phase completion status update
+      if (instance.patientId && instance.studyId && instance.patientVisitSubcomponentId) {
+        try {
+          // Get the visit subcomponent to find the phaseId
+          const subcomponentDoc = await getDoc(
+            doc(this.firestore, 'patients', instance.patientId, 'visitSubcomponents', instance.patientVisitSubcomponentId)
+          );
+          
+          if (subcomponentDoc.exists()) {
+            const subcomponent = subcomponentDoc.data();
+            if (subcomponent['phaseId']) {
+              // Emit event instead of direct call to avoid circular dependency
+              const event: FormCompletionStatusChangedEvent = {
+                type: 'FORM_COMPLETION_STATUS_CHANGED',
+                timestamp: new Date(),
+                userId: currentUser.uid,
+                patientId: instance.patientId,
+                studyId: instance.studyId,
+                phaseId: subcomponent['phaseId'],
+                templateId: instance.templateId,
+                isCompleted: true
+              };
+              this.eventBus.publish(event);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to emit phase completion status event:', error);
+          // Don't fail the submission if event emission fails
+        }
+      }
+
       // Publish event
-      this.eventBus.publish<FormInstanceSubmittedEvent>({
-        id: crypto.randomUUID(),
+      this.eventBus.publish({
         type: 'FORM_INSTANCE_SUBMITTED',
         timestamp: new Date(),
         userId: currentUser.uid,
-        instanceId,
+        instanceId: instanceId,
         templateId: instance.templateId,
-        patientId: instance.patientId,
-        studyId: instance.studyId,
-        submittedBy: currentUser.uid,
-        formData: instance.data,
-        containsPhi: Object.keys(instance.phiData || {}).length > 0
+        patientId: instance.patientId || '',
+        studyId: instance.studyId || ''
       });
 
       return updatedInstance;
@@ -312,17 +338,14 @@ export class FormInstanceService {
       );
 
       // Publish event
-      this.eventBus.publish<FormInstanceSignedEvent>({
-        id: crypto.randomUUID(),
+      this.eventBus.publish({
         type: 'FORM_INSTANCE_SIGNED',
         timestamp: new Date(),
         userId: currentUser.uid,
-        instanceId,
-        templateId: instance.templateId,
+        instanceId: instanceId,
+        signatureId: crypto.randomUUID(),
         signedBy: currentUser.uid,
-        signatureMethod: method,
-        signatureMeaning,
-        documentHash: signature.documentHash
+        signatureType: method
       });
 
       return updatedInstance;
@@ -398,6 +421,31 @@ export class FormInstanceService {
     const q = query(
       instancesRef,
       where('studyId', '==', studyId),
+      orderBy('createdAt', 'desc')
+    );
+
+    return from(getDocs(q)).pipe(
+      map(snapshot => 
+        snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as FormInstance))
+      )
+    );
+  }
+
+  /**
+   * Get form instances by visit subcomponent (phase folder)
+   */
+  getFormInstancesByVisitSubcomponent(
+    patientId: string, 
+    visitSubcomponentId: string
+  ): Observable<FormInstance[]> {
+    const instancesRef = collection(this.firestore, 'formInstances');
+    const q = query(
+      instancesRef,
+      where('patientId', '==', patientId),
+      where('visitId', '==', visitSubcomponentId),
       orderBy('createdAt', 'desc')
     );
 

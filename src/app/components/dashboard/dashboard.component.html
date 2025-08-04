@@ -724,8 +724,13 @@
         </div>
       </div>
       
+      <!-- Surveys View -->
+      <div class="content-section" *ngIf="activeSidebarItem === 'surveys'">
+        <app-survey-management></app-survey-management>
+      </div>
+      
       <!-- Other sections (Reports, Audit) -->
-      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms' && activeSidebarItem !== 'studies'">
+      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms' && activeSidebarItem !== 'studies' && activeSidebarItem !== 'surveys'">
         <div class="section-header">
           <h2>{{ activeSidebarItem | titlecase }}</h2>
         </div>
@@ -770,6 +775,15 @@
             <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>Birth Date:</strong> {{ selectedPatientPhiData.dateOfBirth | date }}</p>
             <!-- Add more PHI fields as needed -->
           </div>
+        </div>
+        
+        <!-- Phase Progress -->
+        <div class="phase-progress-section" *ngIf="selectedPatient.studyId">
+          <app-patient-phase-progress
+            [patientId]="selectedPatient.id!"
+            [studyId]="selectedPatient.studyId"
+            (phaseSelected)="onPhaseSelected($event)">
+          </app-patient-phase-progress>
         </div>
         
         <!-- Patient Forms -->
@@ -972,12 +986,9 @@
       (profileUpdated)="onProfileUpdated($event)">
     </app-profile-edit-popup>
 
-    <!-- Create Study Widget -->
-    <app-create-study-widget
-      [isVisible]="showStudyCreationModal"
-      [userProfile]="currentUserProfile"
-      [permissions]="permissions"
-      (closeModal)="onStudyWidgetClosed()"
-      (studyCreated)="onStudyCreated($event)"
-      (refreshStudies)="onRefreshStudies()">
-    </app-create-study-widget>
+    <!-- Study Creation Modal -->
+    <app-study-creation-modal
+      [show]="showStudyCreationModal"
+      (close)="onStudyWidgetClosed()"
+      (create)="onStudyCreated($event)">
+    </app-study-creation-modal>

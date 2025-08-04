@@ -1,0 +1,85 @@
+<div class="form-viewer" *ngIf="template">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="form-fields">
+      <div *ngFor="let field of template.fields" class="form-field">
+        <label [for]="field.id" [class.required]="field.required">
+          {{ field.label }}
+          <span class="required-indicator" *ngIf="field.required">*</span>
+        </label>
+        
+        <div class="field-description" *ngIf="field.description">
+          {{ field.description }}
+        </div>
+        
+        <!-- Text Input -->
+        <input *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'number'"
+               [id]="field.id"
+               [type]="getFieldType(field)"
+               [formControlName]="field.id"
+               [placeholder]="field.placeholder"
+               class="form-control">
+        
+        <!-- Textarea -->
+        <textarea *ngIf="field.type === 'textarea'"
+                  [id]="field.id"
+                  [formControlName]="field.id"
+                  [placeholder]="field.placeholder"
+                  rows="4"
+                  class="form-control">
+        </textarea>
+        
+        <!-- Date Input -->
+        <input *ngIf="field.type === 'date'"
+               [id]="field.id"
+               type="date"
+               [formControlName]="field.id"
+               class="form-control">
+        
+        <!-- Select Dropdown -->
+        <select *ngIf="field.type === 'select'"
+                [id]="field.id"
+                [formControlName]="field.id"
+                class="form-control">
+          <option value="">Select an option</option>
+          <option *ngFor="let option of field.options" [value]="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+        
+        <!-- Radio Buttons -->
+        <div *ngIf="field.type === 'radio'" class="radio-group">
+          <label *ngFor="let option of field.options" class="radio-option">
+            <input type="radio"
+                   [formControlName]="field.id"
+                   [value]="option.value">
+            {{ option.label }}
+          </label>
+        </div>
+        
+        <!-- Checkbox -->
+        <label *ngIf="field.type === 'checkbox'" class="checkbox-label">
+          <input type="checkbox"
+                 [formControlName]="field.id">
+          {{ field.label }}
+        </label>
+        
+        <!-- Field Errors -->
+        <div class="field-errors" *ngIf="form.get(field.id)?.invalid && form.get(field.id)?.touched">
+          <span class="error" *ngIf="form.get(field.id)?.errors?.['required']">
+            This field is required
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Form Actions -->
+    <div class="form-actions" *ngIf="!readOnly">
+      <button type="button" class="btn-secondary" (click)="onSaveDraft()">
+        Save as Draft
+      </button>
+      <button type="submit" class="btn-primary" [disabled]="form.invalid">
+        Submit Form
+      </button>
+    </div>
+  </form>
+</div>

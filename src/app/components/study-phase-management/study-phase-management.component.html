@@ -1,0 +1,181 @@
+<div class="study-phase-management">
+  <div class="modal-header">
+    <h2>Manage Study Phases</h2>
+    <button type="button" class="close-button" (click)="cancel()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <div class="modal-body">
+    <div class="phase-templates" *ngIf="existingPhases.length === 0">
+      <h3>Quick Start Templates</h3>
+      <div class="template-grid">
+        <div class="template-card" *ngFor="let template of phaseTemplates" 
+             (click)="usePhaseTemplate(template)">
+          <div class="template-code">{{ template.code }}</div>
+          <div class="template-name">{{ template.name }}</div>
+          <div class="template-description">{{ template.description }}</div>
+        </div>
+      </div>
+    </div>
+
+    <form [formGroup]="phaseForm">
+      <div class="phases-container" formArrayName="phases">
+        <div class="phase-card" *ngFor="let phase of phases.controls; let i = index" 
+             [formGroupName]="i">
+          
+          <div class="phase-header">
+            <h3>Phase {{ i + 1 }}</h3>
+            <div class="phase-actions">
+              <button type="button" class="icon-button" (click)="movePhaseUp(i)" 
+                      [disabled]="i === 0" title="Move up">
+                <i class="fas fa-arrow-up"></i>
+              </button>
+              <button type="button" class="icon-button" (click)="movePhaseDown(i)" 
+                      [disabled]="i === phases.length - 1" title="Move down">
+                <i class="fas fa-arrow-down"></i>
+              </button>
+              <button type="button" class="icon-button danger" (click)="removePhase(i)" 
+                      title="Remove phase">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="phase-content">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Phase Name <span class="required">*</span></label>
+                <input type="text" formControlName="phaseName" class="form-control"
+                       placeholder="e.g., Screening, Baseline">
+                <div class="error-message" 
+                     *ngIf="phase.get('phaseName')?.touched && phase.get('phaseName')?.errors?.['required']">
+                  Phase name is required
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Phase Code <span class="required">*</span></label>
+                <input type="text" formControlName="phaseCode" class="form-control"
+                       placeholder="e.g., SCR, BSL" maxlength="10">
+                <div class="error-message" 
+                     *ngIf="phase.get('phaseCode')?.touched && phase.get('phaseCode')?.errors?.['required']">
+                  Phase code is required
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Description</label>
+              <textarea formControlName="description" class="form-control" rows="2"
+                        placeholder="Brief description of this phase"></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Duration (days)</label>
+                <input type="number" formControlName="plannedDurationDays" class="form-control"
+                       placeholder="e.g., 30" min="1">
+              </div>
+
+              <div class="form-group">
+                <label>Window Start (days)</label>
+                <input type="number" formControlName="windowStartDays" class="form-control"
+                       placeholder="e.g., -3" min="-365" max="0">
+              </div>
+
+              <div class="form-group">
+                <label>Window End (days)</label>
+                <input type="number" formControlName="windowEndDays" class="form-control"
+                       placeholder="e.g., 3" min="0" max="365">
+              </div>
+            </div>
+
+            <div class="form-row checkboxes">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="isActive">
+                <span>Active</span>
+              </label>
+              
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="allowSkip">
+                <span>Allow Skip</span>
+              </label>
+              
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="allowParallel">
+                <span>Allow Parallel</span>
+              </label>
+            </div>
+
+            <!-- Template Assignments -->
+            <div class="template-assignments">
+              <h4>Assigned Templates</h4>
+              
+              <div formArrayName="templateAssignments">
+                <div class="template-assignment" 
+                     *ngFor="let template of getTemplateAssignments(i).controls; let j = index"
+                     [formGroupName]="j">
+                  
+                  <div class="template-row">
+                    <div class="form-group template-select">
+                      <select formControlName="templateId" class="form-control"
+                              (change)="onTemplateSelected(i, j, template.get('templateId')?.value)">
+                        <option value="">Select a template...</option>
+                        <option *ngFor="let tmpl of getAvailableTemplatesForPhase(i)" 
+                                [value]="tmpl.id">
+                          {{ tmpl.name }} ({{ tmpl.templateType }})
+                        </option>
+                      </select>
+                    </div>
+
+                    <label class="checkbox-label required-checkbox">
+                      <input type="checkbox" formControlName="isRequired">
+                      <span>Required</span>
+                    </label>
+
+                    <div class="form-group due-days">
+                      <input type="number" formControlName="dueAfterDays" 
+                             class="form-control" placeholder="Due in days" min="0">
+                    </div>
+
+                    <button type="button" class="icon-button danger" 
+                            (click)="removeTemplateFromPhase(i, j)" title="Remove template">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" class="add-template-button" (click)="addTemplateToPhase(i)">
+                <i class="fas fa-plus"></i> Add Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="add-phase-button" (click)="addPhase()">
+        <i class="fas fa-plus"></i> Add Phase
+      </button>
+    </form>
+
+    <div class="error-banner" *ngIf="error">
+      <i class="fas fa-exclamation-triangle"></i>
+      {{ error }}
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancel()">
+      Cancel
+    </button>
+    <button type="button" class="btn btn-primary" (click)="savePhases()" 
+            [disabled]="loading || phaseForm.invalid">
+      <span *ngIf="!loading">Save Phases</span>
+      <span *ngIf="loading">
+        <i class="fas fa-spinner fa-spin"></i> Saving...
+      </span>
+    </button>
+  </div>
+</div>

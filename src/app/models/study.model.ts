@@ -1,5 +1,6 @@
 import { AccessLevel } from '../enums/access-levels.enum';
 import { ElectronicSignature, FormTemplate } from './form-template.model';
+import { StudyPhaseConfig, PhaseTransitionRule } from './study-phase.model';
 
 // Study Status Types
 export type StudyStatus = 
@@ -272,7 +273,7 @@ export interface Study {
   
   // Study Classification
   phase: StudyPhase;
-  studyType: 'interventional' | 'observational' | 'registry';
+  studyType: 'interventional' | 'observational' | 'registry' | 'expanded_access';
   therapeuticArea: string;
   indication: string;
   
@@ -293,6 +294,8 @@ export interface Study {
   
   // Enhanced Study Structure
   sections: EnhancedStudySection[];
+  phases: StudyPhaseConfig[]; // Chronological phases with metadata
+  phaseTransitionRules: PhaseTransitionRule[]; // Rules for phase progression
   substudies: Substudy[];
   studyGroups: StudyGroup[];
   eligibilityCriteria: EligibilityCriteria;
