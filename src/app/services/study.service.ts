@@ -78,6 +78,71 @@ export class StudyService implements IStudyService {
   public dataQueries$ = this.dataQueriesSubject.asObservable();
 
   // ============================================================================
+  // Helper Methods
+  // ============================================================================
+  
+  /**
+   * Remove undefined fields from an object to prevent Firestore errors
+   */
+  private removeUndefinedFields(obj: any): any {
+    const cleaned: any = {};
+    
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const value = obj[key];
+        
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+            // Recursively clean nested objects
+            cleaned[key] = this.removeUndefinedFields(value);
+          } else if (Array.isArray(value)) {
+            // Clean arrays
+            cleaned[key] = value.map(item => {
+              if (typeof item === 'object' && item !== null && !(item instanceof Date)) {
+                return this.removeUndefinedFields(item);
+              }
+              return item;
+            }).filter(item => item !== undefined && item !== null);
+          } else {
+            cleaned[key] = value;
+          }
+        }
+      }
+    }
+    
+    return cleaned;
+  }
+  
+  /**
+   * Debug helper to check for undefined values in an object
+   */
+  private checkForUndefined(obj: any, path: string = 'root'): void {
+    if (obj === undefined) {
+      console.error(`[StudyService] UNDEFINED found at: ${path}`);
+      return;
+    }
+    
+    if (obj === null || typeof obj !== 'object' || obj instanceof Date) {
+      return;
+    }
+    
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        this.checkForUndefined(item, `${path}[${index}]`);
+      });
+    } else {
+      Object.keys(obj).forEach(key => {
+        const value = obj[key];
+        if (value === undefined) {
+          console.error(`[StudyService] UNDEFINED found at: ${path}.${key}`);
+        } else {
+          this.checkForUndefined(value, `${path}.${key}`);
+        }
+      });
+    }
+  }
+
+  // ============================================================================
   // Study CRUD Operations
   // ============================================================================
 
@@ -90,8 +155,30 @@ export class StudyService implements IStudyService {
       }
 
       const now = new Date();
+      
+      // Process sections to generate IDs before creating the study
+      const processedSections = studyData.sections ? studyData.sections.map((section: any) => ({
+        ...section,
+        id: this.generateId(), // Generate unique ID for each section
+        studyId: '', // Will be set after study creation
+        createdBy: currentUser.uid,
+        createdAt: now,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: now,
+        // Ensure formTemplates are stored as string IDs only
+        formTemplates: this.extractTemplateIds(section.formTemplates || []),
+        formInstances: section.formInstances || [],
+        // Set default values for tracking fields
+        totalPatients: section.totalPatients || 0,
+        patientsCompleted: section.patientsCompleted || 0,
+        patientsInProgress: section.patientsInProgress || 0,
+        patientsOverdue: section.patientsOverdue || 0,
+        status: section.status || 'not_started'
+      })) : [];
+      
       const study: Omit<Study, 'id'> = {
         ...studyData,
+        sections: processedSections,
         createdBy: currentUser.uid,
         createdAt: now,
         lastModifiedBy: currentUser.uid,
@@ -110,9 +197,37 @@ export class StudyService implements IStudyService {
       };
 
       const studiesRef = collection(this.firestore, 'studies');
-      const docRef = await addDoc(studiesRef, this.serializeStudyData(study));
       
-      const createdStudy: Study = { ...study, id: docRef.id };
+      // Log the study object before cleaning
+      console.log('[StudyService] Study object before cleaning:', JSON.stringify(study, null, 2));
+      
+      // Clean the study object to remove any undefined values before saving to Firestore
+      const cleanedStudy = this.removeUndefinedFields(study);
+      
+      // Log the cleaned study object
+      console.log('[StudyService] Study object after cleaning:', JSON.stringify(cleanedStudy, null, 2));
+      
+      // Check for any remaining undefined values
+      this.checkForUndefined(cleanedStudy, 'cleanedStudy');
+      
+      const docRef = await addDoc(studiesRef, cleanedStudy);
+      
+      // Now update sections with the study ID
+      const finalSections = processedSections.map(section => ({
+        ...section,
+        studyId: docRef.id
+      }));
+      
+      // Update the study document with sections that have the correct studyId
+      await updateDoc(docRef, {
+        sections: finalSections
+      });
+      
+      const createdStudy: Study = { 
+        ...study, 
+        id: docRef.id,
+        sections: finalSections
+      };
       
       // Log audit event
       await this.auditService.logAuditEvent({
@@ -123,7 +238,8 @@ export class StudyService implements IStudyService {
         details: JSON.stringify({
           protocolNumber: study.protocolNumber,
           title: study.title,
-          phase: study.phase
+          phase: study.phase,
+          sectionsCount: finalSections.length
         })
       });
 
@@ -628,7 +744,24 @@ export class StudyService implements IStudyService {
   }
 
   private generateId(): string {
-    return `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  }
+  
+  // Extract template IDs from form templates array
+  private extractTemplateIds(templates: any[]): string[] {
+    if (!templates || !Array.isArray(templates)) {
+      return [];
+    }
+    
+    // Handle both string IDs and objects with templateId/id properties
+    return templates
+      .map((template: any) => {
+        if (typeof template === 'string') {
+          return template;
+        }
+        return template.templateId || template.id || '';
+      })
+      .filter(id => id !== '');
   }
 
   private async getClientIpAddress(): Promise<string> {
@@ -644,12 +777,27 @@ export class StudyService implements IStudyService {
   private serializeStudyData(data: any): any {
     // Convert dates to Firestore timestamps
     const serialized = { ...data };
+    
+    // Handle all date fields
     if (serialized.createdAt instanceof Date) {
       serialized.createdAt = Timestamp.fromDate(serialized.createdAt);
     }
     if (serialized.lastModifiedAt instanceof Date) {
       serialized.lastModifiedAt = Timestamp.fromDate(serialized.lastModifiedAt);
     }
+    if (serialized.plannedStartDate instanceof Date) {
+      serialized.plannedStartDate = Timestamp.fromDate(serialized.plannedStartDate);
+    } else if (serialized.plannedStartDate === undefined || serialized.plannedStartDate === null || serialized.plannedStartDate === '') {
+      // Remove undefined/null/empty date fields to avoid Firestore errors
+      delete serialized.plannedStartDate;
+    }
+    if (serialized.plannedEndDate instanceof Date) {
+      serialized.plannedEndDate = Timestamp.fromDate(serialized.plannedEndDate);
+    } else if (serialized.plannedEndDate === undefined || serialized.plannedEndDate === null || serialized.plannedEndDate === '') {
+      // Remove undefined/null/empty date fields to avoid Firestore errors
+      delete serialized.plannedEndDate;
+    }
+    
     return serialized;
   }
 
@@ -925,10 +1073,18 @@ export class StudyService implements IStudyService {
         lastModifiedAt: serverTimestamp()
       });
 
-      // Update patient with study ID
+      // Create patient visit subcomponents from study sections
+      const visitSubcomponents = await this.createPatientVisitSubcomponents(
+        studyData,
+        patientId,
+        currentUser.uid
+      );
+
+      // Update patient with study ID and visit subcomponents
       const patientRef = doc(this.firestore, 'patients', patientId);
       await updateDoc(patientRef, {
         studyId: studyId,
+        visitSubcomponents: visitSubcomponents,
         lastModifiedBy: currentUser.uid,
         lastModifiedAt: serverTimestamp()
       });
@@ -946,6 +1102,71 @@ export class StudyService implements IStudyService {
         })
       });
     });
+  }
+
+  /**
+   * Create patient visit subcomponents from study sections
+   */
+  private async createPatientVisitSubcomponents(
+    study: Study,
+    patientId: string,
+    userId: string
+  ): Promise<any[]> {
+    const now = new Date();
+    const visitSubcomponents: any[] = [];
+
+    // Create a visit subcomponent for each study section
+    if (study.sections && Array.isArray(study.sections)) {
+      for (const section of study.sections) {
+        const visitSubcomponent = {
+          id: this.generateId(),
+          patientId: patientId,
+          studyId: study.id,
+          name: section.name,
+          description: section.description || '',
+          type: section.type || 'treatment',
+          order: section.order,
+          phaseId: section.id,
+          isPhaseFolder: true,
+          
+          // Calculate visit window dates based on enrollment date and scheduled day
+          scheduledDate: section.scheduledDay ? 
+            new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowStartDate: section.windowStart !== undefined ? 
+            new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowEndDate: section.windowEnd !== undefined ? 
+            new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          
+          // Initial status
+          status: 'scheduled' as const,
+          completionPercentage: 0,
+          
+          // Copy form template IDs from section
+          templateIds: section.formTemplates || [],
+          requiredTemplateIds: section.formTemplates || [], // All templates are required by default
+          optionalTemplateIds: [],
+          completedTemplates: [],
+          inProgressTemplates: [],
+          
+          // Phase progression
+          canProgressToNextPhase: false,
+          blockingTemplates: section.formTemplates || [],
+          
+          // Metadata
+          createdBy: userId,
+          createdAt: now,
+          lastModifiedBy: userId,
+          lastModifiedAt: now
+        };
+        
+        visitSubcomponents.push(visitSubcomponent);
+      }
+    }
+
+    return visitSubcomponents;
   }
 
   /**

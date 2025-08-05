@@ -138,13 +138,27 @@ export class PatientService {
     const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
     await addDoc(studyPatientsRef, studyPatientRef);
 
-    // Create phase-based folders for the patient
-    const studyPhases = await this.studyPhaseService.getStudyPhases(studyId);
-    if (studyPhases.length > 0) {
-      await this.studyPhaseService.createPatientPhaseFolders(patientId, studyId, studyPhases);
-    } else {
-      // Fallback to default visit subcomponents if no phases are defined
-      await this.createDefaultVisitSubcomponents(patientId, studyId);
+    // Create visit subcomponents from study sections
+    const studyDoc = await getDoc(doc(this.firestore, 'studies', studyId));
+    if (studyDoc.exists()) {
+      const study = studyDoc.data() as any;
+      if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
+        // Create visit subcomponents from study sections
+        const visitSubcomponents = await this.createVisitSubcomponentsFromSections(
+          study.sections,
+          patientId,
+          studyId,
+          currentUser.uid
+        );
+        
+        // Update patient with visit subcomponents
+        await updateDoc(patientRef, {
+          visitSubcomponents: visitSubcomponents
+        });
+      } else {
+        // Fallback to default visit subcomponents if no sections are defined
+        await this.createDefaultVisitSubcomponents(patientId, studyId);
+      }
     }
 
     return patientId;
@@ -199,6 +213,73 @@ export class PatientService {
       );
       await setDoc(subcomponentRef, this.prepareForFirestore(subcomponent));
     }
+  }
+
+  // Create visit subcomponents from study sections
+  private async createVisitSubcomponentsFromSections(
+    sections: any[],
+    patientId: string,
+    studyId: string,
+    userId: string
+  ): Promise<PatientVisitSubcomponent[]> {
+    const now = new Date();
+    const visitSubcomponents: PatientVisitSubcomponent[] = [];
+
+    for (const section of sections) {
+      const subcomponentId = this.generateId();
+      const subcomponent: PatientVisitSubcomponent = {
+        id: subcomponentId,
+        patientId,
+        studyId,
+        name: section.name || 'Unnamed Section',
+        description: section.description,
+        type: section.type || 'treatment',
+        order: section.order || 1,
+        phaseId: section.id,
+        isPhaseFolder: true,
+        
+        // Calculate visit window dates based on enrollment date and scheduled day
+        scheduledDate: section.scheduledDay ? 
+          new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
+          undefined,
+        windowStartDate: section.windowStart !== undefined ? 
+          new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
+          undefined,
+        windowEndDate: section.windowEnd !== undefined ? 
+          new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
+          undefined,
+        
+        // Initial status
+        status: 'scheduled',
+        completionPercentage: 0,
+        
+        // Copy form template IDs from section
+        templateIds: section.formTemplates || [],
+        requiredTemplateIds: section.formTemplates || [], // All templates are required by default
+        optionalTemplateIds: [],
+        completedTemplates: [],
+        inProgressTemplates: [],
+        
+        // Phase progression
+        canProgressToNextPhase: false,
+        blockingTemplates: section.formTemplates || [],
+        
+        // Metadata
+        createdBy: userId,
+        createdAt: now,
+        lastModifiedBy: userId,
+        lastModifiedAt: now
+      };
+      
+      visitSubcomponents.push(subcomponent);
+    }
+
+    return visitSubcomponents;
+  }
+
+  // Helper method to generate unique IDs
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
   }
 
   // Get patient by ID

@@ -1008,6 +1008,7 @@
       [show]="showPatientFormModal"
       [template]="selectedPatientTemplate"
       [availableStudies]="availableStudies"
+      [defaultStudyId]="defaultStudyIdForPatient"
       (close)="closePatientFormModal()"
       (submit)="onPatientFormSubmit($event)">
     </app-patient-form-modal>

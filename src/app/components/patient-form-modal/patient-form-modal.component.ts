@@ -17,6 +17,7 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
   @Input() show = false;
   @Input() template: FormTemplate | null = null;
   @Input() availableStudies: Study[] = [];
+  @Input() defaultStudyId: string | null = null; // Optional default study
   @Output() close = new EventEmitter<void>();
   @Output() submit = new EventEmitter<any>();
 
@@ -46,12 +47,15 @@ export class PatientFormModalComponent implements OnInit, OnChanges {
     if (changes['template'] && this.template) {
       this.buildForm();
     }
+    if (changes['defaultStudyId'] && this.defaultStudyId && this.patientForm.get('studyId')) {
+      this.patientForm.patchValue({ studyId: this.defaultStudyId });
+    }
   }
 
   private buildForm(): void {
-    // Always include studyId as a required field
+    // Always include studyId as a required field, with optional default value
     const formControls: { [key: string]: FormControl } = {
-      studyId: new FormControl('', Validators.required)
+      studyId: new FormControl(this.defaultStudyId || '', Validators.required)
     };
     
     // Add template fields if template exists

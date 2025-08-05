@@ -238,15 +238,17 @@ service cloud.firestore {
       // Create access for admin and investigator roles
       allow create: if isAuthenticated() && 
                       isActive() && 
-                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) &&
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) &&
+                      request.resource.data.keys().hasAll(['createdBy', 'createdAt']) &&
                       request.resource.data.createdBy == request.auth.uid;
       
-      // Update access for admin and survey creator
+      // Update access for admin, survey creator, and data entry roles
       allow update: if isAuthenticated() && 
                       isActive() && 
-                      (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
-                       resource.data.createdBy == request.auth.uid) &&
-                      request.resource.data.updatedBy == request.auth.uid;
+                      (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) || 
+                       (resource.data.createdBy == request.auth.uid)) &&
+                      request.resource.data.keys().hasAll(['lastModifiedBy', 'lastModifiedAt']) &&
+                      request.resource.data.lastModifiedBy == request.auth.uid;
       
       // Delete access restricted to admin only
       allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
@@ -275,6 +277,33 @@ service cloud.firestore {
         // No deletions allowed for data integrity
         allow delete: if false;
       }
+    }
+    
+    // Patients collection
+    match /patients/{patientId} {
+      // Read access for authenticated and active users with appropriate roles
+      allow read: if isAuthenticated() && 
+                     isActive() && 
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+      
+      // Create access for users with data entry permissions
+      allow create: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.createdAt is timestamp;
+      
+      // Update access for users with appropriate permissions
+      allow update: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) &&
+                       request.resource.data.lastModifiedBy == request.auth.uid &&
+                       request.resource.data.lastModifiedAt is timestamp;
+      
+      // Delete access restricted to admins only
+      allow delete: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Default deny all

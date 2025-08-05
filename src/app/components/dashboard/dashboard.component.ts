@@ -161,6 +161,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   isCreatingPatient = false;
   availableStudies: Study[] = [];
   selectedTemplateForPatient: string = ''; // For the improved dropdown UI
+  defaultStudyIdForPatient: string | null = null; // Default study for patient creation
 
   // Enhanced template modal properties
   selectedTemplate: FormTemplate | null = null;
@@ -839,6 +840,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  async loadPatientTemplates(): Promise<void> {
+    try {
+      // Load patient templates from observable
+      const allTemplates = await firstValueFrom(this.templates$);
+      // Filter for patient templates - check templateType property
+      this.patientTemplates = allTemplates.filter((template: FormTemplate) =>
+        template.templateType === 'patient' ||
+        template.templateType === 'study_subject' ||
+        template.isPatientTemplate === true ||
+        template.isStudySubjectTemplate === true
+      );
+
+      // Load available studies for patient assignment
+      this.availableStudies = this.studies; // Use existing studies data
+
+      console.log('[Dashboard] Loaded patient templates:', this.patientTemplates.length);
+    } catch (error) {
+      console.error('Error loading patient templates:', error);
+      throw error; // Re-throw to be handled by caller
+    }
+  }
+
   closePatientTemplateModal(): void {
     // No confirmation needed for template selection modal
     this.showPatientTemplateModal = false;
@@ -1351,22 +1374,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     try {
-      // For now, create a demo patient or show modal to select existing patient
-      // In a real application, this would show a patient selection modal
-      const patientId = await this.createDemoPatientForStudy(study.id!);
-
-      if (patientId) {
-        // Use the new bidirectional relationship method
-        await this.studyService.addPatientToStudy(study.id!, patientId);
-        
-        // Refresh study data to show updated enrollment
-        await this.loadStudies();
-        
-        alert(`Patient successfully enrolled in "${study.title}"!`);
-      }
+      // Load patient templates and open the patient form modal with the study pre-selected
+      await this.loadPatientTemplates();
+      
+      // Set the default study for the patient form
+      this.defaultStudyIdForPatient = study.id!;
+      
+      // Open the patient template selector modal
+      this.showPatientTemplateModal = true;
     } catch (error) {
-      console.error('Error enrolling patient:', error);
-      alert('Failed to enroll patient. Please try again.');
+      console.error('Error opening patient enrollment:', error);
+      alert('Failed to open patient enrollment. Please try again.');
     }
   }
 

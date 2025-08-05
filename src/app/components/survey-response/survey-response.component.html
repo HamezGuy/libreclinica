@@ -1,0 +1,221 @@
+<div class="survey-response-container">
+  <!-- Header -->
+  <div class="survey-header">
+    <h2>{{ survey.title }}</h2>
+    <p class="survey-description" *ngIf="survey.description">{{ survey.description }}</p>
+    
+    <!-- Progress Bar -->
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="getProgressPercentage()"></div>
+      </div>
+      <span class="progress-text">{{ getProgressPercentage() }}% Complete</span>
+    </div>
+  </div>
+
+  <!-- Welcome Screen -->
+  <div class="welcome-screen" *ngIf="survey.welcomeScreen?.enabled && currentQuestionIndex === -1">
+    <h3>{{ survey.welcomeScreen?.title || 'Welcome' }}</h3>
+    <p>{{ survey.welcomeScreen?.message || '' }}</p>
+    <button class="btn btn-primary" (click)="currentQuestionIndex = 0">Start Survey</button>
+  </div>
+
+  <!-- Questions -->
+  <form [formGroup]="responseForm" *ngIf="currentQuestionIndex >= 0 && currentQuestionIndex < survey.questions.length">
+    <div class="question-container">
+      <div class="question-number">
+        Question {{ currentQuestionIndex + 1 }} of {{ survey.questions.length }}
+      </div>
+      
+      <div class="question" *ngFor="let question of survey.questions; let i = index" 
+           [class.active]="i === currentQuestionIndex">
+        <div *ngIf="i === currentQuestionIndex">
+          <h3 class="question-text">
+            {{ question.text }}
+            <span class="required-indicator" *ngIf="question.required">*</span>
+          </h3>
+          <p class="question-description" *ngIf="question.description">{{ question.description }}</p>
+          
+          <!-- Single Choice (Radio Buttons) -->
+          <div class="options-container" *ngIf="question.type === 'single-choice'">
+            <label class="radio-option" *ngFor="let option of question.options">
+              <input type="radio" 
+                     [formControlName]="question.id" 
+                     [value]="option.value"
+                     class="radio-input">
+              <span class="option-text">{{ option.text }}</span>
+            </label>
+          </div>
+          
+          <!-- Multiple Choice (Checkboxes) -->
+          <div class="options-container" *ngIf="question.type === 'multiple-choice'">
+            <label class="checkbox-option" *ngFor="let option of question.options; let optionIndex = index">
+              <input type="checkbox" 
+                     [checked]="getFormArray(question.id).at(optionIndex).value"
+                     (change)="onMultipleChoiceChange(question.id, optionIndex, $event)"
+                     class="checkbox-input">
+              <span class="option-text">{{ option.text }}</span>
+            </label>
+          </div>
+          
+          <!-- Text Input -->
+          <div class="input-container" *ngIf="question.type === 'text'">
+            <input type="text" 
+                   [formControlName]="question.id" 
+                   class="form-control"
+                   [placeholder]="question.description || 'Enter your answer'">
+          </div>
+          
+          <!-- Textarea -->
+          <div class="input-container" *ngIf="question.type === 'textarea'">
+            <textarea [formControlName]="question.id" 
+                      class="form-control textarea"
+                      rows="4"
+                      [placeholder]="question.description || 'Enter your answer'"></textarea>
+          </div>
+          
+          <!-- Number Input -->
+          <div class="input-container" *ngIf="question.type === 'number'">
+            <input type="number" 
+                   [formControlName]="question.id" 
+                   class="form-control"
+                   [attr.min]="question.validation?.minValue"
+                   [attr.max]="question.validation?.maxValue"
+                   [placeholder]="question.description || 'Enter a number'">
+          </div>
+          
+          <!-- Date Input -->
+          <div class="input-container" *ngIf="question.type === 'date'">
+            <input type="date" 
+                   [formControlName]="question.id" 
+                   class="form-control">
+          </div>
+          
+          <!-- Rating -->
+          <div class="rating-container" *ngIf="question.type === 'rating'">
+            <div class="rating-stars">
+              <button type="button" 
+                      class="star-button"
+                      *ngFor="let star of [1,2,3,4,5]"
+                      [class.filled]="getFormControl(question.id)?.value >= star"
+                      (click)="getFormControl(question.id)?.setValue(star)">
+                <i class="material-icons">{{ getFormControl(question.id)?.value >= star ? 'star' : 'star_border' }}</i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Scale -->
+          <div class="scale-container" *ngIf="question.type === 'scale'">
+            <div class="scale-labels">
+              <span class="scale-min">{{ question.settings?.scaleMinLabel || question.settings?.scaleMin || 1 }}</span>
+              <span class="scale-max">{{ question.settings?.scaleMaxLabel || question.settings?.scaleMax || 10 }}</span>
+            </div>
+            <input type="range" 
+                   [formControlName]="question.id" 
+                   class="scale-slider"
+                   [min]="question.settings?.scaleMin || 1"
+                   [max]="question.settings?.scaleMax || 10"
+                   step="1">
+            <div class="scale-value">{{ getFormControl(question.id)?.value || 'Not selected' }}</div>
+          </div>
+          
+          <!-- NPS (Net Promoter Score) -->
+          <div class="nps-container" *ngIf="question.type === 'nps'">
+            <div class="nps-scale">
+              <button type="button" 
+                      class="nps-button"
+                      *ngFor="let score of [0,1,2,3,4,5,6,7,8,9,10]"
+                      [class.selected]="getFormControl(question.id)?.value === score"
+                      [class.detractor]="score <= 6"
+                      [class.passive]="score === 7 || score === 8"
+                      [class.promoter]="score >= 9"
+                      (click)="getFormControl(question.id)?.setValue(score)">
+                {{ score }}
+              </button>
+            </div>
+            <div class="nps-labels">
+              <span>Not likely</span>
+              <span>Extremely likely</span>
+            </div>
+          </div>
+          
+          <!-- File Upload -->
+          <div class="file-upload-container" *ngIf="question.type === 'file-upload'">
+            <input type="file" 
+                   (change)="onFileSelected($event, question.id)"
+                   class="file-input"
+                   id="file-{{ question.id }}">
+            <label for="file-{{ question.id }}" class="file-label">
+              <i class="material-icons">cloud_upload</i>
+              <span>Choose file</span>
+            </label>
+            <span class="file-name" *ngIf="getFormControl(question.id)?.value">
+              {{ getFormControl(question.id)?.value }}
+            </span>
+          </div>
+          
+          <!-- Validation Error -->
+          <div class="error-message" *ngIf="!isQuestionValid(question)">
+            {{ getQuestionError(question) }}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Navigation -->
+    <div class="navigation-buttons">
+      <button type="button" 
+              class="btn btn-secondary" 
+              (click)="previousQuestion()"
+              [disabled]="currentQuestionIndex === 0">
+        <i class="material-icons">arrow_back</i>
+        Previous
+      </button>
+      
+      <div class="question-dots">
+        <span class="dot" 
+              *ngFor="let q of survey.questions; let i = index"
+              [class.active]="i === currentQuestionIndex"
+              [class.completed]="getFormControl(q.id)?.valid"
+              (click)="goToQuestion(i)">
+        </span>
+      </div>
+      
+      <button type="button" 
+              class="btn btn-primary" 
+              (click)="nextQuestion()"
+              *ngIf="currentQuestionIndex < survey.questions.length - 1">
+        Next
+        <i class="material-icons">arrow_forward</i>
+      </button>
+      
+      <button type="button" 
+              class="btn btn-success" 
+              (click)="submitResponse()"
+              *ngIf="currentQuestionIndex === survey.questions.length - 1"
+              [disabled]="isSubmitting">
+        <span *ngIf="!isSubmitting">
+          Submit Survey
+          <i class="material-icons">send</i>
+        </span>
+        <span *ngIf="isSubmitting">
+          <i class="material-icons spin">refresh</i>
+          Submitting...
+        </span>
+      </button>
+    </div>
+  </form>
+  
+  <!-- Thank You Screen -->
+  <div class="thank-you-screen" *ngIf="currentQuestionIndex >= survey.questions.length">
+    <i class="material-icons success-icon">check_circle</i>
+    <h3>{{ survey.thankYouScreen?.title || 'Thank You!' }}</h3>
+    <p>{{ survey.thankYouScreen?.message || 'Your response has been recorded.' }}</p>
+    <button class="btn btn-primary" (click)="cancel()">Close</button>
+  </div>
+  
+  <!-- Cancel Button -->
+  <button class="cancel-button" (click)="cancel()" *ngIf="currentQuestionIndex >= 0">
+    <i class="material-icons">close</i>
+  </button>
+</div>

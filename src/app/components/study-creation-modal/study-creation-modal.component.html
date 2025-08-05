@@ -607,7 +607,7 @@
           <button 
             type="submit" 
             class="btn btn-success" 
-            [disabled]="!studyCreationForm.valid || isCreatingStudy"
+            [disabled]="isCreatingStudy"
             *ngIf="currentStep === totalSteps">
             <span *ngIf="!isCreatingStudy">Create Study</span>
             <span *ngIf="isCreatingStudy">
