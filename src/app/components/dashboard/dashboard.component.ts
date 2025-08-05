@@ -23,6 +23,7 @@ import { PatientFormModalComponent } from '../patient-form-modal/patient-form-mo
 import { DashboardSidebarComponent } from '../dashboard-sidebar/dashboard-sidebar.component';
 import { PatientPhaseProgressComponent } from '../patient-phase-progress/patient-phase-progress.component';
 import { SurveyManagementComponent } from '../survey-management/survey-management.component';
+import { SurveyResponseComponent } from '../survey-response/survey-response.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -85,9 +86,9 @@ export interface Patient {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, StudyCreationModalComponent, PatientFormModalComponent, DashboardSidebarComponent, PatientPhaseProgressComponent, SurveyManagementComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, StudyCreationModalComponent, PatientFormModalComponent, DashboardSidebarComponent, PatientPhaseProgressComponent, SurveyManagementComponent, FormPreviewComponent],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.scss', './dashboard-template-fill.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -145,9 +146,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showTemplateModal = false;
   showFormBuilderModal = false;
   showProfileEditModal = false;
+  showTemplateFillModal = false;
   selectedTemplateForEdit: FormTemplate | null = null;
   formBuilderTemplateId: string | undefined = undefined;
   editingTemplateId: string | undefined = undefined;
+  templateToFill: FormTemplate | null = null;
 
   // Patient Template Modal state
   showPatientTemplateModal = false;
@@ -1956,6 +1959,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
       console.error('Error deleting patient:', error);
       this.toastService.error('Failed to remove patient: ' + (error as Error).message);
     }
+  }
+
+  /**
+   * Fill a template - creates a form instance for testing the template
+   */
+  fillTemplate(template: FormTemplate): void {
+    console.log('Fill template requested for:', template.name);
+    
+    // Store the template to be filled
+    this.templateToFill = template;
+    
+    // Close the template modal
+    this.showTemplateModal = false;
+    
+    // Open a modal or navigate to a form filling view
+    this.showTemplateFillModal = true;
+  }
+
+  /**
+   * Close the template fill modal
+   */
+  closeTemplateFillModal(): void {
+    this.showTemplateFillModal = false;
+    this.templateToFill = null;
+  }
+
+  /**
+   * Handle template fill form submission
+   */
+  async onTemplateFillSubmitted(formInstance: TemplateFormInstance): Promise<void> {
+    // The FormPreviewComponent already handles creating and submitting the form instance
+    // We just need to handle the UI feedback and close the modal
+    console.log('Template test form submitted:', formInstance);
+    this.toastService.success('Template test response submitted successfully');
+    this.closeTemplateFillModal();
+  }
+
+  /**
+   * Handle template fill form save (draft)
+   */
+  async onTemplateFillSaved(formInstance: TemplateFormInstance): Promise<void> {
+    // The FormPreviewComponent already handles creating and saving the form instance
+    // We just need to provide UI feedback
+    console.log('Template test form saved as draft:', formInstance);
+    this.toastService.success('Template test response saved as draft');
+    // Don't close the modal on save, allow user to continue editing
   }
 
 }

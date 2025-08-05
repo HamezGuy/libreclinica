@@ -4,13 +4,16 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Survey, SurveyStatus, SurveyType } from '../../models/survey.model';
 import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
+import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
+import { AccessLevel } from '../../enums/access-levels.enum';
 import { SurveyEditorComponent } from '../survey-editor/survey-editor.component';
 import { SurveyPopupComponent } from '../survey-popup/survey-popup.component';
+import { SurveyResponseComponent } from '../survey-response/survey-response.component';
 
 @Component({
   selector: 'app-survey-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SurveyEditorComponent, SurveyPopupComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, SurveyEditorComponent, SurveyPopupComponent, SurveyResponseComponent],
   templateUrl: './survey-management.component.html',
   styleUrls: ['./survey-management.component.scss']
 })
@@ -18,6 +21,7 @@ export class SurveyManagementComponent implements OnInit {
   surveys: Survey[] = [];
   filteredSurveys: Survey[] = [];
   isLoading = false;
+  canDeleteSurveys = false;
   
   // Filters
   statusFilter: SurveyStatus | 'all' = 'all';
@@ -31,17 +35,32 @@ export class SurveyManagementComponent implements OnInit {
   // Preview state
   selectedSurveyForPreview: Survey | null = null;
   
+  // Response state
+  showResponseForm = false;
+  selectedSurveyForResponse: Survey | null = null;
+  
   // Pagination
   currentPage = 1;
   pageSize = 10;
   
   constructor(
     private surveyService: SurveyService,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private authService: EdcCompliantAuthService
   ) {}
   
   ngOnInit() {
     this.loadSurveys();
+    this.checkUserPermissions();
+  }
+  
+  checkUserPermissions() {
+    this.authService.currentUserProfile$.subscribe(userProfile => {
+      if (userProfile) {
+        // Only admins and superadmins can delete surveys
+        this.canDeleteSurveys = userProfile.accessLevel === AccessLevel.ADMIN || userProfile.accessLevel === AccessLevel.SUPER_ADMIN;
+      }
+    });
   }
   
   async loadSurveys() {
@@ -224,5 +243,27 @@ export class SurveyManagementComponent implements OnInit {
       custom: 'fas fa-cog'
     };
     return icons[type] || 'fas fa-poll';
+  }
+  
+  // Survey Response Methods
+  fillOutSurvey(survey: Survey, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.selectedSurveyForResponse = survey;
+    this.showResponseForm = true;
+  }
+  
+  onResponseSubmitted(response: any) {
+    this.toastService.success('Survey response submitted successfully!');
+    this.showResponseForm = false;
+    this.selectedSurveyForResponse = null;
+    // Reload surveys to update response count
+    this.loadSurveys();
+  }
+  
+  onResponseCancelled() {
+    this.showResponseForm = false;
+    this.selectedSurveyForResponse = null;
   }
 }

@@ -469,12 +469,17 @@ export class StudyCreationModalComponent implements OnInit {
       formTemplatesArray.push(this.fb.group({
         templateId: [template.id, Validators.required],
         templateName: [template.name],
-        templateVersion: [template.version || '1.0'],
-        order: [formTemplatesArray.length],
-        isRequired: [true],
-        completionRequired: [true],
-        daysToComplete: [null]
+        order: [formTemplatesArray.length + 1],
+        isRequired: [false] // Add the missing isRequired field
       }));
+      
+      // Manually trigger validation update
+      this.sectionsArray.at(sectionIndex).updateValueAndValidity();
+      this.studyCreationForm.updateValueAndValidity();
+      
+      // Log for debugging
+      console.log('[StudyCreationModal] Template added, form valid:', this.studyCreationForm.valid);
+      console.log('[StudyCreationModal] Step 2 valid:', this.isStepValid(2));
     }
   }
   
@@ -543,10 +548,52 @@ export class StudyCreationModalComponent implements OnInit {
     const currentValue = templateControl.get('isRequired')?.value;
     templateControl.get('isRequired')?.setValue(!currentValue);
   }
+  
+  // Debug validation issues
+  debugValidation(): void {
+    console.log('[StudyCreationModal] Form validation debug:');
+    console.log('Form valid:', this.studyCreationForm.valid);
+    console.log('Form errors:', this.studyCreationForm.errors);
+    
+    this.sectionsArray.controls.forEach((section, index) => {
+      console.log(`\nSection ${index + 1}:`);
+      console.log('- Valid:', section.valid);
+      console.log('- Errors:', section.errors);
+      console.log('- Value:', section.value);
+      
+      // Check each control in the section
+      const sectionGroup = section as FormGroup;
+      Object.keys(sectionGroup.controls).forEach(key => {
+        const control = sectionGroup.get(key);
+        if (control && !control.valid) {
+          console.log(`  ${key}: invalid`, {
+            value: control.value,
+            errors: control.errors
+          });
+        }
+      });
+      
+      // Check form templates array specifically
+      const templatesArray = section.get('formTemplates') as FormArray;
+      if (templatesArray) {
+        console.log(`- Templates count: ${templatesArray.length}`);
+        templatesArray.controls.forEach((template, tIndex) => {
+          if (!template.valid) {
+            console.log(`  Template ${tIndex + 1}: invalid`, template.errors);
+          }
+        });
+      }
+    });
+  }
 
   // Navigate between steps
   nextStep(): void {
-    if (this.currentStep < this.totalSteps) {
+    if (!this.isStepValid(this.currentStep)) {
+      console.log('[StudyCreationModal] Cannot proceed - step invalid');
+      this.debugValidation();
+    }
+    
+    if (this.isStepValid(this.currentStep) && this.currentStep < 3) {
       this.currentStep++;
     }
   }
@@ -561,19 +608,50 @@ export class StudyCreationModalComponent implements OnInit {
   isStepValid(step: number): boolean {
     switch (step) {
       case 1:
-        // Basic info validation
-        const basicControls = ['title', 'protocolNumber', 'description', 'phase', 'status', 
-                             'therapeuticArea', 'indication', 'plannedEnrollment', 'principalInvestigator'];
-        return basicControls.every(controlName => 
-          this.studyCreationForm.get(controlName)?.valid ?? false
-        );
+        // Basic info validation - only check required fields
+        const requiredControls = ['title', 'protocolNumber', 'description', 'version', 'phase', 
+                                'studyType', 'therapeuticArea', 'indication', 'status', 'plannedEnrollment'];
+        const allValid = requiredControls.every(controlName => {
+          const control = this.studyCreationForm.get(controlName);
+          const isValid = control?.valid ?? false;
+          if (!isValid) {
+            console.log(`[StudyCreationModal] Field '${controlName}' is invalid:`, {
+              value: control?.value,
+              errors: control?.errors,
+              touched: control?.touched
+            });
+          }
+          return isValid;
+        });
+        return allValid;
       case 2:
-        // Step 2 is optional - sections are not required
-        // If sections exist, they must be valid
+        // Phases are required - at least one phase must be added
         if (this.sectionsArray.length === 0) {
-          return true; // Allow proceeding without sections
+          return false; // Require at least one phase
         }
-        return this.sectionsArray.controls.every(section => section.valid);
+        
+        // Check each section individually
+        const allSectionsValid = this.sectionsArray.controls.every((section, index) => {
+          // A section is valid if it has name and type filled
+          const name = section.get('name')?.value;
+          const type = section.get('type')?.value;
+          const hasRequiredFields = !!name && !!type;
+          
+          // Log validation details
+          if (!hasRequiredFields) {
+            console.log(`[StudyCreationModal] Section ${index + 1} missing required fields:`, {
+              name: name || 'MISSING',
+              type: type || 'MISSING',
+              nameValid: section.get('name')?.valid,
+              typeValid: section.get('type')?.valid,
+              formTemplates: section.get('formTemplates')?.value?.length || 0
+            });
+          }
+          
+          return hasRequiredFields;
+        });
+        
+        return allSectionsValid;
       case 3:
         // Review step - always valid if reached
         return true;
@@ -592,9 +670,32 @@ export class StudyCreationModalComponent implements OnInit {
       case 1:
         return 'Please fill in all required fields before proceeding.';
       case 2:
-        if (this.sectionsArray.length > 0) {
-          return 'Please complete all section details (name and type are required).';
+        if (this.sectionsArray.length === 0) {
+          return 'Please add at least one phase/section to continue.';
         }
+        
+        // Check each section for specific validation errors
+        const invalidSections: string[] = [];
+        this.sectionsArray.controls.forEach((section, index) => {
+          const errors: string[] = [];
+          
+          // Check for missing required fields
+          if (!section.get('name')?.value) {
+            errors.push('name');
+          }
+          if (!section.get('type')?.value) {
+            errors.push('type');
+          }
+          
+          if (errors.length > 0) {
+            invalidSections.push(`Phase ${index + 1}: Missing ${errors.join(' and ')}`);
+          }
+        });
+        
+        if (invalidSections.length > 0) {
+          return 'Please complete all required fields: ' + invalidSections.join('. ');
+        }
+        return 'Please complete all phase details.';
         return '';
       default:
         return '';

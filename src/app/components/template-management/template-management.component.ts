@@ -29,6 +29,7 @@ export class TemplateManagementComponent implements OnInit {
   @Output() publishTemplate = new EventEmitter<FormTemplate>();
   @Output() duplicateTemplate = new EventEmitter<FormTemplate>();
   @Output() exportTemplate = new EventEmitter<FormTemplate>();
+  @Output() fillTemplate = new EventEmitter<FormTemplate>();
   
   // Component state
   selectedTemplate: FormTemplate | null = null;
@@ -103,6 +104,10 @@ export class TemplateManagementComponent implements OnInit {
   
   onExportTemplate(template: FormTemplate): void {
     this.exportTemplate.emit(template);
+  }
+  
+  onFillTemplate(template: FormTemplate): void {
+    this.fillTemplate.emit(template);
   }
   
   onCreateTemplate(): void {

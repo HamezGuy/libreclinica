@@ -862,7 +862,8 @@
   (deleteTemplate)="deleteTemplate($event)"
   (publishTemplate)="publishTemplate($event)"
   (duplicateTemplate)="duplicateTemplate($event)"
-  (exportTemplate)="exportTemplate($event)">
+  (exportTemplate)="exportTemplate($event)"
+  (fillTemplate)="fillTemplate($event)">
 </app-template-management>
 
     <!-- Form Builder Modal -->
@@ -874,6 +875,39 @@
           (templateSaved)="onTemplateSaved($event)"
           (builderClosed)="closeFormBuilder()">
         </app-form-builder>
+      </div>
+    </div>
+
+    <!-- Template Fill Modal -->
+    <div *ngIf="showTemplateFillModal" class="modal-overlay">
+      <div class="modal-content template-fill-modal">
+        <div class="modal-header">
+          <h2>
+            <i class="material-icons">edit_note</i>
+            Fill Template: {{ templateToFill?.name }}
+          </h2>
+          <button class="btn btn-link" (click)="closeTemplateFillModal()" title="Close">
+            <i class="material-icons">close</i>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="fill-template-info">
+            <p class="info-message">
+              <i class="material-icons">info</i>
+              You are filling out a test instance of this template. Your responses will be saved as a form instance for testing purposes.
+            </p>
+          </div>
+          
+          <!-- Form Preview Component to render the fillable form -->
+          <app-form-preview
+            *ngIf="templateToFill"
+            [template]="templateToFill"
+            [readonly]="false"
+            (formSubmitted)="onTemplateFillSubmitted($event)"
+            (formSaved)="onTemplateFillSaved($event)">
+          </app-form-preview>
+        </div>
       </div>
     </div>
 

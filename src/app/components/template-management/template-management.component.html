@@ -148,6 +148,13 @@
                 Publish
               </button>
               <button 
+                class="btn btn-sm btn-info" 
+                (click)="onFillTemplate(selectedTemplate)"
+                [title]="'Fill out this template for testing'">
+                <i class="material-icons">assignment</i>
+                Fill Template
+              </button>
+              <button 
                 class="btn btn-sm btn-secondary" 
                 (click)="onDuplicateTemplate(selectedTemplate)"
                 [disabled]="!permissions.canCreate">

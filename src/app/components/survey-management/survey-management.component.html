@@ -3,13 +3,13 @@
   <div class="page-header">
     <div class="header-content">
       <h1>
-        <i class="fas fa-poll"></i>
+        <i class="material-icons">poll</i>
         Survey Management
       </h1>
       <p class="subtitle">Create and manage surveys, feedback forms, and questionnaires</p>
     </div>
     <button class="btn btn-primary" (click)="createSurvey()">
-      <i class="fas fa-plus"></i>
+      <i class="material-icons">add</i>
       Create Survey
     </button>
   </div>
@@ -44,7 +44,7 @@
     <div class="filter-group search-group">
       <label>Search</label>
       <div class="search-input">
-        <i class="fas fa-search"></i>
+        <i class="material-icons">search</i>
         <input type="text" 
                [(ngModel)]="searchQuery" 
                (input)="applyFilters()"
@@ -73,7 +73,10 @@
   
   <!-- Survey list -->
   <div class="survey-list" *ngIf="!isLoading && filteredSurveys.length > 0">
-    <div class="survey-card" *ngFor="let survey of paginatedSurveys">
+    <div class="survey-card" 
+         *ngFor="let survey of paginatedSurveys"
+         (click)="previewSurvey(survey)"
+         [class.clickable]="true">
       <div class="survey-header">
         <div class="survey-icon" [class]="getSurveyIcon(survey.type)"></div>
         <div class="survey-info">
@@ -84,15 +87,15 @@
               {{ survey.status }}
             </span>
             <span class="meta-item">
-              <i class="fas fa-tag"></i>
+              <i class="material-icons">label</i>
               {{ getSurveyTypeLabel(survey.type) }}
             </span>
             <span class="meta-item">
-              <i class="fas fa-question-circle"></i>
+              <i class="material-icons">help_outline</i>
               {{ survey.questions.length }} questions
             </span>
             <span class="meta-item" *ngIf="survey.responseCount">
-              <i class="fas fa-users"></i>
+              <i class="material-icons">people</i>
               {{ survey.responseCount }} responses
             </span>
           </div>
@@ -110,43 +113,47 @@
         </div>
       </div>
       
-      <div class="survey-actions">
-        <button class="btn btn-sm btn-icon" 
-                (click)="previewSurvey(survey)"
-                title="Preview">
-          <i class="fas fa-eye"></i>
+      <div class="survey-actions" (click)="$event.stopPropagation()">
+        <button class="btn btn-sm btn-primary" 
+                (click)="editSurvey(survey)"
+                title="Edit Survey">
+          <i class="material-icons">edit</i>
+          Edit
         </button>
         
-        <button class="btn btn-sm btn-icon" 
-                (click)="editSurvey(survey)"
-                title="Edit">
-          <i class="fas fa-edit"></i>
+        <button class="btn btn-sm btn-success" 
+                (click)="fillOutSurvey(survey, $event)"
+                title="Fill Out Survey"
+                *ngIf="survey.status === 'active'">
+          <i class="material-icons">assignment</i>
+          Fill Out
         </button>
         
         <button class="btn btn-sm btn-icon" 
                 (click)="duplicateSurvey(survey)"
                 title="Duplicate">
-          <i class="fas fa-copy"></i>
+          <i class="material-icons">content_copy</i>
         </button>
         
         <button class="btn btn-sm btn-icon" 
                 (click)="viewAnalytics(survey)"
                 title="Analytics"
                 *ngIf="survey.responseCount && survey.responseCount > 0">
-          <i class="fas fa-chart-bar"></i>
+          <i class="material-icons">bar_chart</i>
         </button>
         
         <button class="btn btn-sm btn-icon" 
                 (click)="toggleSurveyStatus(survey)"
                 [title]="survey.status === 'active' ? 'Pause' : 'Activate'"
                 *ngIf="survey.status === 'active' || survey.status === 'paused'">
-          <i [class]="survey.status === 'active' ? 'fas fa-pause' : 'fas fa-play'"></i>
+          <i class="material-icons">{{ survey.status === 'active' ? 'pause' : 'play_arrow' }}</i>
         </button>
         
         <button class="btn btn-sm btn-icon btn-danger" 
                 (click)="deleteSurvey(survey)"
-                title="Delete">
-          <i class="fas fa-trash"></i>
+                title="Delete"
+                *ngIf="canDeleteSurveys">
+          <i class="material-icons">delete</i>
         </button>
       </div>
     </div>
@@ -185,3 +192,14 @@
   (close)="onPreviewClose()"
   (complete)="onPreviewComplete($event)">
 </app-survey-popup>
+
+<!-- Survey Response Modal -->
+<div class="modal-backdrop" *ngIf="showResponseForm" (click)="onResponseCancelled()"></div>
+<div class="modal survey-response-modal" *ngIf="showResponseForm">
+  <app-survey-response
+    [survey]="selectedSurveyForResponse!"
+    [isPreview]="false"
+    (responseSubmitted)="onResponseSubmitted($event)"
+    (responseCancelled)="onResponseCancelled()">
+  </app-survey-response>
+</div>
