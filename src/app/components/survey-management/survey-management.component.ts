@@ -254,6 +254,15 @@ export class SurveyManagementComponent implements OnInit {
     this.showResponseForm = true;
   }
   
+  testSurvey(survey: Survey, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    // For testing, we use the same response form but don't save the response
+    this.selectedSurveyForResponse = { ...survey, isTestMode: true } as Survey & { isTestMode: boolean };
+    this.showResponseForm = true;
+  }
+  
   onResponseSubmitted(response: any) {
     this.toastService.success('Survey response submitted successfully!');
     this.showResponseForm = false;

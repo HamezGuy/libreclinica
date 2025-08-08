@@ -752,83 +752,14 @@
       </div>
       
       <div class="preview-content">
-        <div class="form-preview">
-          <div class="form-header">
-            <h2>{{ builderForm.get('name')?.value }}</h2>
-            <p *ngIf="builderForm.get('description')?.value">{{ builderForm.get('description')?.value }}</p>
-            <div *ngIf="builderForm.get('instructions')?.value" class="form-instructions">
-              {{ builderForm.get('instructions')?.value }}
-            </div>
-          </div>
-          
-          <div class="form-body">
-            <!-- Empty state when no fields -->
-            <div *ngIf="fieldsArray.controls.length === 0" class="empty-preview">
-              <span class="material-icons">info</span>
-              <p>No fields added yet. Switch to the "Build Form" tab to add fields.</p>
-            </div>
-            
-            <!-- Preview of form fields -->
-            <div *ngFor="let fieldControl of fieldsArray.controls" class="preview-field">
-              <label class="field-label">
-                {{ fieldControl.get('label')?.value }}
-                <span *ngIf="fieldControl.get('isRequired')?.value" class="required">*</span>
-              </label>
-              
-              <!-- Field preview (similar to canvas but interactive) -->
-              <div [ngSwitch]="fieldControl.get('type')?.value">
-                <input 
-                  *ngSwitchCase="'text'"
-                  type="text" 
-                  class="form-control"
-                  [placeholder]="fieldControl.get('placeholder')?.value">
-                
-                <textarea 
-                  *ngSwitchCase="'textarea'"
-                  class="form-control"
-                  [placeholder]="fieldControl.get('placeholder')?.value"
-                  rows="3"></textarea>
-                
-                <input 
-                  *ngSwitchCase="'number'"
-                  type="number" 
-                  class="form-control"
-                  [placeholder]="fieldControl.get('placeholder')?.value">
-                
-                <select 
-                  *ngSwitchCase="'select'"
-                  class="form-control">
-                  <option value="">{{ fieldControl.get('placeholder')?.value || 'Select an option' }}</option>
-                  <option 
-                    *ngFor="let option of fieldControl.get('options')?.value"
-                    [value]="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-                
-                <input 
-                  *ngSwitchCase="'date'"
-                  type="date" 
-                  class="form-control">
-                
-                <input 
-                  *ngSwitchDefault
-                  type="text" 
-                  class="form-control"
-                  [placeholder]="fieldControl.get('placeholder')?.value">
-              </div>
-              
-              <div *ngIf="fieldControl.get('helpText')?.value" class="field-help">
-                {{ fieldControl.get('helpText')?.value }}
-              </div>
-            </div>
-          </div>
-          
-          <div class="form-footer">
-            <button type="button" class="btn btn-primary">Submit Form</button>
-            <button type="button" class="btn btn-outline">Save Draft</button>
-          </div>
-        </div>
+        <!-- Use the actual form-preview component with live template data -->
+        <app-form-preview 
+          [template]="getCurrentTemplateData()"
+          [readonly]="false"
+          (formDataChanged)="onPreviewDataChanged($event)"
+          (formSubmitted)="onPreviewSubmitted($event)"
+          (formSaved)="onPreviewSaved($event)">
+        </app-form-preview>
       </div>
     </div>
 

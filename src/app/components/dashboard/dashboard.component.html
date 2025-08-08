@@ -215,6 +215,13 @@
               
               <div class="template-actions">
                 <button 
+                  class="btn btn-sm btn-info"
+                  (click)="testFormTemplate(template)"
+                  title="Test Form">
+                  <i class="material-icons">science</i>
+                </button>
+                
+                <button 
                   class="btn btn-sm btn-secondary"
                   (click)="editTemplate(template)"
                   *ngIf="permissions.canEdit"

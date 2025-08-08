@@ -303,6 +303,24 @@
         .material-icons {
           font-size: 20px;
           margin: 0;
+          
+          &.btn-success {
+            background: #28a745;
+            color: white;
+            
+            &:hover {
+              background: #218838;
+            }
+          }
+          
+          &.btn-info {
+            background: #17a2b8;
+            color: white;
+            
+            &:hover {
+              background: #138496;
+            }
+          }
         }
         
         &:hover {

@@ -201,72 +201,265 @@
             [id]="field.id"
             [accept]="getFileAcceptTypes(field)"
             [multiple]="field.maxFiles ? field.maxFiles > 1 : false"
+            (change)="onFileSelected(field.id, $event)"
             class="file-input">
           <label [for]="field.id" class="file-label">
             <i class="material-icons">cloud_upload</i>
-            <span>{{ field.placeholder || 'Choose file(s)' }}</span>
+            <span>{{ getFileDisplayText(field.id) || field.placeholder || 'Choose file(s)' }}</span>
           </label>
+          <div class="file-list" *ngIf="getSelectedFiles(field.id)?.length">
+            <div *ngFor="let file of getSelectedFiles(field.id)" class="file-item">
+              <i class="material-icons">insert_drive_file</i>
+              <span>{{ file.name }}</span>
+              <button type="button" (click)="removeFile(field.id, file)" class="remove-file">
+                <i class="material-icons">close</i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Field Input - E-Signature -->
+        <div *ngIf="field.type === 'signature'" class="signature-field">
+          <div class="signature-container">
+            <canvas 
+              [id]="'signature-' + field.id"
+              class="signature-canvas"
+              width="400"
+              height="150"
+              (mousedown)="startDrawing(field.id, $event)"
+              (mousemove)="draw(field.id, $event)"
+              (mouseup)="stopDrawing(field.id)"
+              (mouseleave)="stopDrawing(field.id)"
+              (touchstart)="startDrawing(field.id, $event)"
+              (touchmove)="draw(field.id, $event)"
+              (touchend)="stopDrawing(field.id)">
+            </canvas>
+            <div class="signature-actions">
+              <button type="button" (click)="clearSignature(field.id)" class="btn-clear">
+                <i class="material-icons">clear</i>
+                Clear
+              </button>
+              <span class="signature-status" *ngIf="hasSignature(field.id)">
+                <i class="material-icons">check_circle</i>
+                Signed
+              </span>
+            </div>
+          </div>
         </div>
 
         <!-- Medical Field - Height -->
         <div *ngIf="field.type === 'height'" class="medical-field height-field">
-          <input 
-            type="number"
-            [id]="field.id"
-            [formControlName]="field.id"
-            [placeholder]="field.placeholder || 'Height in cm'"
-            min="50"
-            max="250"
-            class="form-control">
-          <span class="unit">cm</span>
+          <label [for]="field.id" class="field-label">
+            {{ field.label || 'Height' }}
+            <span class="phi-badge" *ngIf="field.isPhiField">
+              <i class="material-icons">lock</i> PHI
+            </span>
+          </label>
+          <div class="input-with-unit">
+            <input 
+              type="number"
+              [id]="field.id"
+              [formControlName]="field.id"
+              [placeholder]="getUnitPlaceholder('height')"
+              [min]="getMinValue('height')"
+              [max]="getMaxValue('height')"
+              [step]="0.1"
+              class="form-control">
+            <div class="unit-switcher">
+              <span class="unit">{{ getUnit('height') }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('height')" title="Switch units">
+                <i class="material-icons">swap_horiz</i>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Medical Field - Weight -->
         <div *ngIf="field.type === 'weight'" class="medical-field weight-field">
-          <input 
-            type="number"
-            [id]="field.id"
-            [formControlName]="field.id"
-            [placeholder]="field.placeholder || 'Weight in kg'"
-            min="1"
-            max="500"
-            step="0.1"
-            class="form-control">
-          <span class="unit">kg</span>
+          <label [for]="field.id" class="field-label">
+            {{ field.label || 'Weight' }}
+            <span class="phi-badge" *ngIf="field.isPhiField">
+              <i class="material-icons">lock</i> PHI
+            </span>
+          </label>
+          <div class="input-with-unit">
+            <input 
+              type="number"
+              [id]="field.id"
+              [formControlName]="field.id"
+              [placeholder]="getUnitPlaceholder('weight')"
+              [min]="getMinValue('weight')"
+              [max]="getMaxValue('weight')"
+              step="0.1"
+              class="form-control">
+            <div class="unit-switcher">
+              <span class="unit">{{ getUnit('weight') }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('weight')" title="Switch units">
+                <i class="material-icons">swap_horiz</i>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Medical Field - Temperature -->
         <div *ngIf="field.type === 'temperature'" class="medical-field temperature-field">
-          <input 
-            type="number"
-            [id]="field.id"
-            [formControlName]="field.id"
-            [placeholder]="field.placeholder || 'Temperature in °C'"
-            min="30"
-            max="45"
-            step="0.1"
-            class="form-control">
-          <span class="unit">°C</span>
+          <label [for]="field.id" class="field-label">
+            {{ field.label || 'Temperature' }}
+            <span class="phi-badge" *ngIf="field.isPhiField">
+              <i class="material-icons">lock</i> PHI
+            </span>
+          </label>
+          <div class="input-with-unit">
+            <input 
+              type="number"
+              [id]="field.id"
+              [formControlName]="field.id"
+              [placeholder]="getUnitPlaceholder('temperature')"
+              [min]="getMinValue('temperature')"
+              [max]="getMaxValue('temperature')"
+              step="0.1"
+              class="form-control">
+            <div class="unit-switcher">
+              <span class="unit">{{ getUnit('temperature') }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('temperature')" title="Switch units">
+                <i class="material-icons">swap_horiz</i>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Medical Field - Blood Pressure -->
         <div *ngIf="field.type === 'blood_pressure'" class="medical-field bp-field">
-          <div class="bp-inputs">
-            <input 
-              type="number"
-              [placeholder]="'Systolic'"
-              min="50"
-              max="300"
-              class="form-control bp-systolic">
-            <span class="bp-separator">/</span>
-            <input 
-              type="number"
-              [placeholder]="'Diastolic'"
-              min="30"
-              max="200"
-              class="form-control bp-diastolic">
-            <span class="unit">mmHg</span>
-          </div>
+          <label class="field-label">
+            {{ field.label || 'Blood Pressure' }}
+            <span class="phi-badge" *ngIf="field.isPhiField">
+              <i class="material-icons">lock</i> PHI
+            </span>
+          </label>
+          <ng-container *ngIf="getFieldGroupControl(field.id) as bpGroup">
+            <div class="bp-inputs" [formGroup]="bpGroup">
+              <input 
+                type="number"
+                formControlName="systolic"
+                [placeholder]="'Systolic'"
+                min="50"
+                max="300"
+                class="form-control bp-systolic">
+              <span class="bp-separator">/</span>
+              <input 
+                type="number"
+                formControlName="diastolic"
+                [placeholder]="'Diastolic'"
+                min="30"
+                max="200"
+                class="form-control bp-diastolic">
+              <span class="unit">mmHg</span>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Medical Field - Medication -->
+        <div *ngIf="field.type === 'medication'" class="medical-field medication-field">
+          <label class="field-label">
+            {{ field.label || 'Medication' }}
+            <span class="phi-badge" *ngIf="field.isPhiField">
+              <i class="material-icons">lock</i> PHI
+            </span>
+          </label>
+          <ng-container *ngIf="getFieldGroupControl(field.id) as medGroup">
+            <div class="medication-inputs" [formGroup]="medGroup">
+              <div class="medication-row">
+                <input 
+                  type="text"
+                  formControlName="name"
+                  placeholder="Medication name"
+                  class="form-control medication-name">
+                <input 
+                  type="text"
+                  formControlName="dosage"
+                  placeholder="Dosage (e.g., 50mg)"
+                  class="form-control medication-dosage">
+              </div>
+              <div class="medication-row">
+                <select formControlName="frequency" class="form-control medication-frequency">
+                  <option value="">Select frequency</option>
+                  <option value="once-daily">Once daily</option>
+                  <option value="twice-daily">Twice daily</option>
+                  <option value="three-times-daily">Three times daily</option>
+                  <option value="four-times-daily">Four times daily</option>
+                  <option value="as-needed">As needed</option>
+                  <option value="other">Other</option>
+                </select>
+                <select formControlName="route" class="form-control medication-route">
+                  <option value="">Select route</option>
+                  <option value="oral">Oral</option>
+                  <option value="injection">Injection</option>
+                  <option value="topical">Topical</option>
+                  <option value="inhalation">Inhalation</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="medication-row">
+                <div class="date-field">
+                  <label>Start Date:</label>
+                  <input 
+                    type="date"
+                    formControlName="startDate"
+                    class="form-control">
+                </div>
+                <div class="date-field">
+                  <label>End Date:</label>
+                  <input 
+                    type="date"
+                    formControlName="endDate"
+                    class="form-control">
+                </div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Medical Field - Diagnosis -->
+        <div *ngIf="field.type === 'diagnosis'" class="medical-field diagnosis-field">
+          <ng-container *ngIf="getFieldGroupControl(field.id) as diagGroup">
+            <div class="diagnosis-inputs" [formGroup]="diagGroup">
+              <div class="diagnosis-row">
+                <input 
+                  type="text"
+                  formControlName="code"
+                  placeholder="ICD-10 Code"
+                  class="form-control diagnosis-code">
+                <select formControlName="system" class="form-control diagnosis-system">
+                  <option value="ICD-10">ICD-10</option>
+                  <option value="ICD-9">ICD-9</option>
+                  <option value="SNOMED-CT">SNOMED-CT</option>
+                </select>
+              </div>
+              <div class="diagnosis-row">
+                <input 
+                  type="text"
+                  formControlName="description"
+                  placeholder="Diagnosis description"
+                  class="form-control diagnosis-description">
+              </div>
+              <div class="diagnosis-row">
+                <select formControlName="severity" class="form-control diagnosis-severity">
+                  <option value="">Select severity</option>
+                  <option value="mild">Mild</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="severe">Severe</option>
+                  <option value="critical">Critical</option>
+                </select>
+                <div class="date-field">
+                  <label>Onset Date:</label>
+                  <input 
+                    type="date"
+                    formControlName="onset"
+                    class="form-control">
+                </div>
+              </div>
+            </div>
+          </ng-container>
         </div>
 
         <!-- Field Description -->

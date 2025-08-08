@@ -52,7 +52,7 @@
             <label class="checkbox-option" *ngFor="let option of question.options; let optionIndex = index">
               <input type="checkbox" 
                      [checked]="getFormArray(question.id).at(optionIndex).value"
-                     (change)="onMultipleChoiceChange(question.id, optionIndex, $event)"
+                     (change)="onMultipleChoiceChange(question.id, optionIndex, asAny($event))"
                      class="checkbox-input">
               <span class="option-text">{{ option.text }}</span>
             </label>
@@ -142,7 +142,7 @@
           <!-- File Upload -->
           <div class="file-upload-container" *ngIf="question.type === 'file-upload'">
             <input type="file" 
-                   (change)="onFileSelected($event, question.id)"
+                   [formControlName]="question.id"
                    class="file-input"
                    id="file-{{ question.id }}">
             <label for="file-{{ question.id }}" class="file-label">

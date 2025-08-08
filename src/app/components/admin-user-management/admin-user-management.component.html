@@ -123,7 +123,7 @@
                 id="searchInput" 
                 type="text" 
                 placeholder="Search users..."
-                (input)="onSearchChange($event)"
+                (input)="onSearchChange(asAny($event))"
               >
             </div>
           </div>
@@ -481,7 +481,7 @@
                   <input 
                     type="checkbox" 
                     [value]="study.id"
-                    (change)="onStudySelectionChange($event, study.id!)"
+                    (change)="onStudySelectionChange(asAny($event), study.id!)"
                   >
                   <span class="checkmark"></span>
                   <div class="study-info">

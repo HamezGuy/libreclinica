@@ -48,9 +48,14 @@ export class AdminUserManagementComponent implements OnInit {
   showRoleChangeModal = false;
 
   // Forms
-  inviteForm: FormGroup;
-  roleChangeForm: FormGroup;
-  studyAccessForm: FormGroup;
+  inviteForm!: FormGroup;
+  roleChangeForm!: FormGroup;
+  studyAccessForm!: FormGroup;
+
+  // Type assertion helper to avoid Angular template type checking issues
+  asAny(value: any): any {
+    return value;
+  }
 
   // Filters
   private filtersSubject = new BehaviorSubject<UserManagementFilters>({

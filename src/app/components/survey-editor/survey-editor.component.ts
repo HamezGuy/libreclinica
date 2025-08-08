@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Survey, SurveyQuestion, QuestionType, SurveyType, SurveyStatus, SurveyDisplayMode, SurveyTriggerType } from '../../models/survey.model';
+import { Survey, SurveyQuestion, QuestionType, QuestionOption, SurveyType, SurveyStatus, SurveyDisplayMode, SurveyTriggerType } from '../../models/survey.model';
 import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
@@ -161,39 +161,197 @@ export class SurveyEditorComponent implements OnInit {
   }
   
   createQuestionForm(question?: SurveyQuestion): FormGroup {
+    const questionType = question?.type || 'single-choice';
+    let defaultOptions = question?.options || [];
+    
+    // Auto-populate options for new questions based on type
+    if (!question) {
+      switch (questionType) {
+        case 'single-choice':
+          // Default to Yes/No options for single-choice
+          defaultOptions = [
+            { id: 'yes', value: 'yes', text: 'Yes', order: 0 },
+            { id: 'no', value: 'no', text: 'No', order: 1 }
+          ];
+          break;
+        case 'multiple-choice':
+          // Add some default options for multiple-choice
+          defaultOptions = [
+            { id: 'option1', value: 'option1', text: 'Option 1', order: 0 },
+            { id: 'option2', value: 'option2', text: 'Option 2', order: 1 },
+            { id: 'option3', value: 'option3', text: 'Option 3', order: 2 }
+          ];
+          break;
+        case 'matrix':
+          // Matrix questions need row and column options
+          defaultOptions = [
+            { id: 'row1', value: 'row1', text: 'Row 1', order: 0 },
+            { id: 'row2', value: 'row2', text: 'Row 2', order: 1 },
+            { id: 'col1', value: 'col1', text: 'Column 1', order: 2 },
+            { id: 'col2', value: 'col2', text: 'Column 2', order: 3 }
+          ];
+          break;
+        case 'ranking':
+          // Ranking questions need items to rank
+          defaultOptions = [
+            { id: 'item1', value: 'item1', text: 'Item 1', order: 0 },
+            { id: 'item2', value: 'item2', text: 'Item 2', order: 1 },
+            { id: 'item3', value: 'item3', text: 'Item 3', order: 2 }
+          ];
+          break;
+      }
+    }
+    
+    // Default settings based on question type
+    let defaultSettings = question?.settings || {};
+    if (!question) {
+      switch (questionType) {
+        case 'scale':
+          defaultSettings = {
+            scaleMin: 1,
+            scaleMax: 10,
+            scaleMinLabel: 'Strongly Disagree',
+            scaleMaxLabel: 'Strongly Agree'
+          };
+          break;
+        case 'rating':
+          defaultSettings = {
+            ratingMax: 5
+          };
+          break;
+        case 'nps':
+          defaultSettings = {
+            scaleMin: 0,
+            scaleMax: 10,
+            scaleMinLabel: 'Not likely',
+            scaleMaxLabel: 'Extremely likely'
+          };
+          break;
+      }
+    }
+    
     return this.fb.group({
       id: [question?.id || this.generateId()],
-      type: [question?.type || 'single_choice', Validators.required],
+      type: [questionType, Validators.required],
       text: [question?.text || '', Validators.required],
       description: [question?.description || ''],
       required: [question?.required ?? true],
       order: [question?.order ?? this.questions.length],
-      options: [question?.options || []],
+      options: [defaultOptions],
+      settings: this.fb.group(defaultSettings),
       validation: this.fb.group({
-        min: [question?.validation?.min],
-        max: [question?.validation?.max],
-        minLength: [question?.validation?.minLength],
-        maxLength: [question?.validation?.maxLength],
-        pattern: [question?.validation?.pattern]
+        minLength: [question?.validation?.minLength || null],
+        maxLength: [question?.validation?.maxLength || null],
+        minValue: [question?.validation?.minValue || null],
+        maxValue: [question?.validation?.maxValue || null],
+        pattern: [question?.validation?.pattern || '']
       }),
       conditionalLogic: this.fb.group({
         enabled: [question?.conditionalLogic?.enabled || false],
         conditions: [question?.conditionalLogic?.conditions || []]
-      }),
-      settings: this.fb.group({
-        randomizeOptions: [question?.settings?.randomizeOptions || false],
-        allowOther: [question?.settings?.allowOther || false],
-        ratingMax: [question?.settings?.ratingMax || 5],
-        scaleMin: [question?.settings?.scaleMin || 1],
-        scaleMax: [question?.settings?.scaleMax || 10],
-        scaleMinLabel: [question?.settings?.scaleMinLabel || ''],
-        scaleMaxLabel: [question?.settings?.scaleMaxLabel || '']
       })
     });
   }
   
   addQuestion(question?: SurveyQuestion) {
-    this.questions.push(this.createQuestionForm(question));
+    const questionForm = this.createQuestionForm(question);
+    const questionIndex = this.questions.length;
+    
+    // Subscribe to type changes to update options
+    questionForm.get('type')?.valueChanges.subscribe(newType => {
+      this.onQuestionTypeChange(questionIndex, newType);
+    });
+    
+    this.questions.push(questionForm);
+  }
+  
+  onQuestionTypeChange(questionIndex: number, newType: QuestionType) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    // Get current options
+    const currentOptions = question.get('options')?.value || [];
+    
+    // Only update options if switching to a type that needs them and current options are empty or default
+    if (this.needsOptions(newType)) {
+      let newOptions: QuestionOption[] = [];
+      
+      switch (newType) {
+        case 'single-choice':
+          // If switching from another choice type, keep existing options
+          if (currentOptions.length > 0 && this.needsOptions(question.get('type')?.value)) {
+            newOptions = currentOptions;
+          } else {
+            // Otherwise use Yes/No defaults
+            newOptions = [
+              { id: 'yes', value: 'yes', text: 'Yes', order: 0 },
+              { id: 'no', value: 'no', text: 'No', order: 1 }
+            ];
+          }
+          break;
+        case 'multiple-choice':
+          // If switching from another choice type, keep existing options
+          if (currentOptions.length > 0 && this.needsOptions(question.get('type')?.value)) {
+            newOptions = currentOptions;
+          } else {
+            // Otherwise use default options
+            newOptions = [
+              { id: 'option1', value: 'option1', text: 'Option 1', order: 0 },
+              { id: 'option2', value: 'option2', text: 'Option 2', order: 1 },
+              { id: 'option3', value: 'option3', text: 'Option 3', order: 2 }
+            ];
+          }
+          break;
+        case 'matrix':
+          newOptions = [
+            { id: 'row1', value: 'row1', text: 'Row 1', order: 0 },
+            { id: 'row2', value: 'row2', text: 'Row 2', order: 1 },
+            { id: 'col1', value: 'col1', text: 'Column 1', order: 2 },
+            { id: 'col2', value: 'col2', text: 'Column 2', order: 3 }
+          ];
+          break;
+        case 'ranking':
+          newOptions = [
+            { id: 'item1', value: 'item1', text: 'Item 1', order: 0 },
+            { id: 'item2', value: 'item2', text: 'Item 2', order: 1 },
+            { id: 'item3', value: 'item3', text: 'Item 3', order: 2 }
+          ];
+          break;
+      }
+      
+      question.patchValue({ options: newOptions });
+    } else {
+      // Clear options for types that don't need them
+      question.patchValue({ options: [] });
+    }
+    
+    // Update settings based on type
+    let newSettings: any = {};
+    switch (newType) {
+      case 'scale':
+        newSettings = {
+          scaleMin: 1,
+          scaleMax: 10,
+          scaleMinLabel: 'Strongly Disagree',
+          scaleMaxLabel: 'Strongly Agree'
+        };
+        break;
+      case 'rating':
+        newSettings = {
+          ratingMax: 5
+        };
+        break;
+      case 'nps':
+        newSettings = {
+          scaleMin: 0,
+          scaleMax: 10,
+          scaleMinLabel: 'Not likely',
+          scaleMaxLabel: 'Extremely likely'
+        };
+        break;
+    }
+    
+    question.get('settings')?.patchValue(newSettings);
   }
   
   removeQuestion(index: number) {
@@ -220,22 +378,33 @@ export class SurveyEditorComponent implements OnInit {
   addOption(questionIndex: number) {
     const question = this.questions.at(questionIndex);
     const options = question.get('options')!.value || [];
-    options.push({ value: `option_${options.length + 1}`, label: '' });
-    question.patchValue({ options });
+    const newOption: QuestionOption = {
+      id: `option_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      value: `option_${options.length + 1}`,
+      text: `Option ${options.length + 1}`,
+      order: options.length
+    };
+    question.patchValue({ options: [...options, newOption] });
   }
   
   removeOption(questionIndex: number, optionIndex: number) {
     const question = this.questions.at(questionIndex);
     const options = question.get('options')!.value || [];
-    options.splice(optionIndex, 1);
-    question.patchValue({ options });
+    const updatedOptions = options.filter((_: any, index: number) => index !== optionIndex);
+    // Update order for remaining options
+    updatedOptions.forEach((opt: QuestionOption, index: number) => {
+      opt.order = index;
+    });
+    question.patchValue({ options: updatedOptions });
   }
   
-  updateOption(questionIndex: number, optionIndex: number, field: 'value' | 'label', value: string) {
+  updateOption(questionIndex: number, optionIndex: number, field: 'value' | 'text', value: string) {
     const question = this.questions.at(questionIndex);
-    const options = question.get('options')!.value || [];
-    options[optionIndex][field] = value;
-    question.patchValue({ options });
+    const options = [...(question.get('options')!.value || [])];
+    if (options[optionIndex]) {
+      options[optionIndex] = { ...options[optionIndex], [field]: value };
+      question.patchValue({ options });
+    }
   }
   
   // Triggers management
@@ -341,7 +510,7 @@ export class SurveyEditorComponent implements OnInit {
   
   // Question type helpers
   needsOptions(type: QuestionType): boolean {
-    return ['single_choice', 'multiple_choice'].includes(type);
+    return ['single-choice', 'multiple-choice', 'matrix', 'ranking'].includes(type);
   }
   
   needsRatingSettings(type: QuestionType): boolean {

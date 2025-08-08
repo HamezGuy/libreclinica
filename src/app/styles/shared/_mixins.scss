@@ -1,0 +1,191 @@
+// Shared SCSS Mixins
+@import 'variables';
+
+// Card Mixin
+@mixin card($padding: $spacing-lg) {
+  background: white;
+  border-radius: $border-radius-lg;
+  border: 1px solid $border-color;
+  padding: $padding;
+  transition: $transition-base;
+  
+  &:hover {
+    box-shadow: $shadow-lg;
+    transform: translateY(-2px);
+  }
+}
+
+// Button Mixin
+@mixin button-base {
+  padding: $spacing-sm $spacing-md;
+  border-radius: $border-radius-md;
+  border: none;
+  font-size: $font-size-sm;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition-fast;
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-sm;
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $primary-gradient;
+  color: white;
+  
+  &:hover:not(:disabled) {
+    box-shadow: $shadow-md;
+    transform: translateY(-1px);
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid $border-color;
+  
+  &:hover:not(:disabled) {
+    background: #f1f5f9;
+  }
+}
+
+// Modal Mixin
+@mixin modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: $z-index-modal;
+  padding: $spacing-lg;
+}
+
+@mixin modal-content {
+  background: white;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-xl;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+// Badge Mixin
+@mixin badge($bg-color, $text-color: white) {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  background: $bg-color;
+  color: $text-color;
+}
+
+// Scrollbar Mixin
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: $border-radius-sm;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: $border-radius-sm;
+    
+    &:hover {
+      background: #94a3b8;
+    }
+  }
+}
+
+// Responsive Mixin
+@mixin responsive($breakpoint) {
+  @if $breakpoint == 'sm' {
+    @media (max-width: $breakpoint-sm) { @content; }
+  } @else if $breakpoint == 'md' {
+    @media (max-width: $breakpoint-md) { @content; }
+  } @else if $breakpoint == 'lg' {
+    @media (max-width: $breakpoint-lg) { @content; }
+  } @else if $breakpoint == 'xl' {
+    @media (max-width: $breakpoint-xl) { @content; }
+  }
+}
+
+// Text Truncate Mixin
+@mixin text-truncate($lines: 1) {
+  @if $lines == 1 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// Section Header Mixin
+@mixin section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-lg;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid $border-color-light;
+  
+  h2, h3 {
+    margin: 0;
+    font-size: $font-size-xl;
+    font-weight: 600;
+    color: #1e293b;
+  }
+}
+
+// Empty State Mixin
+@mixin empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-2xl;
+  text-align: center;
+  color: #64748b;
+  
+  .material-icons {
+    font-size: 64px;
+    color: #cbd5e1;
+    margin-bottom: $spacing-md;
+  }
+  
+  h3 {
+    margin: 0 0 $spacing-sm 0;
+    font-size: $font-size-lg;
+    font-weight: 500;
+    color: #475569;
+  }
+  
+  p {
+    margin: 0 0 $spacing-lg 0;
+    font-size: $font-size-sm;
+  }
+}

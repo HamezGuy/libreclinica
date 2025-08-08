@@ -33,6 +33,11 @@ export class SurveyResponseComponent implements OnInit {
     private authService: EdcCompliantAuthService
   ) {}
 
+  // Type assertion helper to avoid Angular template type checking issues
+  asAny(value: any): any {
+    return value;
+  }
+
   async ngOnInit() {
     this.startTime = new Date();
     this.buildForm();

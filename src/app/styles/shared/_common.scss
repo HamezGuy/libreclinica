@@ -1,0 +1,267 @@
+// Common Shared Styles
+@import 'variables';
+@import 'mixins';
+
+// Base Button Styles
+.btn {
+  @include button-base;
+  
+  &.btn-primary {
+    @include button-primary;
+  }
+  
+  &.btn-secondary {
+    @include button-secondary;
+  }
+  
+  &.btn-success {
+    @include button-base;
+    background: $success-gradient;
+    color: white;
+    
+    &:hover:not(:disabled) {
+      box-shadow: $shadow-md;
+      transform: translateY(-1px);
+    }
+  }
+  
+  &.btn-danger {
+    @include button-base;
+    background: $danger-gradient;
+    color: white;
+    
+    &:hover:not(:disabled) {
+      box-shadow: $shadow-md;
+      transform: translateY(-1px);
+    }
+  }
+  
+  &.btn-link {
+    @include button-base;
+    background: transparent;
+    color: $primary-color;
+    padding: $spacing-xs;
+    
+    &:hover:not(:disabled) {
+      color: $primary-dark;
+    }
+  }
+  
+  &.btn-sm {
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+  }
+  
+  &.btn-lg {
+    padding: $spacing-md $spacing-lg;
+    font-size: $font-size-lg;
+  }
+}
+
+// Badge Styles
+.badge {
+  @include badge(#e2e8f0, #475569);
+  
+  &.badge-primary {
+    @include badge($primary-color);
+  }
+  
+  &.badge-success {
+    @include badge($success-color);
+  }
+  
+  &.badge-danger {
+    @include badge($danger-color);
+  }
+  
+  &.badge-warning {
+    @include badge($warning-color);
+  }
+  
+  &.badge-info {
+    @include badge($info-color);
+  }
+  
+  &.hipaa {
+    @include badge(#8b5cf6);
+  }
+  
+  &.cfr21 {
+    @include badge(#3b82f6);
+  }
+  
+  &.gdpr {
+    @include badge(#10b981);
+  }
+  
+  &.dpdp {
+    @include badge(#f59e0b);
+  }
+}
+
+// Modal Styles
+.modal-overlay {
+  @include modal-overlay;
+}
+
+.modal-content {
+  @include modal-content;
+}
+
+.modal-header {
+  padding: $spacing-lg;
+  border-bottom: 1px solid $border-color;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  h2, h3 {
+    margin: 0;
+    font-size: $font-size-xl;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  
+  .close-btn {
+    @include button-base;
+    background: transparent;
+    color: #64748b;
+    padding: $spacing-xs;
+    
+    &:hover {
+      color: #1e293b;
+    }
+  }
+}
+
+.modal-body {
+  flex: 1;
+  padding: $spacing-lg;
+  overflow-y: auto;
+  @include custom-scrollbar;
+}
+
+.modal-footer {
+  padding: $spacing-lg;
+  border-top: 1px solid $border-color;
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+  background: #f8fafc;
+}
+
+// Form Styles
+.form-group {
+  margin-bottom: $spacing-lg;
+  
+  label {
+    display: block;
+    margin-bottom: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: #475569;
+    
+    .required {
+      color: $danger-color;
+    }
+  }
+  
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-md;
+    font-size: $font-size-sm;
+    transition: $transition-fast;
+    
+    &:focus {
+      outline: none;
+      border-color: $primary-color;
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    }
+    
+    &.ng-invalid.ng-touched {
+      border-color: $danger-color;
+    }
+  }
+  
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+  
+  .help-text {
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: #64748b;
+  }
+  
+  .error-message {
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $danger-color;
+  }
+}
+
+// Card Styles
+.card {
+  @include card;
+}
+
+// Section Styles
+.section-header {
+  @include section-header;
+}
+
+.empty-state {
+  @include empty-state;
+}
+
+// Loading Styles
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid $primary-color;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Utility Classes
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mt-sm { margin-top: $spacing-sm; }
+.mt-md { margin-top: $spacing-md; }
+.mt-lg { margin-top: $spacing-lg; }
+
+.mb-sm { margin-bottom: $spacing-sm; }
+.mb-md { margin-bottom: $spacing-md; }
+.mb-lg { margin-bottom: $spacing-lg; }
+
+.p-sm { padding: $spacing-sm; }
+.p-md { padding: $spacing-md; }
+.p-lg { padding: $spacing-lg; }
+
+.gap-sm { gap: $spacing-sm; }
+.gap-md { gap: $spacing-md; }
+.gap-lg { gap: $spacing-lg; }
+
+.flex { display: flex; }
+.flex-column { flex-direction: column; }
+.flex-1 { flex: 1; }
+.align-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+
+.hidden { display: none; }
+.visible { display: block; }

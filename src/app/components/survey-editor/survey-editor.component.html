@@ -152,8 +152,8 @@
                      *ngFor="let option of question.get('options')!.value; let j = index">
                   <input type="text" 
                          class="form-control"
-                         [value]="option.label"
-                         (input)="updateOption(i, j, 'label', $any($event.target).value)"
+                         [value]="option.text"
+                         (input)="updateOption(i, j, 'text', $any($event.target).value)"
                          placeholder="Option text">
                   <button type="button" 
                           class="btn-icon btn-danger"

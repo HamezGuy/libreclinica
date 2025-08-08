@@ -27,7 +27,7 @@ import { SurveyResponseComponent } from '../survey-response/survey-response.comp
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
-import { Study, StudySection, StudySite, EligibilityCriteria, PatientStudyEnrollment, CareIndicator, Substudy, StudyGroup, StudyFormInstance, StudyFormInstanceStatus, DataQuery, EnhancedStudySection } from '../../models/study.model';
+import { Study, StudySection, StudySite, EligibilityCriteria, PatientStudyEnrollment, CareIndicator, Substudy, StudyGroup, StudyFormInstance, StudyFormInstanceStatus, DataQuery, EnhancedStudySection, StudySectionFormTemplate } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
 
 // Patient display model (non-PHI)
@@ -531,6 +531,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       console.error('Failed to delete template:', error);
       alert('Failed to delete template');
     }
+  }
+
+  // Test form template by opening it in fill mode
+  testFormTemplate(template: FormTemplate) {
+    console.log('[Dashboard] Testing form template:', template);
+    this.templateToFill = template;
+    this.showTemplateFillModal = true;
   }
 
   // Legacy form instance management (replaced by enhanced version below)
@@ -1684,10 +1691,56 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     try {
-      await this.createFormInstance(this.selectedStudy.id, sectionId, templateId);
+      // Get the current study
+      const study = await this.studyService.getStudy(this.selectedStudy.id);
+      if (!study) {
+        throw new Error('Study not found');
+      }
+
+      // Find the section to update
+      const sectionIndex = study.sections.findIndex(s => s.id === sectionId);
+      if (sectionIndex === -1) {
+        throw new Error('Section not found');
+      }
+
+      // Get template details
+      const template = await this.templateService.getTemplate(templateId);
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      // Create template reference
+      const templateRef: StudySectionFormTemplate = {
+        id: `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        templateId: templateId,
+        templateName: template.name,
+        templateVersion: String(template.version || '1.0'),
+        order: study.sections[sectionIndex].formTemplates?.length || 0,
+        isRequired: false,
+        completionRequired: false,
+        signatureRequired: false,
+        reviewRequired: false
+      };
+
+      // Add template reference to section
+      if (!study.sections[sectionIndex].formTemplates) {
+        study.sections[sectionIndex].formTemplates = [];
+      }
+      study.sections[sectionIndex].formTemplates.push(templateRef);
+
+      // Update the study with the new section data
+      await this.studyService.updateStudy(this.selectedStudy.id, {
+        sections: study.sections
+      }, 'Added form template to section');
+
+      // Refresh the selected study data
+      this.selectedStudy = await this.studyService.getStudy(this.selectedStudy.id);
+      
       this.closeFormAssignmentModal();
+      console.log('Successfully added template to section');
     } catch (error) {
       console.error('Error assigning form to section:', error);
+      alert('Failed to add form template to section. Please try again.');
     }
   }
 

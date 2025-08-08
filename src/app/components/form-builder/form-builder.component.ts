@@ -10,6 +10,7 @@ import { FormTemplateService } from '../../services/form-template.service';
 import { FormValidationService } from '../../services/form-validation.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { AccessLevel } from '../../enums/access-levels.enum';
+import { FormPreviewComponent } from '../form-preview/form-preview.component';
 
 interface FieldTypeOption {
   type: FieldType;
@@ -30,7 +31,7 @@ interface ValidationRuleOption {
 @Component({
   selector: 'app-form-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DragDropModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DragDropModule, FormPreviewComponent],
   templateUrl: './form-builder.component.html',
   styleUrls: ['./form-builder.component.scss']
 })
@@ -634,6 +635,29 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Field option management methods
+  addOption(fieldIndex: number): void {
+    const field = this.fieldsArray.at(fieldIndex);
+    const optionsArray = field.get('options') as FormArray;
+    
+    const newOption = this.fb.group({
+      value: [''],
+      label: [''],
+      disabled: [false]
+    });
+    
+    optionsArray.push(newOption);
+    this.hasUnsavedChanges = true;
+  }
+
+  removeOption(fieldIndex: number, optionIndex: number): void {
+    const field = this.fieldsArray.at(fieldIndex);
+    const optionsArray = field.get('options') as FormArray;
+    
+    optionsArray.removeAt(optionIndex);
+    this.hasUnsavedChanges = true;
+  }
+
   // Close the form builder without saving
   closeBuilder(): void {
     // Check for unsaved changes
@@ -833,5 +857,63 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.saveMessageVisible = false;
     this.saveMessage = '';
     this.saveMessageType = '';
+  }
+
+  // Get current template data for live preview
+  getCurrentTemplateData(): FormTemplate {
+    const formValue = this.builderForm.value;
+    return {
+      id: this.currentTemplate?.id || '',
+      name: formValue.name,
+      description: formValue.description,
+      version: formValue.version,
+      templateType: formValue.type as TemplateType,
+      category: formValue.category,
+      status: this.currentTemplate?.status || 'draft',
+      fields: formValue.fields,
+      instructions: formValue.instructions,
+      allowSavePartial: formValue.allowMultipleSubmissions || false,
+      requiresReview: formValue.requireAuthentication || false,
+      allowEditing: formValue.enableVersioning || true,
+      maxSubmissions: formValue.maxSubmissions,
+      createdBy: this.currentTemplate?.createdBy || '',
+      createdAt: this.currentTemplate?.createdAt || new Date(),
+      updatedAt: new Date(),
+      updatedBy: this.currentTemplate?.updatedBy || '',
+      tags: formValue.tags || [],
+      changeHistory: this.currentTemplate?.changeHistory || [],
+      // Required fields from model
+      isPatientTemplate: false,
+      isStudySubjectTemplate: false,
+      sections: [],
+      childTemplateIds: [],
+      childFormIds: [],
+      linkedTemplates: [],
+      phiDataFields: [],
+      hipaaCompliant: true,
+      gdprCompliant: true,
+      lastModifiedBy: '',
+      requiresElectronicSignature: false,
+      complianceRegions: [],
+      phiEncryptionEnabled: true,
+      phiAccessLogging: true,
+      phiDataMinimization: true
+    };
+  }
+
+  // Preview event handlers
+  onPreviewDataChanged(data: any): void {
+    // Handle preview data changes if needed
+    console.log('Preview data changed:', data);
+  }
+
+  onPreviewSubmitted(instance: any): void {
+    // Handle preview form submission
+    console.log('Preview form submitted:', instance);
+  }
+
+  onPreviewSaved(instance: any): void {
+    // Handle preview form save
+    console.log('Preview form saved:', instance);
   }
 }
