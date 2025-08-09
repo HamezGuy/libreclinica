@@ -62,16 +62,39 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   saveMessageType: 'success' | 'error' | '' = '';
   saveMessageVisible: boolean = false;
 
+  // Clinical field unit states
+  clinicalFieldUnits: { [fieldId: string]: 'metric' | 'imperial' } = {};
+  
+  // Unit configurations for clinical fields
+  unitConfig = {
+    height: {
+      metric: { label: 'cm', min: 0, max: 300 },
+      imperial: { label: 'in', min: 0, max: 120 }
+    },
+    weight: {
+      metric: { label: 'kg', min: 0, max: 500 },
+      imperial: { label: 'lbs', min: 0, max: 1100 }
+    },
+    temperature: {
+      metric: { label: '°C', min: 30, max: 45 },
+      imperial: { label: '°F', min: 86, max: 113 }
+    },
+    blood_pressure: {
+      metric: { label: 'mmHg' },
+      imperial: { label: 'mmHg' }
+    }
+  };
+
   // Field types available in the toolbox
   fieldTypes: FieldTypeOption[] = [
     // Basic Fields
     { type: 'text', label: 'Text Input', icon: 'text_fields', description: 'Single line text input', category: 'basic' },
     { type: 'textarea', label: 'Text Area', icon: 'notes', description: 'Multi-line text input', category: 'basic' },
-    { type: 'number', label: 'Number', icon: 'pin', description: 'Numeric input with validation', category: 'basic' },
+    { type: 'number', label: 'Number', icon: 'pin', description: 'Numeric input field', category: 'basic' },
     { type: 'email', label: 'Email', icon: 'email', description: 'Email address input', category: 'basic' },
     { type: 'phone', label: 'Phone', icon: 'phone', description: 'Phone number input', category: 'basic' },
-    { type: 'date', label: 'Date', icon: 'event', description: 'Date picker input', category: 'basic' },
-    { type: 'time', label: 'Time', icon: 'access_time', description: 'Time picker input', category: 'basic' },
+    { type: 'date', label: 'Date', icon: 'calendar_today', description: 'Date picker field', category: 'basic' },
+    { type: 'time', label: 'Time', icon: 'access_time', description: 'Time picker with AM/PM', category: 'basic' },
     { type: 'datetime', label: 'Date & Time', icon: 'event_available', description: 'Date and time picker', category: 'basic' },
     
     // Advanced Fields
@@ -302,6 +325,15 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     const fieldsArray = this.builderForm.get('fields') as FormArray;
     fieldsArray.clear();
     template.fields?.forEach(field => {
+      // Initialize clinical field units based on existing unit or default to metric
+      if (['height', 'weight', 'temperature', 'blood_pressure'].includes(field.type)) {
+        const isImperial = field.unit && (
+          field.unit.includes('in') || 
+          field.unit.includes('lbs') || 
+          field.unit.includes('°F')
+        );
+        this.clinicalFieldUnits[field.id] = isImperial ? 'imperial' : 'metric';
+      }
       fieldsArray.push(this.createFieldFormGroup(field));
     });
 
@@ -353,7 +385,11 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       auditTrail: this.fb.group({
         trackChanges: [field.auditTrail?.trackChanges || false],
         reasonRequired: [field.auditTrail?.reasonRequired || false]
-      })
+      }),
+      // Add unit-related fields for clinical fields
+      unit: [field.unit],
+      min: [field.min],
+      max: [field.max]
     });
   }
 
@@ -434,9 +470,29 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
   private createNewField(type: FieldType, order: number): FormField {
     const fieldTypeOption = this.fieldTypes.find(ft => ft.type === type);
+    const fieldId = this.generateFieldId();
+    
+    // Initialize unit state for clinical fields
+    if (['height', 'weight', 'temperature', 'blood_pressure'].includes(type)) {
+      this.clinicalFieldUnits[fieldId] = 'metric'; // Default to metric
+    }
+    
+    // Get unit configuration for clinical fields
+    let unit: string | undefined;
+    let min: number | undefined;
+    let max: number | undefined;
+    
+    if (['height', 'weight', 'temperature', 'blood_pressure'].includes(type)) {
+      const unitConfig = this.getUnitConfigForField(type, 'metric');
+      if (unitConfig) {
+        unit = unitConfig.label;
+        min = unitConfig.min;
+        max = unitConfig.max;
+      }
+    }
     
     return {
-      id: this.generateFieldId(),
+      id: fieldId,
       name: `field_${Date.now()}`,
       label: fieldTypeOption?.label || 'New Field',
       type: type,
@@ -461,7 +517,11 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       auditTrail: {
         trackChanges: false,
         reasonRequired: false
-      }
+      },
+      // Add unit configuration for clinical fields
+      ...(unit && { unit }),
+      ...(min !== undefined && { min }),
+      ...(max !== undefined && { max })
     };
   }
 
@@ -733,31 +793,6 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Option management methods
-  addOption(fieldIndex: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    const fieldControl = fieldsArray.at(fieldIndex);
-    const optionsArray = fieldControl.get('options') as FormArray;
-    
-    const newOption = this.fb.group({
-      value: [`option${optionsArray.length + 1}`],
-      label: [`Option ${optionsArray.length + 1}`],
-      disabled: [false]
-    });
-    
-    optionsArray.push(newOption);
-    this.hasUnsavedChanges = true;
-  }
-
-  removeOption(fieldIndex: number, optionIndex: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    const fieldControl = fieldsArray.at(fieldIndex);
-    const optionsArray = fieldControl.get('options') as FormArray;
-    
-    optionsArray.removeAt(optionIndex);
-    this.hasUnsavedChanges = true;
-  }
-
   // Validation rule management methods
   addValidationRule(fieldIndex: number): void {
     const fieldsArray = this.builderForm.get('fields') as FormArray;
@@ -785,6 +820,90 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
   getValidationRule(type: string): ValidationRuleOption | undefined {
     return this.validationRules.find(rule => rule.type === type);
+  }
+
+  // Clinical field unit switching methods
+  toggleClinicalFieldUnit(fieldId: string, fieldType: string): void {
+    const currentUnit = this.clinicalFieldUnits[fieldId] || 'metric';
+    const newUnit = currentUnit === 'metric' ? 'imperial' : 'metric';
+    
+    // Update the unit state
+    this.clinicalFieldUnits[fieldId] = newUnit;
+    
+    // Find the field in the form array and update its properties
+    const fieldsArray = this.builderForm.get('fields') as FormArray;
+    const fieldIndex = fieldsArray.controls.findIndex(
+      control => control.get('id')?.value === fieldId
+    );
+    
+    if (fieldIndex !== -1) {
+      const fieldControl = fieldsArray.at(fieldIndex);
+      const unitConfig = this.getUnitConfigForField(fieldType, newUnit);
+      
+      // Update field properties with new unit configuration
+      if (unitConfig) {
+        fieldControl.patchValue({
+          unit: unitConfig.label,
+          min: unitConfig.min,
+          max: unitConfig.max
+        });
+        
+        // Convert existing default value if present
+        const defaultValue = fieldControl.get('defaultValue')?.value;
+        if (defaultValue && !isNaN(Number(defaultValue))) {
+          const convertedValue = this.convertClinicalValue(
+            Number(defaultValue),
+            fieldType,
+            currentUnit,
+            newUnit
+          );
+          fieldControl.patchValue({ defaultValue: convertedValue.toString() });
+        }
+      }
+      
+      this.hasUnsavedChanges = true;
+    }
+  }
+
+  getUnitConfigForField(fieldType: string, unit: 'metric' | 'imperial'): any {
+    const config = this.unitConfig[fieldType as keyof typeof this.unitConfig];
+    return config ? config[unit] : null;
+  }
+
+  getClinicalFieldUnit(fieldId: string): 'metric' | 'imperial' {
+    return this.clinicalFieldUnits[fieldId] || 'metric';
+  }
+
+  convertClinicalValue(
+    value: number,
+    fieldType: string,
+    fromUnit: 'metric' | 'imperial',
+    toUnit: 'metric' | 'imperial'
+  ): number {
+    if (fromUnit === toUnit) return value;
+    
+    switch (fieldType) {
+      case 'height':
+        // cm to inches or inches to cm
+        return fromUnit === 'metric' ? value / 2.54 : value * 2.54;
+      
+      case 'weight':
+        // kg to lbs or lbs to kg
+        return fromUnit === 'metric' ? value * 2.20462 : value / 2.20462;
+      
+      case 'temperature':
+        // Celsius to Fahrenheit or Fahrenheit to Celsius
+        return fromUnit === 'metric' 
+          ? (value * 9/5) + 32 
+          : (value - 32) * 5/9;
+      
+      case 'blood_pressure':
+        // Blood pressure doesn't change units (always mmHg)
+        return value;
+      
+      default:
+        return value;
+    }
   }
 
   // Field type categories for toolbox organization

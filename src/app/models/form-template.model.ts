@@ -130,6 +130,11 @@ export interface FormField {
   // Custom attributes
   customAttributes?: { [key: string]: any };
   
+  // Clinical field properties
+  unit?: string; // Unit label for clinical fields (e.g., 'cm', 'kg', '°C')
+  min?: number; // Minimum value for numeric/clinical fields
+  max?: number; // Maximum value for numeric/clinical fields
+  
   // Audit and Compliance
   criticalDataPoint?: boolean; // Requires additional verification
   auditTrail?: {

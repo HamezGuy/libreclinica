@@ -457,6 +457,21 @@
                       </option>
                     </select>
                     
+                    <!-- Multi-Select Dropdown -->
+                    <div *ngSwitchCase="'multiselect'" class="multiselect-preview">
+                      <div class="multiselect-display">
+                        <span class="multiselect-placeholder" *ngIf="!fieldControl.get('options')?.value?.length">
+                          {{ fieldControl.get('placeholder')?.value || 'Select multiple options' }}
+                        </span>
+                        <div class="multiselect-options" *ngIf="fieldControl.get('options')?.value?.length">
+                          <div class="multiselect-option" *ngFor="let option of fieldControl.get('options')?.value">
+                            <input type="checkbox" [value]="option.value" disabled>
+                            <span>{{ option.label }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <!-- Radio Buttons -->
                     <div *ngSwitchCase="'radio'" class="radio-group">
                       <label 
@@ -484,6 +499,21 @@
                       class="form-control"
                       disabled>
                     
+                    <!-- Time Input with AM/PM -->
+                    <div *ngSwitchCase="'time'" class="time-input-preview">
+                      <div class="time-input-container">
+                        <input 
+                          type="time" 
+                          class="form-control time-field"
+                          [placeholder]="fieldControl.get('placeholder')?.value || 'Select time'"
+                          disabled>
+                        <div class="time-period">
+                          <button type="button" class="time-period-btn active" disabled>AM</button>
+                          <button type="button" class="time-period-btn" disabled>PM</button>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <!-- Boolean Toggle -->
                     <div *ngSwitchCase="'boolean'" class="boolean-preview">
                       <label class="boolean-toggle-preview">
@@ -497,6 +527,86 @@
                     <div *ngSwitchCase="'file'" class="file-upload-preview">
                       <span class="material-icons">upload_file</span>
                       <span>Choose file or drag here</span>
+                    </div>
+                    
+                    <!-- Clinical Fields -->
+                    <!-- Height -->
+                    <div *ngSwitchCase="'height'" class="clinical-field-preview">
+                      <div class="input-with-unit">
+                        <input 
+                          type="number" 
+                          class="form-control"
+                          [placeholder]="fieldControl.get('placeholder')?.value || 'Enter height'"
+                          disabled>
+                        <span class="unit-label">{{ getUnitConfigForField('height', getClinicalFieldUnit(fieldControl.get('id')?.value))?.label || 'cm' }}</span>
+                        <button type="button" class="unit-toggle" title="Switch units" (click)="toggleClinicalFieldUnit(fieldControl.get('id')?.value, 'height')">
+                          <span class="material-icons">swap_horiz</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Weight -->
+                    <div *ngSwitchCase="'weight'" class="clinical-field-preview">
+                      <div class="input-with-unit">
+                        <input 
+                          type="number" 
+                          class="form-control"
+                          [placeholder]="fieldControl.get('placeholder')?.value || 'Enter weight'"
+                          disabled>
+                        <span class="unit-label">{{ getUnitConfigForField('weight', getClinicalFieldUnit(fieldControl.get('id')?.value))?.label || 'kg' }}</span>
+                        <button type="button" class="unit-toggle" title="Switch units" (click)="toggleClinicalFieldUnit(fieldControl.get('id')?.value, 'weight')">
+                          <span class="material-icons">swap_horiz</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Temperature -->
+                    <div *ngSwitchCase="'temperature'" class="clinical-field-preview">
+                      <div class="input-with-unit">
+                        <input 
+                          type="number" 
+                          class="form-control"
+                          [placeholder]="fieldControl.get('placeholder')?.value || 'Enter temperature'"
+                          disabled>
+                        <span class="unit-label">{{ getUnitConfigForField('temperature', getClinicalFieldUnit(fieldControl.get('id')?.value))?.label || '°C' }}</span>
+                        <button type="button" class="unit-toggle" title="Switch units" (click)="toggleClinicalFieldUnit(fieldControl.get('id')?.value, 'temperature')">
+                          <span class="material-icons">swap_horiz</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Blood Pressure -->
+                    <div *ngSwitchCase="'blood_pressure'" class="clinical-field-preview">
+                      <div class="bp-inputs-preview">
+                        <input 
+                          type="number" 
+                          class="form-control bp-input"
+                          placeholder="Systolic"
+                          disabled>
+                        <span class="bp-separator">/</span>
+                        <input 
+                          type="number" 
+                          class="form-control bp-input"
+                          placeholder="Diastolic"
+                          disabled>
+                        <span class="unit-label">mmHg</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Medication -->
+                    <div *ngSwitchCase="'medication'" class="clinical-field-preview">
+                      <div class="medication-preview">
+                        <span class="material-icons">medication</span>
+                        <span>Medication details form</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Diagnosis -->
+                    <div *ngSwitchCase="'diagnosis'" class="clinical-field-preview">
+                      <div class="diagnosis-preview">
+                        <span class="material-icons">local_hospital</span>
+                        <span>Diagnosis with ICD codes</span>
+                      </div>
                     </div>
                     
                     <!-- Default -->
@@ -566,6 +676,50 @@
                   <div class="form-group">
                     <label>Default Value</label>
                     <input type="text" class="form-control" formControlName="defaultValue">
+                  </div>
+                </div>
+
+                <!-- Clinical Field Settings (for height, weight, temperature, blood_pressure) -->
+                <div 
+                  class="property-section"
+                  *ngIf="['height', 'weight', 'temperature', 'blood_pressure'].includes(fieldControl.get('type')?.value)">
+                  <h4>Clinical Field Settings</h4>
+                  
+                  <div class="form-group">
+                    <label>Unit System</label>
+                    <div class="unit-toggle-container">
+                      <button 
+                        type="button" 
+                        class="unit-system-btn"
+                        [class.active]="getClinicalFieldUnit(fieldControl.get('id')?.value) === 'metric'"
+                        (click)="toggleClinicalFieldUnit(fieldControl.get('id')?.value, fieldControl.get('type')?.value)">
+                        <span class="unit-system-label">Metric</span>
+                        <span class="unit-value">{{ getUnitConfigForField(fieldControl.get('type')?.value, 'metric')?.label }}</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="unit-system-btn"
+                        [class.active]="getClinicalFieldUnit(fieldControl.get('id')?.value) === 'imperial'"
+                        (click)="toggleClinicalFieldUnit(fieldControl.get('id')?.value, fieldControl.get('type')?.value)">
+                        <span class="unit-system-label">Imperial</span>
+                        <span class="unit-value">{{ getUnitConfigForField(fieldControl.get('type')?.value, 'imperial')?.label }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Current Unit</label>
+                    <input type="text" class="form-control" formControlName="unit" readonly>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Minimum Value</label>
+                    <input type="number" class="form-control" formControlName="min">
+                  </div>
+                  
+                  <div class="form-group">
+                    <label>Maximum Value</label>
+                    <input type="number" class="form-control" formControlName="max">
                   </div>
                 </div>
 
