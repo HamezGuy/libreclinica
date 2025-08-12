@@ -27,6 +27,7 @@ export class SurveyEditorComponent implements OnInit {
   questionTypes: { value: QuestionType; label: string; icon: string }[] = [
     { value: 'single-choice', label: 'Single Choice', icon: 'fas fa-dot-circle' },
     { value: 'multiple-choice', label: 'Multiple Choice', icon: 'fas fa-check-square' },
+    { value: 'combobox', label: 'Combobox (Multi-select)', icon: 'fas fa-list-check' },
     { value: 'text', label: 'Short Text', icon: 'fas fa-font' },
     { value: 'textarea', label: 'Long Text', icon: 'fas fa-align-left' },
     { value: 'number', label: 'Number', icon: 'fas fa-hashtag' },
@@ -182,6 +183,15 @@ export class SurveyEditorComponent implements OnInit {
             { id: 'option3', value: 'option3', text: 'Option 3', order: 2 }
           ];
           break;
+        case 'combobox':
+          // Add default options for combobox (multi-select)
+          defaultOptions = [
+            { id: 'option1', value: 'option1', text: 'Option 1', order: 0 },
+            { id: 'option2', value: 'option2', text: 'Option 2', order: 1 },
+            { id: 'option3', value: 'option3', text: 'Option 3', order: 2 },
+            { id: 'option4', value: 'option4', text: 'Option 4', order: 3 }
+          ];
+          break;
         case 'matrix':
           // Matrix questions need row and column options
           defaultOptions = [
@@ -299,6 +309,20 @@ export class SurveyEditorComponent implements OnInit {
               { id: 'option1', value: 'option1', text: 'Option 1', order: 0 },
               { id: 'option2', value: 'option2', text: 'Option 2', order: 1 },
               { id: 'option3', value: 'option3', text: 'Option 3', order: 2 }
+            ];
+          }
+          break;
+        case 'combobox':
+          // If switching from another choice type, keep existing options
+          if (currentOptions.length > 0 && this.needsOptions(question.get('type')?.value)) {
+            newOptions = currentOptions;
+          } else {
+            // Otherwise use default options for combobox
+            newOptions = [
+              { id: 'option1', value: 'option1', text: 'Option 1', order: 0 },
+              { id: 'option2', value: 'option2', text: 'Option 2', order: 1 },
+              { id: 'option3', value: 'option3', text: 'Option 3', order: 2 },
+              { id: 'option4', value: 'option4', text: 'Option 4', order: 3 }
             ];
           }
           break;
@@ -510,7 +534,7 @@ export class SurveyEditorComponent implements OnInit {
   
   // Question type helpers
   needsOptions(type: QuestionType): boolean {
-    return ['single-choice', 'multiple-choice', 'matrix', 'ranking'].includes(type);
+    return ['single-choice', 'multiple-choice', 'combobox', 'matrix', 'ranking'].includes(type);
   }
   
   needsRatingSettings(type: QuestionType): boolean {

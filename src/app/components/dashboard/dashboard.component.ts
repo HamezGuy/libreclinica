@@ -1363,23 +1363,85 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (confirm(`Are you sure you want to delete the study "${study.title}"? This action cannot be undone.`)) {
+    // Check if study has enrolled patients
+    const enrollments = await this.studyService.getStudyPatients(study.id!);
+    const hasPatients = enrollments.length > 0;
+
+    let confirmMessage = `Are you sure you want to delete the study "${study.title}"?`;
+    if (hasPatients) {
+      confirmMessage = `WARNING: This study has ${enrollments.length} enrolled patient(s).\n\n` +
+        `Deleting this study will permanently delete ALL associated patient data.\n\n` +
+        `Study: ${study.title}\n` +
+        `Protocol: ${study.protocolNumber}\n` +
+        `Patients: ${enrollments.length}\n\n` +
+        `This action cannot be undone. Are you absolutely sure you want to proceed?`;
+    }
+
+    if (confirm(confirmMessage)) {
+      // Double confirmation for studies with patients
+      if (hasPatients) {
+        const secondConfirm = prompt(
+          `This is a destructive action that will delete ${enrollments.length} patient(s).\n\n` +
+          `To confirm, please type the study protocol number: ${study.protocolNumber}`
+        );
+        
+        if (secondConfirm !== study.protocolNumber) {
+          alert('Protocol number does not match. Deletion cancelled.');
+          return;
+        }
+      }
+
       try {
-        console.log('Deleting study:', study.title);
-        
-        // Actually delete the study from the database
-        await this.studyService.deleteStudy(study.id!, 'User requested deletion');
-        
-        // Clear selected study if it was the deleted one
+        // Show loading state
+        const deleteButton = document.querySelector(`[data-study-id="${study.id}"] .delete-button`);
+        if (deleteButton) {
+          deleteButton.textContent = 'Deleting...';
+          deleteButton.setAttribute('disabled', 'true');
+        }
+
+        // Determine which deletion method to use
+        if (hasPatients) {
+          // Use the new cascade delete method
+          await this.studyService.deleteStudyWithPatients(
+            study.id!, 
+            `User requested complete deletion of study and all ${enrollments.length} associated patients`
+          );
+          this.toastService.success(
+            `Study "${study.title}" and ${enrollments.length} associated patient(s) have been permanently deleted.`
+          );
+        } else {
+          // Use the regular soft delete for studies without patients
+          await this.studyService.deleteStudy(
+            study.id!, 
+            'User requested deletion of study with no enrolled patients'
+          );
+          this.toastService.success(
+            `Study "${study.title}" has been archived.`
+          );
+        }
+
+        // Remove from local array
+        this.studies = this.studies.filter(s => s.id !== study.id);
         if (this.selectedStudy?.id === study.id) {
           this.selectedStudy = null;
+          this.studyEnrollments = [];
+          this.careIndicators = [];
         }
-        
-        // The studies list will automatically update via the real-time listener
-        console.log('Study deleted successfully');
+
+        // Refresh the studies list
+        this.loadStudies();
       } catch (error) {
         console.error('Error deleting study:', error);
-        alert(`Failed to delete study: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.toastService.error(
+          `Failed to delete study: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+        
+        // Reset button state
+        const deleteButton = document.querySelector(`[data-study-id="${study.id}"] .delete-button`);
+        if (deleteButton) {
+          deleteButton.textContent = 'Delete';
+          deleteButton.removeAttribute('disabled');
+        }
       }
     }
   }

@@ -3,20 +3,27 @@ import {
   Firestore, 
   collection, 
   doc, 
-  addDoc, 
+  setDoc, 
   getDoc, 
   getDocs, 
   updateDoc, 
   deleteDoc, 
-  setDoc, 
   query, 
   where, 
   orderBy, 
   limit,
   serverTimestamp,
+  DocumentReference,
+  CollectionReference,
+  QueryConstraint,
+  Timestamp,
+  addDoc,
+  arrayUnion,
+  arrayRemove,
+  increment,
+  documentId,
   writeBatch,
-  onSnapshot,
-  Timestamp
+  onSnapshot
 } from '@angular/fire/firestore';
 import { Observable, BehaviorSubject, map, switchMap, combineLatest, firstValueFrom } from 'rxjs';
 
@@ -384,6 +391,110 @@ export class StudyService implements IStudyService {
           reason,
           patientsDeleted: studyPatientsSnapshot.size,
           sectionsDeleted: sectionsSnapshot.size
+        })
+      });
+    });
+  }
+
+  /**
+   * Delete a study and all associated patients (cascade delete)
+   * This is a destructive operation that permanently removes the study and all patient data
+   */
+  async deleteStudyWithPatients(studyId: string, reason: string): Promise<void> {
+    return await runInInjectionContext(this.injector, async () => {
+      // Get current user through observable (synchronous access)
+      const currentUser = this.authService.isAuthenticated$ ? await firstValueFrom(this.authService.user$) : null;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to delete studies');
+      }
+
+      // Get the study first to ensure it exists
+      const study = await this.getStudy(studyId);
+      if (!study) {
+        throw new Error('Study not found');
+      }
+
+      // Get all patients enrolled in this study
+      const patients = await this.getStudyPatients(studyId);
+      
+      // Use a batch to ensure atomic operation
+      const batch = writeBatch(this.firestore);
+      
+      // Delete all patients associated with the study
+      for (const patient of patients) {
+        if (patient.id) {
+          const patientRef = doc(this.firestore, 'patients', patient.id);
+          batch.delete(patientRef);
+          
+          // Log audit event for each patient deletion
+          await this.auditService.logAuditEvent({
+            action: 'patient_deleted_with_study',
+            resourceType: 'patient',
+            resourceId: patient.id,
+            userId: currentUser.uid,
+            details: JSON.stringify({ 
+              studyId: studyId,
+              reason: `Deleted with study: ${reason}`,
+              patientIdentifier: patient.identifier
+            })
+          });
+        }
+      }
+      
+      // Delete all study sections
+      const sectionsRef = collection(this.firestore, 'study-sections');
+      const sectionsQuery = query(sectionsRef, where('studyId', '==', studyId));
+      const sectionsSnapshot = await getDocs(sectionsQuery);
+      
+      sectionsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all substudies
+      const substudiesRef = collection(this.firestore, 'substudies');
+      const substudiesQuery = query(substudiesRef, where('studyId', '==', studyId));
+      const substudiesSnapshot = await getDocs(substudiesQuery);
+      
+      substudiesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all study groups
+      const groupsRef = collection(this.firestore, 'study-groups');
+      const groupsQuery = query(groupsRef, where('studyId', '==', studyId));
+      const groupsSnapshot = await getDocs(groupsQuery);
+      
+      groupsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete all form instances for this study
+      const formInstancesRef = collection(this.firestore, 'study-form-instances');
+      const formInstancesQuery = query(formInstancesRef, where('studyId', '==', studyId));
+      const formInstancesSnapshot = await getDocs(formInstancesQuery);
+      
+      formInstancesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Finally, delete the study itself
+      const studyRef = doc(this.firestore, 'studies', studyId);
+      batch.delete(studyRef);
+      
+      // Commit the batch
+      await batch.commit();
+      
+      // Log audit event for study deletion
+      await this.auditService.logAuditEvent({
+        action: 'study_deleted_with_patients',
+        resourceType: 'study',
+        resourceId: studyId,
+        userId: currentUser.uid,
+        details: JSON.stringify({ 
+          reason,
+          patientsDeleted: patients.length,
+          studyTitle: study.title,
+          protocolNumber: study.protocolNumber
         })
       });
     });

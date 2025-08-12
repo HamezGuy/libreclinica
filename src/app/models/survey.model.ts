@@ -106,6 +106,10 @@ export interface SurveyQuestion {
   options?: QuestionOption[];
   validation?: QuestionValidation;
   
+  // Matrix question specific
+  matrixRows?: MatrixRow[];
+  matrixColumns?: MatrixColumn[];
+  
   // Layout
   layout?: QuestionLayout;
   
@@ -130,6 +134,7 @@ export interface SurveyQuestion {
 export type QuestionType = 
   | 'single-choice'
   | 'multiple-choice'
+  | 'combobox'
   | 'text'
   | 'textarea'
   | 'number'
@@ -171,6 +176,19 @@ export interface QuestionLayout {
   columns?: number;
   showLabels?: boolean;
   labelPosition?: 'top' | 'left' | 'right';
+}
+
+export interface MatrixRow {
+  id: string;
+  text: string;
+  order: number;
+}
+
+export interface MatrixColumn {
+  id: string;
+  text: string;
+  value: any;
+  order: number;
 }
 
 export interface SurveyResponse {

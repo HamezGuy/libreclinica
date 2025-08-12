@@ -58,6 +58,20 @@
             </label>
           </div>
           
+          <!-- Combobox (Multi-select dropdown) -->
+          <div class="input-container" *ngIf="question.type === 'combobox'">
+            <select multiple
+                    [formControlName]="question.id"
+                    class="form-control combobox"
+                    [size]="question.options && question.options.length > 5 ? 5 : question.options?.length || 3">
+              <option *ngFor="let option of question.options" 
+                      [value]="option.value">
+                {{ option.text }}
+              </option>
+            </select>
+            <p class="combobox-hint">Hold Ctrl/Cmd to select multiple options</p>
+          </div>
+          
           <!-- Text Input -->
           <div class="input-container" *ngIf="question.type === 'text'">
             <input type="text" 
@@ -136,6 +150,49 @@
             <div class="nps-labels">
               <span>Not likely</span>
               <span>Extremely likely</span>
+            </div>
+          </div>
+          
+          <!-- Matrix -->
+          <div class="matrix-container" *ngIf="question.type === 'matrix'">
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th *ngFor="let column of question.matrixColumns" class="matrix-column-header">
+                    {{ column.text }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of question.matrixRows" class="matrix-row">
+                  <td class="matrix-row-label">{{ row.text }}</td>
+                  <td *ngFor="let column of question.matrixColumns" class="matrix-cell">
+                    <input type="radio"
+                           [name]="'matrix-' + question.id + '-' + row.id"
+                           [value]="column.value"
+                           (change)="onMatrixChange(question.id, row.id, column.value)"
+                           [checked]="getMatrixValue(question.id, row.id) === column.value"
+                           class="matrix-radio">
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Ranking -->
+          <div class="ranking-container" *ngIf="question.type === 'ranking'">
+            <div class="ranking-instructions">Drag items to rank them from most to least important</div>
+            <div class="ranking-list" 
+                 cdkDropList 
+                 (cdkDropListDropped)="onRankingDrop($event, question.id)">
+              <div *ngFor="let option of getRankingOptions(question); let i = index"
+                   class="ranking-item"
+                   cdkDrag>
+                <div class="ranking-number">{{ i + 1 }}</div>
+                <div class="ranking-text">{{ option.text }}</div>
+                <i class="material-icons drag-handle" cdkDragHandle>drag_indicator</i>
+              </div>
             </div>
           </div>
           

@@ -482,14 +482,23 @@
                       </label>
                     </div>
                     
-                    <!-- Checkboxes -->
-                    <div *ngSwitchCase="'checkbox'" class="checkbox-group">
-                      <label 
-                        *ngFor="let option of fieldControl.get('options')?.value"
-                        class="checkbox-option">
+                    <!-- Checkbox Group -->
+                    <div *ngSwitchCase="'checkbox'" class="checkbox-group-preview">
+                      <label *ngFor="let option of fieldControl.get('options')?.value" class="checkbox-option">
                         <input type="checkbox" [value]="option.value" disabled>
                         <span>{{ option.label }}</span>
                       </label>
+                    </div>
+                    
+                    <!-- Multi-select field preview -->
+                    <div *ngSwitchCase="'multiselect'" class="multiselect-preview">
+                      <div *ngIf="fieldControl.get('options')?.value?.length === 0" class="multiselect-placeholder">
+                        No options configured
+                      </div>
+                      <div *ngFor="let option of fieldControl.get('options')?.value" class="multiselect-option">
+                        <input type="checkbox" [value]="option.value" disabled>
+                        <span>{{ option.label }}</span>
+                      </div>
                     </div>
                     
                     <!-- Date Input -->
