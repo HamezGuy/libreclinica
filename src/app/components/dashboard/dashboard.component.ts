@@ -2063,6 +2063,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     console.log(`Viewing history for patient ${patient.displayName}`);
   }
   
+  // View patient details with phases and templates
+  viewPatientDetails(patient: PatientListItem) {
+    // Navigate to patient detail component
+    this.router.navigate(['/patient-detail', patient.id]);
+  }
+  
   // Toggle sidebar
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;

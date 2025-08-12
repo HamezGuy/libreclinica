@@ -152,7 +152,7 @@
               <span class="status-badge" [class]="patient.status">{{ patient.status }}</span>
             </span>
             <span class="patient-actions">
-              <button class="btn btn-sm btn-link" title="View Details">
+              <button class="btn btn-sm btn-link" title="View Details" (click)="viewPatientDetails(patient)">
                 <i class="material-icons">visibility</i>
               </button>
               <button class="btn btn-sm btn-link" title="Edit">

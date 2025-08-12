@@ -1270,54 +1270,130 @@ export class StudyService implements IStudyService {
     const now = new Date();
     const visitSubcomponents: any[] = [];
 
-    // Create a visit subcomponent for each study section
+    // Always create visit subcomponents for each study section, even if templates have issues
     if (study.sections && Array.isArray(study.sections)) {
       for (const section of study.sections) {
-        const visitSubcomponent = {
-          id: this.generateId(),
-          patientId: patientId,
-          studyId: study.id,
-          name: section.name,
-          description: section.description || '',
-          type: section.type || 'treatment',
-          order: section.order,
-          phaseId: section.id,
-          isPhaseFolder: true,
+        try {
+          // Extract template information safely
+          const templateIds: string[] = [];
+          const requiredTemplateIds: string[] = [];
+          const optionalTemplateIds: string[] = [];
+          const formTemplates: any[] = [];
           
-          // Calculate visit window dates based on enrollment date and scheduled day
-          scheduledDate: section.scheduledDay ? 
-            new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
-            undefined,
-          windowStartDate: section.windowStart !== undefined ? 
-            new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
-            undefined,
-          windowEndDate: section.windowEnd !== undefined ? 
-            new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
-            undefined,
+          if (section.formTemplates && Array.isArray(section.formTemplates)) {
+            for (const template of section.formTemplates) {
+              try {
+                // Copy the entire template object for the patient
+                const patientTemplate = {
+                  templateId: template.templateId,
+                  templateName: template.templateName,
+                  templateVersion: template.templateVersion || '1.0',
+                  order: template.order || 0,
+                  isRequired: template.isRequired || false,
+                  completionRequired: template.completionRequired || false,
+                  signatureRequired: template.signatureRequired || false,
+                  reviewRequired: template.reviewRequired || false,
+                  daysToComplete: template.daysToComplete,
+                  showConditions: template.showConditions,
+                  requiredConditions: template.requiredConditions,
+                  applicableGroups: template.applicableGroups,
+                  customAttributes: template.customAttributes
+                };
+                
+                formTemplates.push(patientTemplate);
+                templateIds.push(template.templateId);
+                
+                if (template.isRequired || template.completionRequired) {
+                  requiredTemplateIds.push(template.templateId);
+                } else {
+                  optionalTemplateIds.push(template.templateId);
+                }
+              } catch (templateError) {
+                console.error(`Error processing template in section ${section.name}:`, templateError);
+                // Continue with other templates even if one fails
+              }
+            }
+          }
           
-          // Initial status
-          status: 'scheduled' as const,
-          completionPercentage: 0,
+          // Create the visit subcomponent even if templates had issues
+          const visitSubcomponent = {
+            id: this.generateId(),
+            patientId: patientId,
+            studyId: study.id || '',
+            name: section.name,
+            description: section.description || '',
+            type: section.type || 'treatment',
+            order: section.order,
+            phaseId: section.id,
+            phaseCode: `PHASE_${section.order}`,
+            isPhaseFolder: true,
+            
+            // Calculate visit window dates based on enrollment date and scheduled day
+            scheduledDate: section.scheduledDay ? 
+              new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
+              undefined,
+            windowStartDate: section.windowStart !== undefined ? 
+              new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
+              undefined,
+            windowEndDate: section.windowEnd !== undefined ? 
+              new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
+              undefined,
+            
+            // Initial status
+            status: 'scheduled' as const,
+            completionPercentage: 0,
+            
+            // Store both template IDs and full template objects
+            templateIds: templateIds,
+            requiredTemplateIds: requiredTemplateIds,
+            optionalTemplateIds: optionalTemplateIds,
+            formTemplates: formTemplates, // Store full template objects
+            completedTemplates: [],
+            inProgressTemplates: [],
+            
+            // Phase progression
+            canProgressToNextPhase: false,
+            blockingTemplates: requiredTemplateIds, // Only required templates block progression
+            
+            // Metadata
+            createdBy: userId,
+            createdAt: now,
+            lastModifiedBy: userId,
+            lastModifiedAt: now
+          };
           
-          // Copy form template IDs from section
-          templateIds: section.formTemplates || [],
-          requiredTemplateIds: section.formTemplates || [], // All templates are required by default
-          optionalTemplateIds: [],
-          completedTemplates: [],
-          inProgressTemplates: [],
-          
-          // Phase progression
-          canProgressToNextPhase: false,
-          blockingTemplates: section.formTemplates || [],
-          
-          // Metadata
-          createdBy: userId,
-          createdAt: now,
-          lastModifiedBy: userId,
-          lastModifiedAt: now
-        };
-        
-        visitSubcomponents.push(visitSubcomponent);
+          visitSubcomponents.push(visitSubcomponent);
+        } catch (sectionError) {
+          console.error(`Error processing section ${section.name}:`, sectionError);
+          // Still create a basic visit subcomponent even if there's an error
+          const fallbackVisitSubcomponent = {
+            id: this.generateId(),
+            patientId: patientId,
+            studyId: study.id || '',
+            name: section.name || 'Unknown Phase',
+            description: section.description || '',
+            type: section.type || 'treatment',
+            order: section.order || 0,
+            phaseId: section.id || this.generateId(),
+            phaseCode: `PHASE_${section.order || 0}`,
+            isPhaseFolder: true,
+            status: 'scheduled' as const,
+            completionPercentage: 0,
+            templateIds: [],
+            requiredTemplateIds: [],
+            optionalTemplateIds: [],
+            formTemplates: [],
+            completedTemplates: [],
+            inProgressTemplates: [],
+            canProgressToNextPhase: false,
+            blockingTemplates: [],
+            createdBy: userId,
+            createdAt: now,
+            lastModifiedBy: userId,
+            lastModifiedAt: now
+          };
+          visitSubcomponents.push(fallbackVisitSubcomponent);
+        }
       }
     }
 

@@ -98,6 +98,9 @@ export interface PatientVisitSubcomponent {
   completedTemplates: string[];
   inProgressTemplates: string[];
   
+  // Full template objects (copied from study for patient-specific data)
+  formTemplates?: any[]; // Full template objects with metadata
+  
   // Phase progression
   canProgressToNextPhase: boolean;
   blockingTemplates: string[]; // Templates blocking progression
