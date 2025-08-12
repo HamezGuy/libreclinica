@@ -117,6 +117,42 @@ service cloud.firestore {
       
       // Only admins can delete studies
       allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      
+      // Patient references subcollection under studies
+      match /patients/{patientId} {
+        // Read access for healthcare roles
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']);
+        
+        // Create access for healthcare roles
+        allow create: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        // Update access for healthcare roles
+        allow update: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        // Delete access for admins only
+        allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      }
+    }
+    
+    // Study Sections collection
+    match /studySections/{sectionId} {
+      // Read access for authenticated and active users
+      allow read: if isAuthenticated() && isActive();
+      
+      // Create access for admin and investigator roles
+      allow create: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) && isActive();
+      
+      // Update access for admin and investigator roles
+      allow update: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) && isActive();
+      
+      // Delete access for admins only
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Forms collection (eCRFs)

@@ -44,6 +44,7 @@ import {
   StudyFormInstanceStatus,
   SectionCompletionStatus
 } from '../models/study.model';
+import { StudyPatientReference } from '../models/study-patient-reference.model';
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { CloudAuditService } from './cloud-audit.service';
 import { AccessLevel } from '../enums/access-levels.enum';
@@ -321,20 +322,57 @@ export class StudyService implements IStudyService {
         throw new Error('User must be authenticated to delete studies');
       }
 
-      // Check if study has enrolled patients
-      const enrollments = await this.getPatientsByStudy(studyId);
-      if (enrollments.length > 0) {
-        throw new Error('Cannot delete study with enrolled patients. Archive the study instead.');
+      // Get all patient references from the study's subcollection
+      const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
+      const studyPatientsSnapshot = await getDocs(studyPatientsRef);
+      
+      // Start a batch operation for all deletions
+      const batch = writeBatch(this.firestore);
+      
+      // Delete all patient references and actual patient documents
+      for (const docSnapshot of studyPatientsSnapshot.docs) {
+        const patientRef = docSnapshot.data() as StudyPatientReference;
+        
+        // Delete the patient reference from the study subcollection
+        batch.delete(docSnapshot.ref);
+        
+        // Delete the actual patient document
+        const patientDoc = doc(this.firestore, 'patients', patientRef.patientId);
+        batch.delete(patientDoc);
+        
+        // Also delete patient's visitSubcomponents subcollection
+        const visitSubcomponentsRef = collection(this.firestore, `patients/${patientRef.patientId}/visitSubcomponents`);
+        const visitSubcomponentsSnapshot = await getDocs(visitSubcomponentsRef);
+        
+        for (const visitDoc of visitSubcomponentsSnapshot.docs) {
+          batch.delete(visitDoc.ref);
+          
+          // Delete formInstances under each visit subcomponent
+          const formInstancesRef = collection(this.firestore, `patients/${patientRef.patientId}/visitSubcomponents/${visitDoc.id}/formInstances`);
+          const formInstancesSnapshot = await getDocs(formInstancesRef);
+          
+          for (const formDoc of formInstancesSnapshot.docs) {
+            batch.delete(formDoc.ref);
+          }
+        }
       }
 
-      const studyRef = doc(this.firestore, 'studies', studyId);
+      // Delete any study sections/phases
+      const sectionsQuery = query(
+        collection(this.firestore, 'studySections'),
+        where('studyId', '==', studyId)
+      );
+      const sectionsSnapshot = await getDocs(sectionsQuery);
       
-      // Soft delete by updating status
-      await updateDoc(studyRef, {
-        status: 'terminated',
-        lastModifiedBy: currentUser.uid,
-        lastModifiedAt: serverTimestamp()
+      sectionsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
       });
+
+      // Delete the study document itself
+      const studyRef = doc(this.firestore, 'studies', studyId);
+      batch.delete(studyRef);
+      
+      await batch.commit();
 
       // Log audit event
       await this.auditService.logAuditEvent({
@@ -342,7 +380,11 @@ export class StudyService implements IStudyService {
         resourceType: 'study',
         resourceId: studyId,
         userId: currentUser.uid,
-        details: JSON.stringify({ reason })
+        details: JSON.stringify({ 
+          reason,
+          patientsDeleted: studyPatientsSnapshot.size,
+          sectionsDeleted: sectionsSnapshot.size
+        })
       });
     });
   }
@@ -914,6 +956,8 @@ export class StudyService implements IStudyService {
   }
 
   async getPatientsByStudy(studyId: string): Promise<PatientStudyEnrollment[]> {
+    // For now, return empty array since we're handling patient deletion directly in deleteStudy
+    // This method needs to be properly implemented when displaying patient enrollments
     return [];
   }
 

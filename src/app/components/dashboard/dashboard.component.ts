@@ -1357,19 +1357,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // Study Management Action Methods
-  deleteStudy(study: Study): void {
+  async deleteStudy(study: Study): Promise<void> {
     if (!this.permissions.canDelete) {
       alert('You do not have permission to delete studies');
       return;
     }
 
-    if (confirm(`Are you sure you want to delete the study "${study.title}"?`)) {
-      console.log('Deleting study:', study.title);
-      // TODO: Implement actual deletion via StudyService
-      // For now, remove from local array
-      this.studies = this.studies.filter(s => s.id !== study.id);
-      if (this.selectedStudy?.id === study.id) {
-        this.selectedStudy = null;
+    if (confirm(`Are you sure you want to delete the study "${study.title}"? This action cannot be undone.`)) {
+      try {
+        console.log('Deleting study:', study.title);
+        
+        // Actually delete the study from the database
+        await this.studyService.deleteStudy(study.id!, 'User requested deletion');
+        
+        // Clear selected study if it was the deleted one
+        if (this.selectedStudy?.id === study.id) {
+          this.selectedStudy = null;
+        }
+        
+        // The studies list will automatically update via the real-time listener
+        console.log('Study deleted successfully');
+      } catch (error) {
+        console.error('Error deleting study:', error);
+        alert(`Failed to delete study: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
