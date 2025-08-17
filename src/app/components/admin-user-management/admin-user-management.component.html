@@ -1,20 +1,16 @@
-<div class="admin-user-management">
+<html><head></head><body><div class="admin-user-management">
   <!-- Header Section -->
   <div class="management-header">
     <div class="header-content">
       <div class="title-section">
         <h1>
-          <span class="material-icons">group</span>
-          User Management
-        </h1>
+          <span class="material-icons">group</span>{{ 'admin-user.user_management' | translate }}</h1>
         <p class="subtitle">Manage users and permissions for {{ currentOrganization?.displayName }}</p>
       </div>
       
       <div class="header-actions" *ngIf="availableRoles.length > 0">
         <button class="btn btn-primary" (click)="openInviteModal()">
-          <span class="material-icons">person_add</span>
-          Invite User
-        </button>
+          <span class="material-icons">person_add</span>{{ 'admin-user.invite_user' | translate }}</button>
       </div>
     </div>
   </div>
@@ -22,7 +18,7 @@
   <!-- Loading State -->
   <div class="loading-container" *ngIf="isLoading">
     <div class="loading-spinner"></div>
-    <p>Loading user management data...</p>
+    <p>{{ 'admin-user.loading_user_management_data' | translate }}</p>
   </div>
 
   <!-- Main Content -->
@@ -30,7 +26,7 @@
     
     <!-- Messages -->
     <div class="message success" *ngIf="successMessage">
-      <span class="material-icons">check_circle</span>
+      <span class="material-icons">{{ 'admin-user.checkcircle' | translate }}</span>
       {{ successMessage }}
     </div>
     
@@ -42,9 +38,7 @@
     <!-- Pending Registration Requests -->
     <div class="pending-requests-section" *ngIf="pendingRequests.length > 0">
       <h2>
-        <span class="material-icons">pending</span>
-        Pending Registration Requests
-        <span class="count-badge">{{ pendingRequests.length }}</span>
+        <span class="material-icons">pending</span>{{ 'admin-user.pending_registration_requests' | translate }}<span class="count-badge">{{ pendingRequests.length }}</span>
       </h2>
       
       <div class="requests-grid">
@@ -53,7 +47,7 @@
             <div class="user-details">
               <h3>{{ request.firstName }} {{ request.lastName }}</h3>
               <p class="email">{{ request.email }}</p>
-              <p class="role">Requested Role: <span class="role-badge">{{ getRoleDisplayName(request.role) }}</span></p>
+              <p class="role">{{ 'admin-user.requested_role' | translate }}<span class="role-badge">{{ getRoleDisplayName(request.role) }}</span></p>
               <p class="department" *ngIf="request.department">Department: {{ request.department }}</p>
             </div>
             
@@ -63,21 +57,15 @@
                 {{ request.submittedAt | date:'short' }}
               </p>
               <p class="verification" *ngIf="request.isVerified">
-                <span class="material-icons verified">verified</span>
-                Organization Verified
-              </p>
+                <span class="material-icons verified">verified</span>{{ 'admin-user.organization_verified' | translate }}</p>
             </div>
           </div>
           
           <div class="request-actions">
             <button class="btn btn-success" (click)="approveRegistrationRequest(request)" [disabled]="isLoading">
-              <span class="material-icons">check</span>
-              Approve
-            </button>
+              <span class="material-icons">check</span>{{ 'admin-user.approve' | translate }}</button>
             <button class="btn btn-danger" (click)="rejectRegistrationRequest(request)" [disabled]="isLoading">
-              <span class="material-icons">close</span>
-              Reject
-            </button>
+              <span class="material-icons">close</span>{{ 'admin-user.reject' | translate }}</button>
           </div>
         </div>
       </div>
@@ -87,44 +75,37 @@
     <div class="users-section">
       <div class="section-header">
         <h2>
-          <span class="material-icons">people</span>
-          Organization Users
-          <span class="count-badge">{{ organizationUsers.length }}</span>
+          <span class="material-icons">people</span>{{ 'admin-user.organization_users' | translate }}<span class="count-badge">{{ organizationUsers.length }}</span>
         </h2>
         
         <!-- Filters -->
         <div class="filters">
           <div class="filter-group">
-            <label for="roleFilter">Role:</label>
+            <label for="roleFilter">{{ 'admin-user.role' | translate }}</label>
             <select id="roleFilter" (change)="onRoleFilterChange($event)">
-              <option value="all">All Roles</option>
-              <option value="data_entry">Data Entry</option>
-              <option value="investigator">Investigator</option>
-              <option value="admin">Administrator</option>
-              <option value="superadmin">Super Administrator</option>
+              <option value="all">{{ 'admin-user.all_roles' | translate }}</option>
+              <option value="data_entry">{{ 'admin-user.data_entry' | translate }}</option>
+              <option value="investigator">{{ 'admin-user.investigator' | translate }}</option>
+              <option value="admin">{{ 'admin-user.administrator' | translate }}</option>
+              <option value="superadmin">{{ 'admin-user.super_administrator' | translate }}</option>
             </select>
           </div>
           
           <div class="filter-group">
-            <label for="statusFilter">Status:</label>
+            <label for="statusFilter">{{ 'admin-user.status' | translate }}</label>
             <select id="statusFilter" (change)="onStatusFilterChange($event)">
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="suspended">Suspended</option>
+              <option value="all">{{ 'admin-user.all_status' | translate }}</option>
+              <option value="active">{{ 'admin-user.active' | translate }}</option>
+              <option value="pending">{{ 'admin-user.pending' | translate }}</option>
+              <option value="suspended">{{ 'admin-user.suspended' | translate }}</option>
             </select>
           </div>
           
           <div class="filter-group search-group">
-            <label for="searchInput">Search:</label>
+            <label for="searchInput">{{ 'admin-user.search' | translate }}</label>
             <div class="search-input">
               <span class="material-icons">search</span>
-              <input 
-                id="searchInput" 
-                type="text" 
-                placeholder="Search users..."
-                (input)="onSearchChange(asAny($event))"
-              >
+              <input id="searchInput" type="text" (input)="onSearchChange(asAny($event))" [placeholder]="'admin-user.search_users' | translate">
             </div>
           </div>
         </div>
@@ -132,12 +113,10 @@
       
       <!-- Users Grid -->
       <div class="users-grid">
-        <div class="user-card" 
-             *ngFor="let user of filteredUsers$ | async; trackBy: trackUser"
-             [class.current-user]="user.userId === currentUser?.uid">
+        <div class="user-card" *ngFor="let user of filteredUsers$ | async; trackBy: trackUser" [class.current-user]="user.userId === currentUser?.uid">
           
           <div class="user-avatar">
-            <span class="material-icons">account_circle</span>
+            <span class="material-icons">{{ 'admin-user.accountcircle' | translate }}</span>
           </div>
           
           <div class="user-info">
@@ -152,7 +131,7 @@
               <span class="status-badge" [class]="getStatusClass(user.status)">
                 {{ getStatusDisplayName(user.status) }}
               </span>
-              <span class="current-user-badge" *ngIf="user.userId === currentUser?.uid">You</span>
+              <span class="current-user-badge" *ngIf="user.userId === currentUser?.uid">{{ 'admin-user.you' | translate }}</span>
             </div>
           </div>
           
@@ -160,35 +139,29 @@
             <div class="stat">
               <span class="material-icons">assignment</span>
               <span class="count">{{ user.studyAccess?.length || 0 }}</span>
-              <span class="label">Studies</span>
+              <span class="label">{{ 'admin-user.studies' | translate }}</span>
             </div>
             <div class="stat">
-              <span class="material-icons">schedule</span>
+              <span class="material-icons">{{ 'admin-user.schedule' | translate }}</span>
               <span class="date">{{ (user.lastLoginAt | date:'short') || 'Never' }}</span>
-              <span class="label">Last Login</span>
+              <span class="label">{{ 'admin-user.last_login' | translate }}</span>
             </div>
           </div>
           
           <div class="user-actions" *ngIf="canManageUser(user)">
-            <button class="btn btn-icon" (click)="selectUser(user)" title="View Details">
+            <button class="btn btn-icon" (click)="selectUser(user)" [title]="'common.viewDetails' | translate">
               <span class="material-icons">visibility</span>
             </button>
-            <button class="btn btn-icon" (click)="openRoleChangeModal(user)" title="Change Role">
+            <button class="btn btn-icon" (click)="openRoleChangeModal(user)" [title]="'admin-user.change_role' | translate">
               <span class="material-icons">edit</span>
             </button>
-            <button class="btn btn-icon" (click)="openStudyAccessModal(user)" title="Manage Study Access">
+            <button class="btn btn-icon" (click)="openStudyAccessModal(user)" [title]="'admin-user.manage_study_access' | translate">
               <span class="material-icons">security</span>
             </button>
-            <button class="btn btn-icon danger" 
-                    *ngIf="user.status === 'active'"
-                    (click)="suspendUser(user)" 
-                    title="Suspend User">
+            <button class="btn btn-icon danger" *ngIf="user.status === 'active'" (click)="suspendUser(user)" [title]="'admin-user.suspend_user' | translate">
               <span class="material-icons">block</span>
             </button>
-            <button class="btn btn-icon success" 
-                    *ngIf="user.status === 'suspended'"
-                    (click)="reactivateUser(user)" 
-                    title="Reactivate User">
+            <button class="btn btn-icon success" *ngIf="user.status === 'suspended'" (click)="reactivateUser(user)" [title]="'admin-user.reactivate_user' | translate">
               <span class="material-icons">check_circle</span>
             </button>
           </div>
@@ -198,8 +171,8 @@
       <!-- Empty State -->
       <div class="empty-state" *ngIf="(filteredUsers$ | async)?.length === 0">
         <span class="material-icons">people_outline</span>
-        <h3>No users found</h3>
-        <p>Try adjusting your filters or invite new users to get started.</p>
+        <h3>{{ 'admin-user.no_users_found' | translate }}</h3>
+        <p>{{ 'admin-user.try_adjusting_your_filters_or_invite_new_users_to_' | translate }}</p>
       </div>
     </div>
   </div>
@@ -209,11 +182,9 @@
     <div class="modal user-details-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>
-          <span class="material-icons">person</span>
-          User Details
-        </h2>
+          <span class="material-icons">person</span>{{ 'admin-user.user_details' | translate }}</h2>
         <button class="btn btn-icon" (click)="closeModal()">
-          <span class="material-icons">close</span>
+          <span class="material-icons">{{ 'common.close' | translate }}</span>
         </button>
       </div>
       
@@ -239,43 +210,43 @@
           
           <div class="profile-details">
             <div class="detail-section">
-              <h4>Contact Information</h4>
+              <h4>{{ 'admin-user.contact_information' | translate }}</h4>
               <div class="detail-grid">
                 <div class="detail-item">
-                  <label>Email:</label>
+                  <label>{{ 'admin-user.email' | translate }}</label>
                   <span>{{ selectedUser.email }}</span>
                 </div>
                 <div class="detail-item" *ngIf="selectedUser.department">
-                  <label>Department:</label>
+                  <label>{{ 'admin-user.department' | translate }}</label>
                   <span>{{ selectedUser.department }}</span>
                 </div>
               </div>
             </div>
             
             <div class="detail-section">
-              <h4>Account Information</h4>
+              <h4>{{ 'admin-user.account_information' | translate }}</h4>
               <div class="detail-grid">
                 <div class="detail-item">
-                  <label>Role:</label>
+                  <label>{{ 'admin-user.role' | translate }}</label>
                   <span>{{ getRoleDisplayName(selectedUser.role) }}</span>
                 </div>
                 <div class="detail-item">
-                  <label>Status:</label>
+                  <label>{{ 'admin-user.status' | translate }}</label>
                   <span>{{ getStatusDisplayName(selectedUser.status) }}</span>
                 </div>
                 <div class="detail-item">
-                  <label>Joined:</label>
+                  <label>{{ 'admin-user.joined' | translate }}</label>
                   <span>{{ selectedUser.joinedAt | date:'medium' }}</span>
                 </div>
                 <div class="detail-item">
-                  <label>Last Login:</label>
+                  <label>{{ 'admin-user.last_login' | translate }}</label>
                   <span>{{ (selectedUser.lastLoginAt | date:'medium') || 'Never' }}</span>
                 </div>
               </div>
             </div>
             
             <div class="detail-section" *ngIf="selectedUser.studyAccess && selectedUser.studyAccess.length > 0">
-              <h4>Study Access</h4>
+              <h4>{{ 'admin-user.study_access' | translate }}</h4>
               <div class="study-access-list">
                 <div class="study-access-item" *ngFor="let access of selectedUser.studyAccess">
                   <div class="study-info">
@@ -299,66 +270,40 @@
     <div class="modal invite-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>
-          <span class="material-icons">person_add</span>
-          Invite User
-        </h2>
+          <span class="material-icons">person_add</span>{{ 'admin-user.invite_user' | translate }}</h2>
         <button class="btn btn-icon" (click)="closeModal()">
-          <span class="material-icons">close</span>
+          <span class="material-icons">{{ 'common.close' | translate }}</span>
         </button>
       </div>
       
       <form [formGroup]="inviteForm" (ngSubmit)="inviteUser()" class="modal-content">
         <div class="form-section">
-          <h3>User Information</h3>
+          <h3>{{ 'admin-user.user_information' | translate }}</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="inviteEmail">Email Address *</label>
-              <input 
-                id="inviteEmail"
-                type="email" 
-                formControlName="email"
-                placeholder="user@example.com"
-                [class.error]="inviteForm.get('email')?.invalid && inviteForm.get('email')?.touched"
-              >
-              <div class="error-message" *ngIf="inviteForm.get('email')?.invalid && inviteForm.get('email')?.touched">
-                Please enter a valid email address
-              </div>
+              <label for="inviteEmail">{{ 'admin-user.email_address_' | translate }}</label>
+              <input id="inviteEmail" type="email" formControlName="email" [class.error]="inviteForm.get('email')?.invalid && inviteForm.get('email')?.touched" [placeholder]="'admin-user.userexamplecom' | translate">
+              <div class="error-message" *ngIf="inviteForm.get('email')?.invalid && inviteForm.get('email')?.touched">{{ 'admin-user.please_enter_a_valid_email_address' | translate }}</div>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="inviteFirstName">First Name *</label>
-              <input 
-                id="inviteFirstName"
-                type="text" 
-                formControlName="firstName"
-                placeholder="John"
-                [class.error]="inviteForm.get('firstName')?.invalid && inviteForm.get('firstName')?.touched"
-              >
-              <div class="error-message" *ngIf="inviteForm.get('firstName')?.invalid && inviteForm.get('firstName')?.touched">
-                First name is required
-              </div>
+              <label for="inviteFirstName">{{ 'admin-user.first_name_' | translate }}</label>
+              <input id="inviteFirstName" type="text" formControlName="firstName" [class.error]="inviteForm.get('firstName')?.invalid && inviteForm.get('firstName')?.touched" [placeholder]="'admin-user.john' | translate">
+              <div class="error-message" *ngIf="inviteForm.get('firstName')?.invalid && inviteForm.get('firstName')?.touched">{{ 'admin-user.first_name_is_required' | translate }}</div>
             </div>
             
             <div class="form-group">
-              <label for="inviteLastName">Last Name *</label>
-              <input 
-                id="inviteLastName"
-                type="text" 
-                formControlName="lastName"
-                placeholder="Doe"
-                [class.error]="inviteForm.get('lastName')?.invalid && inviteForm.get('lastName')?.touched"
-              >
-              <div class="error-message" *ngIf="inviteForm.get('lastName')?.invalid && inviteForm.get('lastName')?.touched">
-                Last name is required
-              </div>
+              <label for="inviteLastName">{{ 'admin-user.last_name_' | translate }}</label>
+              <input id="inviteLastName" type="text" formControlName="lastName" [class.error]="inviteForm.get('lastName')?.invalid && inviteForm.get('lastName')?.touched" [placeholder]="'admin-user.doe' | translate">
+              <div class="error-message" *ngIf="inviteForm.get('lastName')?.invalid && inviteForm.get('lastName')?.touched">{{ 'admin-user.last_name_is_required' | translate }}</div>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="inviteRole">Role *</label>
+              <label for="inviteRole">{{ 'admin-user.role_' | translate }}</label>
               <select id="inviteRole" formControlName="role">
                 <option *ngFor="let role of availableRoles" [value]="role">
                   {{ getRoleDisplayName(role) }}
@@ -367,33 +312,21 @@
             </div>
             
             <div class="form-group">
-              <label for="inviteDepartment">Department</label>
-              <input 
-                id="inviteDepartment"
-                type="text" 
-                formControlName="department"
-                placeholder="Clinical Research"
-              >
+              <label for="inviteDepartment">{{ 'admin-user.department' | translate }}</label>
+              <input id="inviteDepartment" type="text" formControlName="department" [placeholder]="'admin-user.clinical_research' | translate">
             </div>
           </div>
           
           <div class="form-group">
-            <label for="inviteMessage">Invitation Message</label>
-            <textarea 
-              id="inviteMessage"
-              formControlName="message"
-              placeholder="Welcome to our clinical research team! You'll receive login instructions shortly."
-              rows="3"
-            ></textarea>
+            <label for="inviteMessage">{{ 'admin-user.invitation_message' | translate }}</label>
+            <textarea id="inviteMessage" formControlName="message" rows="3" [placeholder]="'admin-user.welcome_to_our_clinical_research_team_youll_receiv' | translate"></textarea>
           </div>
         </div>
         
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">{{ 'common.cancel' | translate }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="inviteForm.invalid || isLoading">
-            <span class="material-icons">send</span>
-            Send Invitation
-          </button>
+            <span class="material-icons">send</span>{{ 'admin-user.send_invitation' | translate }}</button>
         </div>
       </form>
     </div>
@@ -404,46 +337,34 @@
     <div class="modal role-change-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>
-          <span class="material-icons">edit</span>
-          Change User Role
-        </h2>
+          <span class="material-icons">edit</span>{{ 'admin-user.change_user_role' | translate }}</h2>
         <button class="btn btn-icon" (click)="closeModal()">
-          <span class="material-icons">close</span>
+          <span class="material-icons">{{ 'common.close' | translate }}</span>
         </button>
       </div>
       
       <form [formGroup]="roleChangeForm" (ngSubmit)="changeUserRole()" class="modal-content">
         <div class="form-section">
           <div class="form-group">
-            <label for="newRole">New Role *</label>
+            <label for="newRole">{{ 'admin-user.new_role_' | translate }}</label>
             <select id="newRole" formControlName="newRole">
-              <option *ngFor="let role of availableRoles" [value]="role">
+              <option *ngfor="let role of availableRoles" [value]="role">
                 {{ getRoleDisplayName(role) }}
               </option>
             </select>
           </div>
           
           <div class="form-group">
-            <label for="roleChangeReason">Reason for Change *</label>
-            <textarea 
-              id="roleChangeReason"
-              formControlName="reason"
-              placeholder="Explain why this role change is necessary..."
-              rows="3"
-              [class.error]="roleChangeForm.get('reason')?.invalid && roleChangeForm.get('reason')?.touched"
-            ></textarea>
-            <div class="error-message" *ngIf="roleChangeForm.get('reason')?.invalid && roleChangeForm.get('reason')?.touched">
-              Please provide a reason for the role change
-            </div>
+            <label for="roleChangeReason">{{ 'admin-user.reason_for_change_' | translate }}</label>
+            <textarea id="roleChangeReason" formControlName="reason" rows="3" [class.error]="roleChangeForm.get('reason')?.invalid && roleChangeForm.get('reason')?.touched" [placeholder]="'admin-user.explain_why_this_role_change_is_necessary' | translate"></textarea>
+            <div class="error-message" *ngIf="roleChangeForm.get('reason')?.invalid && roleChangeForm.get('reason')?.touched">{{ 'admin-user.please_provide_a_reason_for_the_role_change' | translate }}</div>
           </div>
         </div>
         
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">{{ 'common.cancel' | translate }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="roleChangeForm.invalid || isLoading">
-            <span class="material-icons">save</span>
-            Update Role
-          </button>
+            <span class="material-icons">save</span>{{ 'admin-user.update_role' | translate }}</button>
         </div>
       </form>
     </div>
@@ -454,35 +375,29 @@
     <div class="modal study-access-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>
-          <span class="material-icons">security</span>
-          Manage Study Access
-        </h2>
+          <span class="material-icons">security</span>{{ 'admin-user.manage_study_access' | translate }}</h2>
         <button class="btn btn-icon" (click)="closeModal()">
-          <span class="material-icons">close</span>
+          <span class="material-icons">{{ 'common.close' | translate }}</span>
         </button>
       </div>
       
       <form [formGroup]="studyAccessForm" (ngSubmit)="updateStudyAccess()" class="modal-content">
         <div class="form-section">
           <div class="form-group">
-            <label for="accessLevel">Access Level *</label>
+            <label for="accessLevel">{{ 'admin-user.access_level_' | translate }}</label>
             <select id="accessLevel" formControlName="accessLevel">
-              <option value="read">Read Only</option>
-              <option value="write">Read & Write</option>
-              <option value="admin">Full Admin</option>
+              <option value="read">{{ 'admin-user.read_only' | translate }}</option>
+              <option value="write">{{ 'admin-user.read_write' | translate }}</option>
+              <option value="admin">{{ 'admin-user.full_admin' | translate }}</option>
             </select>
           </div>
           
           <div class="form-group">
-            <label>Study Access</label>
+            <label>{{ 'admin-user.study_access' | translate }}</label>
             <div class="study-selection">
               <div class="study-option" *ngFor="let study of availableStudies; trackBy: trackStudy">
                 <label class="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    [value]="study.id"
-                    (change)="onStudySelectionChange(asAny($event), study.id!)"
-                  >
+                  <input type="checkbox" [value]="study.id" (change)="onStudySelectionChange(asAny($event), study.id!)">
                   <span class="checkmark"></span>
                   <div class="study-info">
                     <h4>{{ study.title }}</h4>
@@ -496,13 +411,12 @@
         </div>
         
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">{{ 'common.cancel' | translate }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="studyAccessForm.invalid || isLoading">
-            <span class="material-icons">save</span>
-            Update Access
-          </button>
+            <span class="material-icons">save</span>{{ 'admin-user.update_access' | translate }}</button>
         </div>
       </form>
     </div>
   </div>
 </div>
+</body></html>

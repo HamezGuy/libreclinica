@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Va
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { Subject, takeUntil } from 'rxjs';
 import { Router } from '@angular/router';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 import { FormTemplate, FormField, FieldType, ValidationRule, FormFieldGroup, TemplateType, PhiFieldType, PhiClassification } from '../../models/form-template.model';
 import { FormTemplateService } from '../../services/form-template.service';
@@ -31,7 +32,7 @@ interface ValidationRuleOption {
 @Component({
   selector: 'app-form-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, DragDropModule, FormPreviewComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DragDropModule, FormPreviewComponent, TranslatePipe],
   templateUrl: './form-builder.component.html',
   styleUrls: ['./form-builder.component.scss']
 })

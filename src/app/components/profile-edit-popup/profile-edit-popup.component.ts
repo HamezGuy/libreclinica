@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { UserProfile } from '../../models/user-profile.model';
 import { AccessLevel, UserStatus, ComplianceRegion } from '../../enums/access-levels.enum';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
+import { LanguageService, Language } from '../../services/language.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-profile-edit-popup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './profile-edit-popup.component.html',
   styleUrls: ['./profile-edit-popup.component.scss']
 })
@@ -19,6 +21,7 @@ export class ProfileEditPopupComponent implements OnInit {
   @Output() profileUpdated = new EventEmitter<UserProfile>();
 
   private authService = inject(EdcCompliantAuthService);
+  private languageService = inject(LanguageService);
 
   // Form model
   profileForm: {
@@ -31,6 +34,7 @@ export class ProfileEditPopupComponent implements OnInit {
     accessLevel: AccessLevel;
     status: UserStatus;
     complianceRegion: ComplianceRegion;
+    language: string;
   } = {
     displayName: '',
     username: '',
@@ -40,7 +44,8 @@ export class ProfileEditPopupComponent implements OnInit {
     title: '',
     accessLevel: AccessLevel.VIEWER,
     status: UserStatus.ACTIVE,
-    complianceRegion: ComplianceRegion.GLOBAL
+    complianceRegion: ComplianceRegion.GLOBAL,
+    language: 'en'
   };
 
   // Enum references for template
@@ -52,11 +57,19 @@ export class ProfileEditPopupComponent implements OnInit {
   accessLevelOptions = Object.values(AccessLevel);
   userStatusOptions = Object.values(UserStatus);
   complianceRegionOptions = Object.values(ComplianceRegion);
+  
+  // Language options
+  availableLanguages: Language[] = [];
+  currentLanguage: Language | null = null;
 
   isLoading = false;
   errorMessage = '';
 
   ngOnInit(): void {
+    // Load available languages
+    this.availableLanguages = this.languageService.getLanguages();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+    
     if (this.userProfile) {
       this.populateForm();
     }
@@ -75,6 +88,7 @@ export class ProfileEditPopupComponent implements OnInit {
       displayName: this.userProfile.displayName || '',
       username: this.userProfile.username || '',
       email: this.userProfile.email || '',
+      language: this.currentLanguage?.code || 'en',
       phoneNumber: this.userProfile.phoneNumber || '',
       organization: this.userProfile.organization || '',
       title: this.userProfile.title || '',
@@ -119,6 +133,12 @@ export class ProfileEditPopupComponent implements OnInit {
       }
       if (this.profileForm.complianceRegion !== this.userProfile.complianceRegion) {
         updates.complianceRegion = this.profileForm.complianceRegion;
+      }
+      
+      // Check if language changed
+      if (this.profileForm.language !== this.currentLanguage?.code) {
+        // Set the new language (this will handle the UI update)
+        this.languageService.setLanguage(this.profileForm.language);
       }
 
       // Only update if there are changes

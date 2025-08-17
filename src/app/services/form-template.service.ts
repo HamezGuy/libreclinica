@@ -87,8 +87,7 @@ export class FormTemplateService {
         orderBy('updatedAt', 'desc')
       );
     }
-
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => {
           const data = doc.data();
@@ -455,7 +454,7 @@ export class FormTemplateService {
       orderBy('updatedAt', 'desc')
     );
 
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => ({
           ...doc.data(),
@@ -476,7 +475,7 @@ export class FormTemplateService {
       orderBy('updatedAt', 'desc')
     );
 
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => ({
           ...doc.data(),
@@ -500,18 +499,20 @@ export class FormTemplateService {
       throw new Error('Insufficient permissions to assign templates');
     }
 
-    const batch = writeBatch(this.firestore);
-    
-    for (const templateId of templateIds) {
-      const templateRef = doc(this.firestore, 'formTemplates', templateId);
-      batch.update(templateRef, {
-        patientVisitSubcomponentId,
-        lastModifiedBy: currentUser.uid,
-        lastModifiedAt: serverTimestamp()
-      });
-    }
+    await runInInjectionContext(this.injector, async () => {
+      const batch = writeBatch(this.firestore);
+      
+      for (const templateId of templateIds) {
+        const templateRef = doc(this.firestore, 'formTemplates', templateId);
+        batch.update(templateRef, {
+          patientVisitSubcomponentId,
+          lastModifiedBy: currentUser.uid,
+          lastModifiedAt: serverTimestamp()
+        });
+      }
 
-    await batch.commit();
+      await batch.commit();
+    });
 
     // Emit events for each template assignment
     for (const templateId of templateIds) {

@@ -3,13 +3,14 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractContro
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { EdcCompliantAuthService } from '../../../services/edc-compliant-auth.service';
+import { TranslatePipe } from '../../../pipes/translate.pipe';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, TranslatePipe],
   templateUrl: './register.component.html',
   styleUrls: ['./register.component.scss']
 })
@@ -103,7 +104,6 @@ export class RegisterComponent implements OnInit, OnDestroy {
       
       await this.authService.register({ 
         displayName: formData.displayName.trim(), 
-        username: formData.username.trim().toLowerCase(), 
         email: formData.email.trim().toLowerCase(), 
         password: formData.password,
         role: formData.role,

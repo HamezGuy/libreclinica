@@ -403,7 +403,7 @@ export class FormInstanceService {
       orderBy('createdAt', 'desc')
     );
 
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => ({
           id: doc.id,
@@ -424,7 +424,7 @@ export class FormInstanceService {
       orderBy('createdAt', 'desc')
     );
 
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => ({
           id: doc.id,
@@ -449,7 +449,7 @@ export class FormInstanceService {
       orderBy('createdAt', 'desc')
     );
 
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => 
         snapshot.docs.map(doc => ({
           id: doc.id,
@@ -471,22 +471,23 @@ export class FormInstanceService {
     if (!currentUser) throw new Error('User not authenticated');
 
     try {
-      // Upload file using Cloud Functions
-      const uploadFn = httpsCallable<{
-        instanceId: string;
-        fieldId: string;
-        fileName: string;
-        fileType: string;
-        fileData: string; // base64 encoded
-      }, FormAttachment>(this.functions, 'uploadFormAttachment');
-
+      // Upload file using Cloud Functions within Angular injection context
       const fileData = await this.fileToBase64(file);
-      const result = await uploadFn({
-        instanceId,
-        fieldId,
-        fileName: file.name,
-        fileType: file.type,
-        fileData
+      const result = await runInInjectionContext(this.injector, async () => {
+        const uploadFn = httpsCallable<{
+          instanceId: string;
+          fieldId: string;
+          fileName: string;
+          fileType: string;
+          fileData: string; // base64 encoded
+        }, FormAttachment>(this.functions, 'uploadFormAttachment');
+        return await uploadFn({
+          instanceId,
+          fieldId,
+          fileName: file.name,
+          fileType: file.type,
+          fileData
+        });
       });
 
       const attachment = result.data;

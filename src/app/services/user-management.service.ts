@@ -1,4 +1,4 @@
-import { Injectable, inject, Inject } from '@angular/core';
+import { Injectable, inject, Inject, Injector, runInInjectionContext } from '@angular/core';
 import { 
   Firestore, 
   doc, 
@@ -21,6 +21,7 @@ import { EVENT_BUS_TOKEN } from '../core/injection-tokens';
 })
 export class UserManagementService {
   private firestore = inject(Firestore);
+  private injector: Injector = inject(Injector);
 
   constructor(@Inject(EVENT_BUS_TOKEN) private eventBus: IEventBus) {}
 
@@ -33,47 +34,49 @@ export class UserManagementService {
     changedBy: string,
     reason?: string
   ): Promise<void> {
-    try {
-      // Get current user profile to capture old role
-      const userRef = doc(this.firestore, 'users', targetUserId);
-      const userDoc = await getDoc(userRef);
-      
-      if (!userDoc.exists()) {
-        throw new Error('User not found');
+    return await runInInjectionContext(this.injector, async () => {
+      try {
+        // Get current user profile to capture old role
+        const userRef = doc(this.firestore, 'users', targetUserId);
+        const userDoc = await getDoc(userRef);
+
+        if (!userDoc.exists()) {
+          throw new Error('User not found');
+        }
+
+        const currentProfile = userDoc.data() as UserProfile;
+        const oldRole = currentProfile.accessLevel;
+
+        // Update the user's role and permissions
+        const newPermissions = this.getDefaultPermissions(newAccessLevel);
+
+        await updateDoc(userRef, {
+          accessLevel: newAccessLevel,
+          permissions: newPermissions,
+          updatedAt: serverTimestamp()
+        });
+
+        // Publish role changed event
+        const roleChangedEvent: UserRoleChangedEvent = {
+          id: `role_changed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: 'USER_ROLE_CHANGED',
+          timestamp: new Date(),
+          userId: changedBy,
+          targetUserId: targetUserId,
+          targetUserEmail: currentProfile.email,
+          oldRole: oldRole,
+          newRole: newAccessLevel,
+          changedBy: changedBy,
+          reason: reason
+        };
+
+        this.eventBus.publish(roleChangedEvent);
+
+      } catch (error) {
+        console.error('Error updating user access level:', error);
+        throw error;
       }
-      
-      const currentProfile = userDoc.data() as UserProfile;
-      const oldRole = currentProfile.accessLevel;
-      
-      // Update the user's role and permissions
-      const newPermissions = this.getDefaultPermissions(newAccessLevel);
-      
-      await updateDoc(userRef, {
-        accessLevel: newAccessLevel,
-        permissions: newPermissions,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Publish role changed event
-      const roleChangedEvent: UserRoleChangedEvent = {
-        id: `role_changed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'USER_ROLE_CHANGED',
-        timestamp: new Date(),
-        userId: changedBy,
-        targetUserId: targetUserId,
-        targetUserEmail: currentProfile.email,
-        oldRole: oldRole,
-        newRole: newAccessLevel,
-        changedBy: changedBy,
-        reason: reason
-      };
-      
-      this.eventBus.publish(roleChangedEvent);
-      
-    } catch (error) {
-      console.error('Error updating user access level:', error);
-      throw error;
-    }
+    });
   }
 
   /**
@@ -85,44 +88,46 @@ export class UserManagementService {
     changedBy: string,
     reason?: string
   ): Promise<void> {
-    try {
-      // Get current user profile to capture old status
-      const userRef = doc(this.firestore, 'users', targetUserId);
-      const userDoc = await getDoc(userRef);
-      
-      if (!userDoc.exists()) {
-        throw new Error('User not found');
+    return await runInInjectionContext(this.injector, async () => {
+      try {
+        // Get current user profile to capture old status
+        const userRef = doc(this.firestore, 'users', targetUserId);
+        const userDoc = await getDoc(userRef);
+
+        if (!userDoc.exists()) {
+          throw new Error('User not found');
+        }
+
+        const currentProfile = userDoc.data() as UserProfile;
+        const oldStatus = currentProfile.status;
+
+        // Update the user's status
+        await updateDoc(userRef, {
+          status: newStatus,
+          updatedAt: serverTimestamp()
+        });
+
+        // Publish status changed event
+        const statusChangedEvent: UserStatusChangedEvent = {
+          id: `status_changed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: 'USER_STATUS_CHANGED',
+          timestamp: new Date(),
+          userId: changedBy,
+          targetUserId: targetUserId,
+          targetUserEmail: currentProfile.email,
+          oldStatus: oldStatus,
+          newStatus: newStatus,
+          changedBy: changedBy,
+          reason: reason
+        };
+
+        this.eventBus.publish(statusChangedEvent);
+
+      } catch (error) {
+        console.error('Error updating user status:', error);
+        throw error;
       }
-      
-      const currentProfile = userDoc.data() as UserProfile;
-      const oldStatus = currentProfile.status;
-      
-      // Update the user's status
-      await updateDoc(userRef, {
-        status: newStatus,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Publish status changed event
-      const statusChangedEvent: UserStatusChangedEvent = {
-        id: `status_changed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'USER_STATUS_CHANGED',
-        timestamp: new Date(),
-        userId: changedBy,
-        targetUserId: targetUserId,
-        targetUserEmail: currentProfile.email,
-        oldStatus: oldStatus,
-        newStatus: newStatus,
-        changedBy: changedBy,
-        reason: reason
-      };
-      
-      this.eventBus.publish(statusChangedEvent);
-      
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      throw error;
-    }
+    });
   }
 
   /**
@@ -177,16 +182,18 @@ export class UserManagementService {
    * Get user profile
    */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
-    try {
-      const userDoc = await getDoc(doc(this.firestore, 'users', userId));
-      if (userDoc.exists()) {
-        return userDoc.data() as UserProfile;
+    return await runInInjectionContext(this.injector, async () => {
+      try {
+        const userDoc = await getDoc(doc(this.firestore, 'users', userId));
+        if (userDoc.exists()) {
+          return userDoc.data() as UserProfile;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error getting user profile:', error);
+        return null;
       }
-      return null;
-    } catch (error) {
-      console.error('Error getting user profile:', error);
-      return null;
-    }
+    });
   }
 
   /**

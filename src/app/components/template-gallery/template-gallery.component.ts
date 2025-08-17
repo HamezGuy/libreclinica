@@ -2,11 +2,12 @@ import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormTemplate } from '../../models/form-template.model';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-template-gallery',
   standalone: true,
-  imports: [CommonModule, FormPreviewComponent],
+  imports: [CommonModule, FormPreviewComponent, TranslatePipe],
   templateUrl: './template-gallery.component.html',
   styleUrls: ['./template-gallery.component.scss']
 })

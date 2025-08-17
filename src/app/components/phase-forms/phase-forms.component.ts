@@ -10,11 +10,12 @@ import { FormInstance } from '../../models/form-template.model';
 import { PatientVisitSubcomponent } from '../../models/patient.model';
 import { PatientPhaseProgress } from '../../models/study-phase.model';
 import { FormViewerComponent } from '../form-viewer/form-viewer.component';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-phase-forms',
   standalone: true,
-  imports: [CommonModule, FormViewerComponent],
+  imports: [CommonModule, FormViewerComponent, TranslatePipe],
   templateUrl: './phase-forms.component.html',
   styleUrls: ['./phase-forms.component.scss']
 })

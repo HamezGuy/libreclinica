@@ -1,9 +1,6 @@
 <div class="template-gallery">
   <div class="gallery-grid">
-    <div class="template-card" 
-         *ngFor="let template of templates"
-         [class.selected]="template.id && isSelected(template.id)"
-         (click)="onTemplateClick(template)">
+    <div class="template-card" *ngFor="let template of templates" [class.selected]="template.id &amp;&amp; isSelected(template.id)" (click)="onTemplateClick(template)">
       
       <!-- Template Preview Area -->
       <div class="template-preview">
@@ -55,8 +52,7 @@
         
         <div class="template-badges">
           <span class="badge badge-phi" *ngIf="template.isPatientTemplate || template.isStudySubjectTemplate">
-            <i class="material-icons">lock</i> PHI
-          </span>
+            <i class="material-icons">lock</i>{{ 'template.phi' | translate }}</span>
           <span class="badge badge-version">
             v{{ template.version }}
           </span>
@@ -67,7 +63,7 @@
       </div>
       
       <!-- Selected Indicator -->
-      <div class="selected-indicator" *ngIf="template.id && isSelected(template.id)">
+      <div class="selected-indicator" *ngIf="template.id &amp;&amp; isSelected(template.id)">
         <i class="material-icons">check_circle</i>
       </div>
     </div>
@@ -76,32 +72,29 @@
   <!-- Empty State -->
   <div class="empty-state" *ngIf="templates.length === 0">
     <i class="material-icons">folder_open</i>
-    <p>No templates available</p>
+    <p>{{ 'template.no_templates_available' | translate }}</p>
   </div>
 </div>
 
 <!-- Template Preview Modal -->
-<div class="preview-modal" *ngIf="showPreview && previewTemplate" (click)="closePreview()">
+<div class="preview-modal" *ngIf="showPreview &amp;&amp; previewTemplate as pt" (click)="closePreview()">
   <div class="preview-content" (click)="$event.stopPropagation()">
     <div class="preview-header">
-      <h2>{{ previewTemplate.name }}</h2>
+      <h2>{{ pt.name }}</h2>
       <button class="close-btn" (click)="closePreview()">
         <i class="material-icons">close</i>
       </button>
     </div>
     
     <div class="preview-body">
-      <app-form-preview 
-        [template]="previewTemplate"
-        [readonly]="true">
+      <app-form-preview [template]="pt" [readonly]="true">
       </app-form-preview>
     </div>
     
     <div class="preview-footer">
-      <button class="btn btn-secondary" (click)="closePreview()">Cancel</button>
-      <button class="btn btn-primary" (click)="onSelectTemplate(previewTemplate)">
-        <i class="material-icons">add</i> Add to Phase
-      </button>
+      <button class="btn btn-secondary" (click)="closePreview()">{{ 'common.cancel' | translate }}</button>
+      <button class="btn btn-primary" (click)="onSelectTemplate(pt)">
+        <i class="material-icons">add</i>{{ 'template.add_to_phase' | translate }}</button>
     </div>
   </div>
 </div>

@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { OrganizationService } from '../../services/organization.service';
 import { Organization } from '../../models/organization.model';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-authentication',
@@ -29,7 +30,8 @@ import { Organization } from '../../models/organization.model';
     MatTabsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule
+    MatSelectModule,
+    TranslatePipe
   ],
   templateUrl: './authentication.component.html',
   styleUrls: ['./authentication.component.scss']

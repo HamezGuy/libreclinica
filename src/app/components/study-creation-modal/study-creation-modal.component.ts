@@ -7,11 +7,12 @@ import { FormTemplate } from '../../models/form-template.model';
 import { FormTemplateService } from '../../services/form-template.service';
 import { StudyService } from '../../services/study.service';
 import { TemplateGalleryComponent } from '../template-gallery/template-gallery.component';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-study-creation-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TemplateGalleryComponent],
+  imports: [CommonModule, ReactiveFormsModule, TemplateGalleryComponent, TranslatePipe],
   templateUrl: './study-creation-modal.component.html',
   styleUrls: ['./study-creation-modal.component.scss']
 })

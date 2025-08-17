@@ -2,24 +2,22 @@
   <!-- Loading State -->
   <div *ngIf="isLoading" class="loading-state">
     <div class="spinner"></div>
-    <p>Loading phase forms...</p>
+    <p>{{ 'phase-forms.loading_phase_forms' | translate }}</p>
   </div>
 
   <!-- Error State -->
-  <div *ngIf="error && !isLoading" class="error-state">
+  <div *ngIf="error &amp;&amp; !isLoading" class="error-state">
     <span class="material-icons">error_outline</span>
     <p>{{ error }}</p>
-    <button class="btn-primary" (click)="loadPhaseData()">Retry</button>
+    <button class="btn-primary" (click)="loadPhaseData()">{{ 'phase-forms.retry' | translate }}</button>
   </div>
 
   <!-- Main Content -->
-  <div *ngIf="!isLoading && !error" class="phase-content">
+  <div *ngIf="!isLoading &amp;&amp; !error" class="phase-content">
     <!-- Header -->
     <div class="phase-header">
       <button class="back-button" (click)="goBack()">
-        <span class="material-icons">arrow_back</span>
-        Back to Dashboard
-      </button>
+        <span class="material-icons">arrow_back</span>{{ 'phase-forms.back_to_dashboard' | translate }}</button>
       
       <div class="header-info">
         <h1>{{ phaseFolder?.name || 'Phase Forms' }}</h1>
@@ -33,7 +31,7 @@
       
       <div class="phase-status" *ngIf="phaseProgress">
         <div class="progress-info">
-          <span class="progress-label">Progress:</span>
+          <span class="progress-label">{{ 'phase-forms.progress' | translate }}</span>
           <span class="progress-value">{{ phaseProgress.completedTemplates }}/{{ phaseProgress.totalTemplates }} forms</span>
         </div>
         <div class="progress-bar">
@@ -41,26 +39,22 @@
         </div>
         <div class="phase-ready" *ngIf="canProgressToNextPhase()">
           <span class="material-icons ready">check_circle</span>
-          <span>Ready to progress to next phase</span>
+          <span>{{ 'phase-forms.ready_to_progress_to_next_phase' | translate }}</span>
         </div>
       </div>
     </div>
 
     <!-- Forms Grid -->
     <div class="forms-section">
-      <h2>Forms in this Phase</h2>
+      <h2>{{ 'phase-forms.forms_in_this_phase' | translate }}</h2>
       
       <div class="forms-grid">
-        <div *ngFor="let instance of formInstances" 
-             class="form-card"
-             [class.selected]="selectedFormInstance?.id === instance.id"
-             [class]="getFormStatusClass(instance)"
-             (click)="selectFormInstance(instance)">
+        <div *ngFor="let instance of formInstances" class="form-card" [class.selected]="selectedFormInstance?.id === instance.id" [ngClass]="getFormStatusClass(instance)" (click)="selectFormInstance(instance)">
           
           <div class="form-header">
             <span class="material-icons status-icon">{{ getFormStatusIcon(instance) }}</span>
             <h3>{{ templates.get(instance.templateId)?.name || 'Loading...' }}</h3>
-            <span class="required-badge" *ngIf="isFormRequired(instance.templateId)">Required</span>
+            <span class="required-badge" *ngIf="isFormRequired(instance.templateId)">{{ 'phase-forms.required' | translate }}</span>
           </div>
           
           <div class="form-info">
@@ -74,18 +68,12 @@
           </div>
           
           <div class="form-actions">
-            <button class="btn-primary" 
-                    *ngIf="instance.status !== 'completed' && instance.status !== 'locked'"
-                    (click)="selectFormInstance(instance); $event.stopPropagation()">
+            <button class="btn-primary" *ngIf="instance.status !== 'completed' &amp;&amp; instance.status !== 'locked'" (click)="selectFormInstance(instance); $event.stopPropagation()">
               <span class="material-icons">edit</span>
               {{ instance.status === 'draft' ? 'Continue' : 'Start' }}
             </button>
-            <button class="btn-secondary" 
-                    *ngIf="instance.status === 'completed'"
-                    (click)="selectFormInstance(instance); $event.stopPropagation()">
-              <span class="material-icons">visibility</span>
-              View
-            </button>
+            <button class="btn-secondary" *ngIf="instance.status === 'completed'" (click)="selectFormInstance(instance); $event.stopPropagation()">
+              <span class="material-icons">visibility</span>{{ 'common.view' | translate }}</button>
           </div>
         </div>
       </div>
@@ -101,12 +89,7 @@
       </div>
       
       <div class="editor-content">
-        <app-form-viewer
-          [template]="templates.get(selectedFormInstance.templateId)"
-          [initialData]="selectedFormInstance.data"
-          [readOnly]="selectedFormInstance.status === 'completed' || selectedFormInstance.status === 'locked'"
-          (formSubmit)="onFormSubmit($event)"
-          (formSave)="onFormSave($event)">
+        <app-form-viewer [template]="templates.get(selectedFormInstance.templateId)" [initialData]="selectedFormInstance.data" [readOnly]="selectedFormInstance.status === 'completed' || selectedFormInstance.status === 'locked'" (formSubmit)="onFormSubmit($event)" (formSave)="onFormSave($event)">
         </app-form-viewer>
       </div>
     </div>

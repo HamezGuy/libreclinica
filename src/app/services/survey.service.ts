@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, runInInjectionContext, inject } from '@angular/core';
 import { 
   Firestore, 
   collection, 
@@ -29,6 +29,7 @@ export class SurveyService {
   // Track active surveys for popup display
   private activeSurveysSubject = new BehaviorSubject<Survey[]>([]);
   public activeSurveys$ = this.activeSurveysSubject.asObservable();
+  private injector: Injector = inject(Injector);
   
   constructor(
     private firestore: Firestore,
@@ -39,53 +40,59 @@ export class SurveyService {
   
   // Survey CRUD operations
   async createSurvey(survey: Omit<Survey, 'id' | 'createdAt' | 'lastModifiedAt' | 'createdBy' | 'lastModifiedBy'>): Promise<Survey> {
-    const currentUserProfile = await this.authService.getCurrentUserProfile();
-    if (!currentUserProfile) throw new Error('User not authenticated');
-    
-    const newSurvey: Survey = {
-      ...survey,
-      createdBy: currentUserProfile.uid,
-      createdAt: new Date(),
-      lastModifiedBy: currentUserProfile.uid,
-      lastModifiedAt: new Date(),
-      responseCount: 0,
-      completionRate: 0,
-      averageCompletionTime: 0
-    };
-    
-    const docRef = await addDoc(collection(this.firestore, this.COLLECTION_NAME), newSurvey);
-    const createdSurvey = { ...newSurvey, id: docRef.id };
-    
-    // Reload active surveys if this is active
-    if (createdSurvey.status === 'active' && createdSurvey.isActive) {
-      await this.loadActiveSurveys();
-    }
-    
-    return createdSurvey;
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUserProfile = await this.authService.getCurrentUserProfile();
+      if (!currentUserProfile) throw new Error('User not authenticated');
+      
+      const newSurvey: Survey = {
+        ...survey,
+        createdBy: currentUserProfile.uid,
+        createdAt: new Date(),
+        lastModifiedBy: currentUserProfile.uid,
+        lastModifiedAt: new Date(),
+        responseCount: 0,
+        completionRate: 0,
+        averageCompletionTime: 0
+      };
+      
+      const docRef = await addDoc(collection(this.firestore, this.COLLECTION_NAME), newSurvey);
+      const createdSurvey = { ...newSurvey, id: docRef.id };
+      
+      // Reload active surveys if this is active
+      if (createdSurvey.status === 'active' && createdSurvey.isActive) {
+        await this.loadActiveSurveys();
+      }
+      
+      return createdSurvey;
+    });
   }
   
   async updateSurvey(id: string, updates: Partial<Survey>): Promise<void> {
-    const currentUserProfile = await this.authService.getCurrentUserProfile();
-    if (!currentUserProfile) throw new Error('User not authenticated');
-    
-    const updateData = {
-      ...updates,
-      lastModifiedBy: currentUserProfile.uid,
-      lastModifiedAt: Timestamp.now()
-    };
-    
-    await updateDoc(doc(this.firestore, this.COLLECTION_NAME, id), updateData);
-    
-    // Reload active surveys
-    await this.loadActiveSurveys();
+    return await runInInjectionContext(this.injector, async () => {
+      const currentUserProfile = await this.authService.getCurrentUserProfile();
+      if (!currentUserProfile) throw new Error('User not authenticated');
+      
+      const updateData = {
+        ...updates,
+        lastModifiedBy: currentUserProfile.uid,
+        lastModifiedAt: Timestamp.now()
+      };
+      
+      await updateDoc(doc(this.firestore, this.COLLECTION_NAME, id), updateData);
+      
+      // Reload active surveys
+      await this.loadActiveSurveys();
+    });
   }
   
   async getSurvey(id: string): Promise<Survey | null> {
-    const docSnap = await getDoc(doc(this.firestore, this.COLLECTION_NAME, id));
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as Survey;
-    }
-    return null;
+    return await runInInjectionContext(this.injector, async () => {
+      const docSnap = await getDoc(doc(this.firestore, this.COLLECTION_NAME, id));
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Survey;
+      }
+      return null;
+    });
   }
   
   async getSurveys(filters?: {
@@ -94,89 +101,99 @@ export class SurveyService {
     studyId?: string;
     isActive?: boolean;
   }): Promise<Survey[]> {
-    let q = query(collection(this.firestore, this.COLLECTION_NAME));
-    
-    if (filters?.status) {
-      q = query(q, where('status', '==', filters.status));
-    }
-    if (filters?.type) {
-      q = query(q, where('type', '==', filters.type));
-    }
-    if (filters?.studyId) {
-      q = query(q, where('targetAudience.studyIds', 'array-contains', filters.studyId));
-    }
-    if (filters?.isActive !== undefined) {
-      q = query(q, where('isActive', '==', filters.isActive));
-    }
-    
-    q = query(q, orderBy('createdAt', 'desc'));
-    
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Survey));
+    return await runInInjectionContext(this.injector, async () => {
+      let q = query(collection(this.firestore, this.COLLECTION_NAME));
+      
+      if (filters?.status) {
+        q = query(q, where('status', '==', filters.status));
+      }
+      if (filters?.type) {
+        q = query(q, where('type', '==', filters.type));
+      }
+      if (filters?.studyId) {
+        q = query(q, where('targetAudience.studyIds', 'array-contains', filters.studyId));
+      }
+      if (filters?.isActive !== undefined) {
+        q = query(q, where('isActive', '==', filters.isActive));
+      }
+      
+      q = query(q, orderBy('createdAt', 'desc'));
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Survey));
+    });
   }
   
   async deleteSurvey(id: string): Promise<void> {
-    await deleteDoc(doc(this.firestore, this.COLLECTION_NAME, id));
-    await this.loadActiveSurveys();
+    return await runInInjectionContext(this.injector, async () => {
+      await deleteDoc(doc(this.firestore, this.COLLECTION_NAME, id));
+      await this.loadActiveSurveys();
+    });
   }
   
   // Survey response operations
   async submitResponse(response: Omit<SurveyResponse, 'id' | 'startedAt'>): Promise<SurveyResponse> {
-    const newResponse: SurveyResponse = {
-      ...response,
-      startedAt: new Date(),
-      completedAt: response.isComplete ? new Date() : undefined,
-      completionTimeSeconds: response.isComplete ? 
-        Math.floor((new Date().getTime() - new Date().getTime()) / 1000) : undefined
-    };
-    
-    const docRef = await addDoc(collection(this.firestore, this.RESPONSES_COLLECTION), newResponse);
-    
-    // Update survey response count
-    const survey = await this.getSurvey(response.surveyId);
-    if (survey) {
-      await this.updateSurvey(response.surveyId, {
-        responseCount: (survey.responseCount || 0) + 1
-      });
-    }
-    
-    return { ...newResponse, id: docRef.id };
+    return await runInInjectionContext(this.injector, async () => {
+      const newResponse: SurveyResponse = {
+        ...response,
+        startedAt: new Date(),
+        completedAt: response.isComplete ? new Date() : undefined,
+        completionTimeSeconds: response.isComplete ? 
+          Math.floor((new Date().getTime() - new Date().getTime()) / 1000) : undefined
+      };
+      
+      const docRef = await addDoc(collection(this.firestore, this.RESPONSES_COLLECTION), newResponse);
+      
+      // Update survey response count
+      const survey = await this.getSurvey(response.surveyId);
+      if (survey) {
+        await this.updateSurvey(response.surveyId, {
+          responseCount: (survey.responseCount || 0) + 1
+        });
+      }
+      
+      return { ...newResponse, id: docRef.id };
+    });
   }
   
   async getResponses(surveyId: string): Promise<SurveyResponse[]> {
-    const q = query(
-      collection(this.firestore, this.RESPONSES_COLLECTION),
-      where('surveyId', '==', surveyId),
-      orderBy('startedAt', 'desc')
-    );
-    
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as SurveyResponse));
+    return await runInInjectionContext(this.injector, async () => {
+      const q = query(
+        collection(this.firestore, this.RESPONSES_COLLECTION),
+        where('surveyId', '==', surveyId),
+        orderBy('startedAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as SurveyResponse));
+    });
   }
   
   async getUserResponses(userId: string, surveyId?: string): Promise<SurveyResponse[]> {
-    let q = query(
-      collection(this.firestore, this.RESPONSES_COLLECTION),
-      where('respondentId', '==', userId)
-    );
-    
-    if (surveyId) {
-      q = query(q, where('surveyId', '==', surveyId));
-    }
-    
-    q = query(q, orderBy('startedAt', 'desc'));
-    
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as SurveyResponse));
+    return await runInInjectionContext(this.injector, async () => {
+      let q = query(
+        collection(this.firestore, this.RESPONSES_COLLECTION),
+        where('respondentId', '==', userId)
+      );
+      
+      if (surveyId) {
+        q = query(q, where('surveyId', '==', surveyId));
+      }
+      
+      q = query(q, orderBy('startedAt', 'desc'));
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as SurveyResponse));
+    });
   }
   
   // Analytics
@@ -294,24 +311,26 @@ export class SurveyService {
   
   // Active survey management for popups
   private async loadActiveSurveys(): Promise<void> {
-    const now = new Date();
-    const q = query(
-      collection(this.firestore, this.COLLECTION_NAME),
-      where('status', '==', 'active'),
-      where('isActive', '==', true)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const surveys = querySnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as Survey))
-      .filter(survey => {
-        // Check date range
-        if (survey.startDate && new Date(survey.startDate) > now) return false;
-        if (survey.endDate && new Date(survey.endDate) < now) return false;
-        return true;
-      });
-    
-    this.activeSurveysSubject.next(surveys);
+    return await runInInjectionContext(this.injector, async () => {
+      const now = new Date();
+      const q = query(
+        collection(this.firestore, this.COLLECTION_NAME),
+        where('status', '==', 'active'),
+        where('isActive', '==', true)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const surveys = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Survey))
+        .filter(survey => {
+          // Check date range
+          if (survey.startDate && new Date(survey.startDate) > now) return false;
+          if (survey.endDate && new Date(survey.endDate) < now) return false;
+          return true;
+        });
+      
+      this.activeSurveysSubject.next(surveys);
+    });
   }
   
   // Check if user should see a survey

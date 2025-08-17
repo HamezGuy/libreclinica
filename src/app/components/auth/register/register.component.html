@@ -1,129 +1,94 @@
-<div class="auth-container">
+<html><head></head><body><div class="auth-container">
   <div class="auth-card">
     <div class="auth-header">
-      <h2 class="title">Create EDC Account</h2>
-      <p class="subtitle">Join the platform to manage clinical data with full compliance.</p>
+      <h2 class="title">{{ 'register.create_edc_account' | translate }}</h2>
+      <p class="subtitle">{{ 'register.join_the_platform_to_manage_clinical_data_with_ful' | translate }}</p>
     </div>
 
     <div *ngIf="successMessage" class="alert alert-success">
       <i class="fas fa-check-circle"></i>
       {{ successMessage }}
-      <p class="redirect-message">Redirecting to login page...</p>
+      <p class="redirect-message">{{ 'register.redirecting_to_login_page' | translate }}</p>
     </div>
 
     <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" *ngIf="!successMessage">
       <div class="form-field">
-        <label for="displayName">Full Name</label>
-        <input 
-          id="displayName" 
-          type="text" 
-          formControlName="displayName" 
-          placeholder="e.g., Dr. Jane Doe"
-          [class.error]="displayNameControl?.invalid && displayNameControl?.touched">
+        <label for="displayName">{{ 'register.full_name' | translate }}</label>
+        <input id="displayName" type="text" formControlName="displayName" [class.error]="displayNameControl?.invalid && displayNameControl?.touched" [placeholder]="'register.eg_dr_jane_doe' | translate">
         <div *ngIf="displayNameControl?.invalid && displayNameControl?.touched" class="error-text">
-          <span *ngIf="displayNameControl?.errors?.['required']">Full name is required.</span>
-          <span *ngIf="displayNameControl?.errors?.['minlength']">Full name must be at least 2 characters.</span>
+          <span *ngIf="displayNameControl?.errors?.['required']">{{ 'register.full_name_is_required' | translate }}</span>
+          <span *ngIf="displayNameControl?.errors?.['minlength']">{{ 'register.full_name_must_be_at_least_2_characters' | translate }}</span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="username">Username</label>
-        <input 
-          id="username" 
-          type="text" 
-          formControlName="username" 
-          placeholder="e.g., janedoe"
-          [class.error]="usernameControl?.invalid && usernameControl?.touched">
+        <label for="username">{{ 'register.username' | translate }}</label>
+        <input id="username" type="text" formControlName="username" [class.error]="usernameControl?.invalid && usernameControl?.touched" [placeholder]="'register.eg_janedoe' | translate">
         <div *ngIf="usernameControl?.invalid && usernameControl?.touched" class="error-text">
-          <span *ngIf="usernameControl?.errors?.['required']">Username is required.</span>
-          <span *ngIf="usernameControl?.errors?.['minlength']">Username must be at least 3 characters.</span>
-          <span *ngIf="usernameControl?.errors?.['pattern']">Username can only contain letters, numbers, and underscores.</span>
+          <span *ngIf="usernameControl?.errors?.['required']">{{ 'register.username_is_required' | translate }}</span>
+          <span *ngIf="usernameControl?.errors?.['minlength']">{{ 'register.username_must_be_at_least_3_characters' | translate }}</span>
+          <span *ngIf="usernameControl?.errors?.['pattern']">{{ 'register.username_can_only_contain_letters_numbers_and_unde' | translate }}</span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="email">Email Address</label>
-        <input 
-          id="email" 
-          type="email" 
-          formControlName="email" 
-          placeholder="your.email@your-organization.com"
-          [class.error]="emailControl?.invalid && emailControl?.touched">
+        <label for="email">{{ 'register.email_address' | translate }}</label>
+        <input id="email" type="email" formControlName="email" [class.error]="emailControl?.invalid && emailControl?.touched" [placeholder]="'register.youremailyourorganizationcom' | translate">
         <div *ngIf="emailControl?.invalid && emailControl?.touched" class="error-text">
-          <span *ngIf="emailControl?.errors?.['required']">Email is required.</span>
-          <span *ngIf="emailControl?.errors?.['email']">Please enter a valid email address.</span>
+          <span *ngIf="emailControl?.errors?.['required']">{{ 'register.email_is_required' | translate }}</span>
+          <span *ngIf="emailControl?.errors?.['email']">{{ 'register.please_enter_a_valid_email_address' | translate }}</span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="role">Role in Clinical Trials</label>
-        <select 
-          id="role" 
-          formControlName="role"
-          [class.error]="roleControl?.invalid && roleControl?.touched">
-          <option value="">Select your role</option>
-          <option value="investigator">Principal Investigator</option>
-          <option value="sub_investigator">Sub-Investigator</option>
-          <option value="study_coordinator">Study Coordinator</option>
-          <option value="data_entry">Data Entry Operator</option>
-          <option value="monitor">Clinical Research Associate (Monitor)</option>
-          <option value="auditor">Auditor</option>
-          <option value="sponsor">Sponsor Representative</option>
-          <option value="other">Other</option>
+        <label for="role">{{ 'register.role_in_clinical_trials' | translate }}</label>
+        <select id="role" formControlName="role" [class.error]="roleControl?.invalid && roleControl?.touched">
+          <option value="">{{ 'register.select_your_role' | translate }}</option>
+          <option value="investigator">{{ 'register.principal_investigator' | translate }}</option>
+          <option value="sub_investigator">{{ 'register.subinvestigator' | translate }}</option>
+          <option value="study_coordinator">{{ 'register.study_coordinator' | translate }}</option>
+          <option value="data_entry">{{ 'register.data_entry_operator' | translate }}</option>
+          <option value="monitor">{{ 'register.clinical_research_associate_monitor' | translate }}</option>
+          <option value="auditor">{{ 'register.auditor' | translate }}</option>
+          <option value="sponsor">{{ 'register.sponsor_representative' | translate }}</option>
+          <option value="other">{{ 'register.other' | translate }}</option>
         </select>
         <div *ngIf="roleControl?.invalid && roleControl?.touched" class="error-text">
-          <span *ngIf="roleControl?.errors?.['required']">Please select your role.</span>
+          <span *ngIf="roleControl?.errors?.['required']">{{ 'register.please_select_your_role' | translate }}</span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="organization">Organization</label>
-        <input 
-          id="organization" 
-          type="text" 
-          formControlName="organization" 
-          placeholder="e.g., Apollo Hospitals"
-          [class.error]="organizationControl?.invalid && organizationControl?.touched">
+        <label for="organization">{{ 'register.organization' | translate }}</label>
+        <input id="organization" type="text" formControlName="organization" [class.error]="organizationControl?.invalid && organizationControl?.touched" [placeholder]="'register.eg_apollo_hospitals' | translate">
         <div *ngIf="organizationControl?.invalid && organizationControl?.touched" class="error-text">
-          <span *ngIf="organizationControl?.errors?.['required']">Organization is required.</span>
+          <span *ngIf="organizationControl?.errors?.['required']">{{ 'register.organization_is_required' | translate }}</span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="password">Password</label>
-        <input 
-          id="password" 
-          type="password" 
-          formControlName="password" 
-          placeholder="Choose a strong password"
-          [class.error]="passwordControl?.invalid && passwordControl?.touched">
+        <label for="password">{{ 'register.password' | translate }}</label>
+        <input id="password" type="password" formControlName="password" [class.error]="passwordControl?.invalid && passwordControl?.touched" [placeholder]="'register.choose_a_strong_password' | translate">
         <div *ngIf="passwordControl?.invalid && passwordControl?.touched" class="error-text">
-          <span *ngIf="passwordControl?.errors?.['required']">Password is required.</span>
-          <span *ngIf="passwordControl?.errors?.['minlength']">Password must be at least 8 characters.</span>
-          <span *ngIf="passwordControl?.errors?.['strongPassword']">
-            Password must contain:
-            <ul class="password-requirements">
-              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasUpper">One uppercase letter</li>
-              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasLower">One lowercase letter</li>
-              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasNumber">One number</li>
-              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasSpecial">One special character</li>
+          <span *ngIf="passwordControl?.errors?.['required']">{{ 'register.password_is_required' | translate }}</span>
+          <span *ngIf="passwordControl?.errors?.['minlength']">{{ 'register.password_must_be_at_least_8_characters' | translate }}</span>
+          <span *ngIf="passwordControl?.errors?.['strongPassword']">{{ 'register.password_must_contain' | translate }}<ul class="password-requirements">
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasUpper">{{ 'register.one_uppercase_letter' | translate }}</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasLower">{{ 'register.one_lowercase_letter' | translate }}</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasNumber">{{ 'register.one_number' | translate }}</li>
+              <li [class.met]="passwordControl?.errors?.['strongPassword']?.hasSpecial">{{ 'register.one_special_character' | translate }}</li>
             </ul>
           </span>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="confirmPassword">Confirm Password</label>
-        <input 
-          id="confirmPassword" 
-          type="password" 
-          formControlName="confirmPassword" 
-          placeholder="Confirm your password"
-          [class.error]="confirmPasswordControl?.invalid && confirmPasswordControl?.touched || 
-                         (registerForm.errors?.['passwordMismatch'] && confirmPasswordControl?.touched)">
+        <label for="confirmPassword">{{ 'register.confirm_password' | translate }}</label>
+        <input id="confirmPassword" type="password" formControlName="confirmPassword" [class.error]="confirmPasswordControl?.invalid && confirmPasswordControl?.touched || 
+                         (registerForm.errors?.['passwordMismatch'] && confirmPasswordControl?.touched)" [placeholder]="'register.confirm_your_password' | translate">
         <div *ngIf="confirmPasswordControl?.touched" class="error-text">
-          <span *ngIf="confirmPasswordControl?.errors?.['required']">Please confirm your password.</span>
-          <span *ngIf="registerForm.errors?.['passwordMismatch']">Passwords do not match.</span>
+          <span *ngIf="confirmPasswordControl?.errors?.['required']">{{ 'register.please_confirm_your_password' | translate }}</span>
+          <span *ngIf="registerForm.errors?.['passwordMismatch']">{{ 'register.passwords_do_not_match' | translate }}</span>
         </div>
       </div>
 
@@ -133,22 +98,21 @@
       </div>
 
       <button type="submit" class="btn btn-primary" [disabled]="isLoading || registerForm.invalid">
-        <span *ngIf="!isLoading">Create Account</span>
+        <span *ngIf="!isLoading">{{ 'register.create_account' | translate }}</span>
         <span *ngIf="isLoading">
-          <i class="fas fa-spinner fa-spin"></i> Creating...
-        </span>
+          <i class="fas fa-spinner fa-spin"></i>{{ 'register.creating' | translate }}</span>
       </button>
     </form>
 
     <div class="auth-footer" *ngIf="!successMessage">
-      <p>Already have an account? <a [routerLink]="['/login']">Sign In</a></p>
+      <p>{{ 'register.already_have_an_account' | translate }}<a [routerLink]="['/login']">{{ 'register.sign_in' | translate }}</a></p>
     </div>
   </div>
 
   <div class="compliance-footer">
-    <span><i class="fas fa-shield-alt"></i> HIPAA</span>
-    <span><i class="fas fa-file-contract"></i> 21 CFR Part 11</span>
-    <span><i class="fas fa-globe-europe"></i> GDPR</span>
-    <span><i class="fas fa-flag"></i> DPDP Act</span>
+    <span><i class="fas fa-shield-alt"></i>{{ 'register.hipaa' | translate }}</span>
+    <span><i class="fas fa-file-contract"></i>{{ 'register.21_cfr_part_11' | translate }}</span>
+    <span><i class="fas fa-globe-europe"></i>{{ 'register.gdpr' | translate }}</span>
+    <span><i class="fas fa-flag"></i>{{ 'register.dpdp_act' | translate }}</span>
   </div>
-</div>
+</div></body></html>

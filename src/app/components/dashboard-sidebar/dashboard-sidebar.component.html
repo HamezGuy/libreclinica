@@ -1,22 +1,17 @@
-<aside class="dashboard-sidebar">
+<html><head></head><body><aside class="dashboard-sidebar">
   <!-- Logo/Header -->
   <div class="sidebar-header">
     <div class="app-logo">
-      <i class="material-icons">medical_services</i>
-      <span>EDC System</span>
+      <i class="material-icons">{{ 'dashboard-sidebar.medicalservices' | translate }}</i>
+      <span>{{ 'dashboard-sidebar.edc_system' | translate }}</span>
     </div>
   </div>
   
   <!-- Search Bar -->
   <div class="sidebar-search">
     <div class="search-container">
-      <i class="material-icons search-icon">search</i>
-      <input 
-        type="text" 
-        [(ngModel)]="searchQuery"
-        (ngModelChange)="onSearchChange()"
-        placeholder="Search..." 
-        class="search-input">
+      <i class="material-icons search-icon">{{ 'common.search' | translate }}</i>
+      <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" class="search-input" :placeholder="'dashboard-sidebar.search' | translate">
     </div>
   </div>
   
@@ -24,11 +19,9 @@
   <nav class="sidebar-nav">
     <ul class="nav-list">
       <!-- Studies with nested patients -->
-      <li class="nav-item" 
-          [class.active]="activeSidebarItem === 'studies'"
-          (click)="selectSidebarItem({id: 'studies', label: 'Studies', icon: 'science'})">
-        <span class="material-icons">science</span>
-        <span class="nav-label">Studies</span>
+      <li class="nav-item" [class.active]="activeSidebarItem === 'studies'" (click)="selectSidebarItem({id: 'studies', label: 'Studies', icon: 'science'})">
+        <span class="material-icons">{{ 'dashboard-sidebar.science' | translate }}</span>
+        <span class="nav-label">{{ 'dashboard-sidebar.studies' | translate }}</span>
         <span class="nav-count">{{ studies.length }}</span>
       </li>
       
@@ -47,9 +40,7 @@
           <div class="nested-patients" *ngIf="isStudyExpanded(study.id!)">
             <div *ngFor="let patient of getStudyPatients(study.id!)" class="patient-item" [class.expanded]="isPatientExpanded(patient.id)">
               <div class="patient-header">
-                <button class="patient-expand-btn" 
-                        (click)="togglePatientExpansion(patient.id)"
-                        title="{{ isPatientExpanded(patient.id) ? 'Collapse' : 'Expand' }} patient options">
+                <button class="patient-expand-btn" (click)="togglePatientExpansion(patient.id)" title="{{ isPatientExpanded(patient.id) ? 'Collapse' : 'Expand' }} patient options">
                   <span class="material-icons">
                     {{ isPatientExpanded(patient.id) ? 'keyboard_arrow_down' : 'keyboard_arrow_right' }}
                   </span>
@@ -69,12 +60,7 @@
               <div class="patient-options" *ngIf="isPatientExpanded(patient.id)">
                 <!-- Phase-based folders -->
                 <div class="patient-folders" *ngIf="getPatientFolders(patient.id).length > 0">
-                  <div *ngFor="let folder of getPatientFolders(patient.id)" 
-                       class="folder-item" 
-                       [class.phase-folder]="folder.isPhaseFolder"
-                       [class]="getFolderCompletionClass(folder)"
-                       [class.clickable]="folder.isPhaseFolder"
-                       (click)="folder.isPhaseFolder && onPhaseClick(study.id!, patient.id, folder.phaseId!, folder.id, $event)">
+                  <div *ngFor="let folder of getPatientFolders(patient.id)" class="folder-item" [class.phase-folder]="folder.isPhaseFolder" [class]="getFolderCompletionClass(folder)" [class.clickable]="folder.isPhaseFolder" (click)="folder.isPhaseFolder &amp;&amp; onPhaseClick(study.id!, patient.id, folder.phaseId!, folder.id, $event)">
                     <span class="material-icons folder-icon">{{ getFolderIcon(folder) }}</span>
                     <div class="folder-info">
                       <span class="folder-name">{{ folder.name }}</span>
@@ -86,9 +72,7 @@
                           ({{ folder.optionalTemplateIds.length }} optional)
                         </span>
                         <span class="phase-status" *ngIf="folder.canProgressToNextPhase !== undefined">
-                          <span class="material-icons status-icon" 
-                                [class.ready]="folder.canProgressToNextPhase"
-                                [title]="folder.canProgressToNextPhase ? 'Ready to progress' : 'Complete required forms'">
+                          <span class="material-icons status-icon" [class.ready]="folder.canProgressToNextPhase" [title]="folder.canProgressToNextPhase ? 'Ready to progress' : 'Complete required forms'">
                             {{ folder.canProgressToNextPhase ? 'check_circle' : 'pending' }}
                           </span>
                         </span>
@@ -99,29 +83,27 @@
                 
                 <!-- Loading indicator -->
                 <div class="loading-folders" *ngIf="loadingFolders.has(patient.id)">
-                  <span class="material-icons spinning">refresh</span>
-                  <span>Loading folders...</span>
+                  <span class="material-icons spinning">{{ 'common.refresh' | translate }}</span>
+                  <span>{{ 'dashboard-sidebar.loading_folders' | translate }}</span>
                 </div>
                 
                 <!-- Action buttons -->
                 <div class="patient-actions">
                   <button class="option-item" (click)="onSelectPatient(patient, $event)">
-                    <span class="material-icons">visibility</span>
-                    <span>View Details</span>
+                    <span class="material-icons">{{ 'dashboard-sidebar.visibility' | translate }}</span>
+                    <span>{{ 'common.viewDetails' | translate }}</span>
                   </button>
                   <button class="option-item" (click)="onViewPatientForms(patient, $event)">
-                    <span class="material-icons">description</span>
-                    <span>View Forms</span>
+                    <span class="material-icons">{{ 'common.description' | translate }}</span>
+                    <span>{{ 'dashboard-sidebar.view_forms' | translate }}</span>
                   </button>
                   <button class="option-item" (click)="onViewPatientHistory(patient, $event)">
-                    <span class="material-icons">history</span>
-                    <span>View History</span>
+                    <span class="material-icons">{{ 'dashboard-sidebar.history' | translate }}</span>
+                    <span>{{ 'dashboard-sidebar.view_history' | translate }}</span>
                   </button>
-                  <button class="option-item delete" 
-                          *ngIf="permissions?.canDeletePatients"
-                          (click)="onDeletePatient(patient, study.id!, $event)">
-                    <span class="material-icons">delete</span>
-                    <span>Remove from Study</span>
+                  <button class="option-item delete" *ngIf="permissions?.canDeletePatients" (click)="onDeletePatient(patient, study.id!, $event)">
+                    <span class="material-icons">{{ 'common.delete' | translate }}</span>
+                    <span>{{ 'dashboard-sidebar.remove_from_study' | translate }}</span>
                   </button>
                 </div>
               </div>
@@ -131,10 +113,7 @@
       </div>
       
       <!-- Other navigation items -->
-      <li *ngFor="let item of sidebarItems.slice(1)" 
-          class="nav-item" 
-          [class.active]="item.active"
-          (click)="selectSidebarItem(item)">
+      <li *ngFor="let item of sidebarItems.slice(1)" class="nav-item" [class.active]="item.active" (click)="selectSidebarItem(item)">
         <span class="material-icons">{{ item.icon }}</span>
         <span class="nav-label">{{ item.label }}</span>
         <span class="nav-count" *ngIf="item.count !== undefined">{{ item.count }}</span>
@@ -144,19 +123,16 @@
   
   <!-- Quick Actions -->
   <div class="quick-actions">
-    <button class="action-btn" 
-            *ngIf="activeSidebarItem === 'studies' && permissions?.canCreateStudies"
-            (click)="onCreateStudy()">
-      <span class="material-icons">add</span>
-      Create Study
-    </button>
+    <button class="action-btn" *ngIf="activeSidebarItem === 'studies' && permissions?.canCreateStudies" (click)="onCreateStudy()">
+      <span class="material-icons">{{ 'common.add' | translate }}</span>{{ 'dashboard-sidebar.create_study' | translate }}</button>
   </div>
   
   <!-- User Section -->
   <div class="sidebar-footer">
     <div class="user-info">
-      <i class="material-icons">account_circle</i>
+      <i class="material-icons">{{ 'dashboard-sidebar.accountcircle' | translate }}</i>
       <span class="user-role">{{ permissions.userRole || 'User' }}</span>
     </div>
   </div>
 </aside>
+</body></html>

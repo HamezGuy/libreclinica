@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, runInInjectionContext, Injector } from '@angular/core';
 import { 
   Firestore, 
   collection, 
@@ -43,6 +43,7 @@ import { StudyPhaseService } from './study-phase.service';
 export class PatientService {
   private readonly COLLECTION_NAME = 'patients';
   private readonly VISIT_SUBCOMPONENTS_COLLECTION = 'visitSubcomponents';
+  private injector: Injector = inject(Injector);
 
   constructor(
     private firestore: Firestore,
@@ -115,7 +116,9 @@ export class PatientService {
     const cleanedPatient = this.cleanUndefinedValues(newPatient) as Patient;
 
     // Save patient document
-    await setDoc(patientRef, this.prepareForFirestore(cleanedPatient));
+    await runInInjectionContext(this.injector, async () => {
+      await setDoc(patientRef, this.prepareForFirestore(cleanedPatient));
+    });
 
     // Create reference in study's patients subcollection
     const studyPatientRef: StudyPatientReference = {
@@ -136,10 +139,14 @@ export class PatientService {
     }
     
     const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
-    await addDoc(studyPatientsRef, studyPatientRef);
+    await runInInjectionContext(this.injector, async () => {
+      await addDoc(studyPatientsRef, studyPatientRef);
+    });
 
     // Create visit subcomponents from study sections
-    const studyDoc = await getDoc(doc(this.firestore, 'studies', studyId));
+    const studyDoc = await runInInjectionContext(this.injector, async () => {
+      return await getDoc(doc(this.firestore, 'studies', studyId));
+    });
     if (studyDoc.exists()) {
       const study = studyDoc.data() as any;
       if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
@@ -152,8 +159,10 @@ export class PatientService {
         );
         
         // Update patient with visit subcomponents
-        await updateDoc(patientRef, {
-          visitSubcomponents: visitSubcomponents
+        await runInInjectionContext(this.injector, async () => {
+          await updateDoc(patientRef, {
+            visitSubcomponents: visitSubcomponents
+          });
         });
       } else {
         // Fallback to default visit subcomponents if no sections are defined
@@ -211,7 +220,9 @@ export class PatientService {
         this.VISIT_SUBCOMPONENTS_COLLECTION, 
         subcomponentId
       );
-      await setDoc(subcomponentRef, this.prepareForFirestore(subcomponent));
+      await runInInjectionContext(this.injector, async () => {
+        await setDoc(subcomponentRef, this.prepareForFirestore(subcomponent));
+      });
     }
   }
 
@@ -289,7 +300,7 @@ export class PatientService {
         if (!currentUser) throw new Error('User not authenticated');
 
         const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
-        return from(getDoc(patientRef)).pipe(
+        return from(runInInjectionContext(this.injector, async () => await getDoc(patientRef))).pipe(
           map(docSnap => {
             if (!docSnap.exists()) return null;
             const patient = this.convertFromFirestore(docSnap.data()) as Patient;
@@ -311,6 +322,38 @@ export class PatientService {
     );
   }
 
+  // Get patient by ID
+  async getPatientById(patientId: string): Promise<Patient | null> {
+    const currentUser = await this.authService.getCurrentUserProfile();
+    if (!currentUser) throw new Error('User not authenticated');
+
+    try {
+      const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
+      const patientDoc = await runInInjectionContext(this.injector, async () => await getDoc(patientRef));
+      
+      if (!patientDoc.exists()) {
+        return null;
+      }
+
+      const patient = this.convertFromFirestore(patientDoc.data()) as Patient;
+      
+      // Check if user can view this patient
+      if (!this.canViewPatient(currentUser, patient)) {
+        throw new Error('Insufficient permissions to view this patient');
+      }
+
+      // Mask PHI if user doesn't have permission
+      if (!this.canViewPHI(currentUser)) {
+        patient.demographics = this.maskPHI(patient.demographics);
+      }
+
+      return patient;
+    } catch (error) {
+      console.error('Error getting patient:', error);
+      throw error;
+    }
+  }
+
   // Delete patient by ID
   async deletePatient(patientId: string): Promise<void> {
     const currentUser = await this.authService.getCurrentUserProfile();
@@ -325,7 +368,9 @@ export class PatientService {
     try {
       // Delete the patient document
       const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
-      await deleteDoc(patientRef);
+      await runInInjectionContext(this.injector, async () => {
+        await deleteDoc(patientRef);
+      });
 
       // TODO: Add audit logging when audit service is available
       console.log(`Patient ${patientId} deleted by ${currentUser.email}`);
@@ -342,7 +387,7 @@ export class PatientService {
 
     // Get patient references from study subcollection
     const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
-    const studyPatientsSnapshot = await getDocs(studyPatientsRef);
+    const studyPatientsSnapshot = await runInInjectionContext(this.injector, async () => await getDocs(studyPatientsRef));
     
     const patientIds = studyPatientsSnapshot.docs.map(doc => {
       const data = doc.data() as StudyPatientReference;
@@ -394,7 +439,7 @@ export class PatientService {
     }
 
     const q = query(patientsRef, ...constraints, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await runInInjectionContext(this.injector, async () => await getDocs(q));
     
     const patients: Patient[] = [];
     for (const doc of snapshot.docs) {
@@ -436,7 +481,7 @@ export class PatientService {
     
     const q = query(subcomponentsRef, orderBy('order', 'asc'));
     
-    return from(getDocs(q)).pipe(
+    return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => {
         return snapshot.docs.map(doc => {
           const data = doc.data();
@@ -477,7 +522,9 @@ export class PatientService {
       subcomponentId
     );
     
-    await setDoc(subcomponentRef, this.prepareForFirestore(updatedSubcomponent), { merge: true });
+    await runInInjectionContext(this.injector, async () => {
+      await setDoc(subcomponentRef, this.prepareForFirestore(updatedSubcomponent), { merge: true });
+    });
   }
 
   // Assign templates to a visit subcomponent
@@ -501,10 +548,12 @@ export class PatientService {
       subcomponentId
     );
 
-    await updateDoc(subcomponentRef, {
-      templateIds,
-      lastModifiedBy: currentUser.uid,
-      lastModifiedAt: serverTimestamp()
+    await runInInjectionContext(this.injector, async () => {
+      await updateDoc(subcomponentRef, {
+        templateIds,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
     });
   }
 
@@ -534,7 +583,7 @@ export class PatientService {
         const patientsRef = collection(this.firestore, this.COLLECTION_NAME);
         const q = query(patientsRef, ...constraints);
 
-        return from(getDocs(q)).pipe(
+        return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
           map(snapshot => {
             return snapshot.docs
               .map(doc => {
@@ -588,11 +637,13 @@ export class PatientService {
     };
 
     const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
-    await updateDoc(patientRef, {
-      enrollmentStatus: newStatus,
-      lastModifiedBy: currentUser.uid,
-      lastModifiedAt: serverTimestamp(),
-      changeHistory: [...patient.changeHistory, changeEntry]
+    await runInInjectionContext(this.injector, async () => {
+      await updateDoc(patientRef, {
+        enrollmentStatus: newStatus,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp(),
+        changeHistory: [...patient.changeHistory, changeEntry]
+      });
     });
   }
 
@@ -609,12 +660,14 @@ export class PatientService {
     if (!patient) throw new Error('Patient not found');
 
     const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
-    await updateDoc(patientRef, {
-      consents: [...patient.consents, consent],
-      hasValidConsent: true,
-      consentExpirationDate: consent.expirationDate,
-      lastModifiedBy: currentUser.uid,
-      lastModifiedAt: serverTimestamp()
+    await runInInjectionContext(this.injector, async () => {
+      await updateDoc(patientRef, {
+        consents: [...patient.consents, consent],
+        hasValidConsent: true,
+        consentExpirationDate: consent.expirationDate,
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp()
+      });
     });
   }
 
@@ -635,14 +688,6 @@ export class PatientService {
       !consent.withdrawnDate &&
       (!consent.expirationDate || consent.expirationDate > now)
     );
-  }
-
-  private async getPatientById(patientId: string): Promise<Patient | null> {
-    const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
-    const docSnap = await getDoc(patientRef);
-    
-    if (!docSnap.exists()) return null;
-    return this.convertFromFirestore(docSnap.data()) as Patient;
   }
 
   private toPatientSummary(patient: Patient, maskPHI: boolean): PatientSummary {

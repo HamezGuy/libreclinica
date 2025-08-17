@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { StudyPhaseService } from '../../services/study-phase.service';
 import { PatientPhaseProgress, StudyPhaseConfig } from '../../models/study-phase.model';
 import { Observable, combineLatest, map } from 'rxjs';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-patient-phase-progress',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './patient-phase-progress.component.html',
   styleUrls: ['./patient-phase-progress.component.scss']
 })

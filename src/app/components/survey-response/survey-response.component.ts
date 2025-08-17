@@ -7,11 +7,12 @@ import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { firstValueFrom } from 'rxjs';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-survey-response',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, DragDropModule],
+  imports: [CommonModule, ReactiveFormsModule, DragDropModule, TranslatePipe],
   templateUrl: './survey-response.component.html',
   styleUrls: ['./survey-response.component.scss']
 })

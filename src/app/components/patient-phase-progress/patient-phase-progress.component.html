@@ -1,18 +1,11 @@
 <div class="patient-phase-progress">
-  <h3 class="progress-title">Study Phase Progress</h3>
+  <h3 class="progress-title">{{ 'patient-phase-progress.study_phase_progress' | translate }}</h3>
   
   <div class="loading-state" *ngIf="loading">
-    <i class="material-icons">hourglass_empty</i>
-    Loading phase progress...
-  </div>
+    <i class="material-icons">hourglass_empty</i>{{ 'patient-phase-progress.loading_phase_progress' | translate }}</div>
   
-  <div class="phase-timeline" *ngIf="!loading && phaseProgressData.length > 0">
-    <div 
-      *ngFor="let item of phaseProgressData; let i = index" 
-      class="phase-item"
-      [class.disabled]="!canAccessPhase(item, i, phaseProgressData)"
-      [class.active]="item.progress.status === 'in_progress'"
-      (click)="selectPhase(item.phase, item.progress)">
+  <div class="phase-timeline" *ngIf="!loading &amp;&amp; phaseProgressData.length > 0">
+    <div *ngFor="let item of phaseProgressData; let i = index" class="phase-item" [class.disabled]="!canAccessPhase(item, i, phaseProgressData)" [class.active]="item.progress.status === 'in_progress'" (click)="selectPhase(item.phase, item.progress)">
       
       <!-- Phase connector line -->
       <div class="phase-connector" *ngIf="i < phaseProgressData.length - 1"></div>
@@ -31,9 +24,7 @@
         
         <div class="phase-details">
           <div class="progress-bar">
-            <div class="progress-fill" 
-                 [style.width.%]="item.progress.progressPercentage"
-                 [class.complete]="item.progress.progressPercentage === 100">
+            <div class="progress-fill" [style.width.%]="item.progress.progressPercentage" [class.complete]="item.progress.progressPercentage === 100">
             </div>
           </div>
           
@@ -49,16 +40,15 @@
           </div>
           
           <!-- Blocking reasons -->
-          <div class="blocking-reasons" *ngIf="!item.progress.canProgress && item.progress.blockingReasons && item.progress.blockingReasons.length > 0">
+          <div class="blocking-reasons" *ngIf="!item.progress.canProgress &amp;&amp; item.progress.blockingReasons &amp;&amp; item.progress.blockingReasons.length > 0">
             <div class="blocking-reason" *ngFor="let reason of item.progress.blockingReasons">
               <i class="fas fa-lock"></i> {{ reason }}
             </div>
           </div>
           
           <!-- Can progress indicator -->
-          <div class="can-progress" *ngIf="item.progress.canProgress && item.progress.status !== 'completed'">
-            <i class="fas fa-unlock"></i> Ready to progress
-          </div>
+          <div class="can-progress" *ngIf="item.progress.canProgress &amp;&amp; item.progress.status !== 'completed'">
+            <i class="fas fa-unlock"></i>{{ 'patient-phase-progress.ready_to_progress' | translate }}</div>
         </div>
       </div>
     </div>

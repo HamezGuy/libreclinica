@@ -24,6 +24,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'ocr-test',
+    loadComponent: () => import('./components/ocr-test/ocr-test.component').then(m => m.OcrTestComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'phase-forms/:studyId/:patientId/:phaseId/:visitSubcomponentId',
     loadComponent: () => import('./components/phase-forms/phase-forms.component').then(m => m.PhaseFormsComponent),
     canActivate: [AuthGuard]

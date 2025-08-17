@@ -45,7 +45,19 @@ Thumbs.db
 /src/environments/environment.ts
 /src/environments/environment.prod.ts
 
+{{ ... }}
+
 # Firebase config
 .firebaserc
 firebase-debug.log
-.vercel
+
+# Environment files
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+*.env
+
+# AWS Config (contains sensitive credentials)
+/src/assets/aws-config.json

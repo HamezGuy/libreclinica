@@ -1,238 +1,170 @@
-<!-- Study Creation Modal -->
-<div class="modal-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
+<!-- Study Creation Modal --><html><head></head><body><div class="modal-overlay" *ngif="isVisible" (click)="onBackdropClick($event)">
   <div class="modal-content large-modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2>Create New Study</h2>
+      <h2>{{ 'create-study-widget.create_new_study' | translate }}</h2>
       <button class="close-button" (click)="closeStudyCreationModal()">
-        <i class="material-icons">close</i>
+        <i class="material-icons">{{ 'common.close' | translate }}</i>
       </button>
     </div>
     
-    <form [formGroup]="studyCreationForm" class="study-creation-form">
+    <form [formgroup]="studyCreationForm" class="study-creation-form">
       <div class="modal-body">
         <!-- Basic Information Section -->
         <div class="form-section">
-          <h3>Basic Information</h3>
+          <h3>{{ 'create-study-widget.basic_information' | translate }}</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="protocolNumber">Protocol Number <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="protocolNumber" 
-                formControlName="protocolNumber"
-                placeholder="e.g., STUDY-2024-001"
-                class="form-control">
-              <div class="error-message" *ngIf="studyCreationForm.get('protocolNumber')?.touched && studyCreationForm.get('protocolNumber')?.errors">
-                <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['required']">Protocol number is required</span>
-                <span *ngIf="studyCreationForm.get('protocolNumber')?.errors?.['pattern']">Use uppercase letters, numbers, and hyphens only</span>
+              <label for="protocolNumber">{{ 'create-study-widget.protocol_number' | translate }}<span class="required">*</span></label>
+              <input type="text" id="protocolNumber" formcontrolname="protocolNumber" class="form-control" :placeholder="'create-study-widget.eg_study2024001' | translate">
+              <div class="error-message" *ngif="studyCreationForm.get('protocolNumber')?.touched &amp;&amp; studyCreationForm.get('protocolNumber')?.errors">
+                <span *ngif="studyCreationForm.get('protocolNumber')?.errors?.['required']">{{ 'create-study-widget.protocol_number_is_required' | translate }}</span>
+                <span *ngif="studyCreationForm.get('protocolNumber')?.errors?.['pattern']">{{ 'create-study-widget.use_uppercase_letters_numbers_and_hyphens_only' | translate }}</span>
               </div>
             </div>
             
             <div class="form-group">
-              <label for="version">Version <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="version" 
-                formControlName="version"
-                placeholder="1.0"
-                class="form-control">
+              <label for="version">{{ 'create-study-widget.version' | translate }}<span class="required">*</span></label>
+              <input type="text" id="version" formcontrolname="version" placeholder="1.0" class="form-control">
             </div>
           </div>
           
           <div class="form-group">
-            <label for="title">Study Title <span class="required">*</span></label>
-            <input 
-              type="text" 
-              id="title" 
-              formControlName="title"
-              placeholder="Enter the full study title"
-              class="form-control">
-            <div class="error-message" *ngIf="studyCreationForm.get('title')?.touched && studyCreationForm.get('title')?.errors">
-              <span *ngIf="studyCreationForm.get('title')?.errors?.['required']">Title is required</span>
-              <span *ngIf="studyCreationForm.get('title')?.errors?.['minlength']">Title must be at least 5 characters</span>
+            <label for="title">{{ 'create-study-widget.study_title' | translate }}<span class="required">*</span></label>
+            <input type="text" id="title" formcontrolname="title" class="form-control" :placeholder="'create-study-widget.enter_the_full_study_title' | translate">
+            <div class="error-message" *ngif="studyCreationForm.get('title')?.touched &amp;&amp; studyCreationForm.get('title')?.errors">
+              <span *ngif="studyCreationForm.get('title')?.errors?.['required']">{{ 'create-study-widget.title_is_required' | translate }}</span>
+              <span *ngif="studyCreationForm.get('title')?.errors?.['minlength']">{{ 'create-study-widget.title_must_be_at_least_5_characters' | translate }}</span>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="shortTitle">Short Title</label>
-            <input 
-              type="text" 
-              id="shortTitle" 
-              formControlName="shortTitle"
-              placeholder="Brief title or acronym"
-              class="form-control">
+            <label for="shortTitle">{{ 'create-study-widget.short_title' | translate }}</label>
+            <input type="text" id="shortTitle" formcontrolname="shortTitle" class="form-control" :placeholder="'create-study-widget.brief_title_or_acronym' | translate">
           </div>
           
           <div class="form-group">
-            <label for="description">Description <span class="required">*</span></label>
-            <textarea 
-              id="description" 
-              formControlName="description"
-              placeholder="Provide a detailed description of the study"
-              class="form-control"
-              rows="4"></textarea>
-            <div class="error-message" *ngIf="studyCreationForm.get('description')?.touched && studyCreationForm.get('description')?.errors">
-              <span *ngIf="studyCreationForm.get('description')?.errors?.['required']">Description is required</span>
-              <span *ngIf="studyCreationForm.get('description')?.errors?.['minlength']">Description must be at least 20 characters</span>
+            <label for="description">{{ 'common.description' | translate }}<span class="required">*</span></label>
+            <textarea id="description" formcontrolname="description" class="form-control" rows="4" :placeholder="'create-study-widget.provide_a_detailed_description_of_the_study' | translate"></textarea>
+            <div class="error-message" *ngif="studyCreationForm.get('description')?.touched &amp;&amp; studyCreationForm.get('description')?.errors">
+              <span *ngif="studyCreationForm.get('description')?.errors?.['required']">{{ 'create-study-widget.description_is_required' | translate }}</span>
+              <span *ngif="studyCreationForm.get('description')?.errors?.['minlength']">{{ 'create-study-widget.description_must_be_at_least_20_characters' | translate }}</span>
             </div>
           </div>
         </div>
         
         <!-- Study Classification Section -->
         <div class="form-section">
-          <h3>Study Classification</h3>
+          <h3>{{ 'create-study-widget.study_classification' | translate }}</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="phase">Study Phase <span class="required">*</span></label>
-              <select id="phase" formControlName="phase" class="form-control">
-                <option value="phase_i">Phase I</option>
-                <option value="phase_ii">Phase II</option>
-                <option value="phase_iii">Phase III</option>
-                <option value="phase_iv">Phase IV</option>
-                <option value="pre_clinical">Pre-Clinical</option>
-                <option value="pilot">Pilot Study</option>
-                <option value="feasibility">Feasibility Study</option>
+              <label for="phase">{{ 'create-study-widget.study_phase' | translate }}<span class="required">*</span></label>
+              <select id="phase" formcontrolname="phase" class="form-control">
+                <option value="phase_i">{{ 'create-study-widget.phase_i' | translate }}</option>
+                <option value="phase_ii">{{ 'create-study-widget.phase_ii' | translate }}</option>
+                <option value="phase_iii">{{ 'create-study-widget.phase_iii' | translate }}</option>
+                <option value="phase_iv">{{ 'create-study-widget.phase_iv' | translate }}</option>
+                <option value="pre_clinical">{{ 'create-study-widget.preclinical' | translate }}</option>
+                <option value="pilot">{{ 'create-study-widget.pilot_study' | translate }}</option>
+                <option value="feasibility">{{ 'create-study-widget.feasibility_study' | translate }}</option>
               </select>
             </div>
             
             <div class="form-group">
-              <label for="studyType">Study Type <span class="required">*</span></label>
-              <select id="studyType" formControlName="studyType" class="form-control">
-                <option value="interventional">Interventional</option>
-                <option value="observational">Observational</option>
-                <option value="registry">Registry</option>
-                <option value="expanded_access">Expanded Access</option>
+              <label for="studyType">{{ 'create-study-widget.study_type' | translate }}<span class="required">*</span></label>
+              <select id="studyType" formcontrolname="studyType" class="form-control">
+                <option value="interventional">{{ 'create-study-widget.interventional' | translate }}</option>
+                <option value="observational">{{ 'create-study-widget.observational' | translate }}</option>
+                <option value="registry">{{ 'create-study-widget.registry' | translate }}</option>
+                <option value="expanded_access">{{ 'create-study-widget.expanded_access' | translate }}</option>
               </select>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="therapeuticArea">Therapeutic Area <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="therapeuticArea" 
-                formControlName="therapeuticArea"
-                placeholder="e.g., Oncology, Cardiology"
-                class="form-control">
+              <label for="therapeuticArea">{{ 'create-study-widget.therapeutic_area' | translate }}<span class="required">*</span></label>
+              <input type="text" id="therapeuticArea" formcontrolname="therapeuticArea" class="form-control" :placeholder="'create-study-widget.eg_oncology_cardiology' | translate">
             </div>
             
             <div class="form-group">
-              <label for="indication">Indication <span class="required">*</span></label>
-              <input 
-                type="text" 
-                id="indication" 
-                formControlName="indication"
-                placeholder="e.g., Type 2 Diabetes"
-                class="form-control">
+              <label for="indication">{{ 'create-study-widget.indication' | translate }}<span class="required">*</span></label>
+              <input type="text" id="indication" formcontrolname="indication" class="form-control" :placeholder="'create-study-widget.eg_type_2_diabetes' | translate">
             </div>
           </div>
         </div>
         
         <!-- Timeline and Status Section -->
         <div class="form-section">
-          <h3>Timeline and Status</h3>
+          <h3>{{ 'create-study-widget.timeline_and_status' | translate }}</h3>
           <div class="form-row">
             <div class="form-group">
-              <label for="status">Study Status <span class="required">*</span></label>
-              <select id="status" formControlName="status" class="form-control">
-                <option value="planning">Planning</option>
-                <option value="active">Active</option>
-                <option value="paused">Paused</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+              <label for="status">{{ 'create-study-widget.study_status' | translate }}<span class="required">*</span></label>
+              <select id="status" formcontrolname="status" class="form-control">
+                <option value="planning">{{ 'create-study-widget.planning' | translate }}</option>
+                <option value="active">{{ 'create-study-widget.active' | translate }}</option>
+                <option value="paused">{{ 'create-study-widget.paused' | translate }}</option>
+                <option value="completed">{{ 'create-study-widget.completed' | translate }}</option>
+                <option value="cancelled">{{ 'create-study-widget.cancelled' | translate }}</option>
               </select>
             </div>
             
             <div class="form-group">
-              <label for="plannedEnrollment">Planned Enrollment <span class="required">*</span></label>
-              <input 
-                type="number" 
-                id="plannedEnrollment" 
-                formControlName="plannedEnrollment"
-                min="1"
-                class="form-control">
-              <div class="error-message" *ngIf="studyCreationForm.get('plannedEnrollment')?.touched && studyCreationForm.get('plannedEnrollment')?.errors">
-                <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['required']">Planned enrollment is required</span>
-                <span *ngIf="studyCreationForm.get('plannedEnrollment')?.errors?.['min']">Must be at least 1</span>
+              <label for="plannedEnrollment">{{ 'create-study-widget.planned_enrollment' | translate }}<span class="required">*</span></label>
+              <input type="number" id="plannedEnrollment" formcontrolname="plannedEnrollment" min="1" class="form-control">
+              <div class="error-message" *ngif="studyCreationForm.get('plannedEnrollment')?.touched &amp;&amp; studyCreationForm.get('plannedEnrollment')?.errors">
+                <span *ngif="studyCreationForm.get('plannedEnrollment')?.errors?.['required']">{{ 'create-study-widget.planned_enrollment_is_required' | translate }}</span>
+                <span *ngif="studyCreationForm.get('plannedEnrollment')?.errors?.['min']">{{ 'create-study-widget.must_be_at_least_1' | translate }}</span>
               </div>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="plannedStartDate">Planned Start Date</label>
-              <input 
-                type="date" 
-                id="plannedStartDate" 
-                formControlName="plannedStartDate"
-                class="form-control">
+              <label for="plannedStartDate">{{ 'create-study-widget.planned_start_date' | translate }}</label>
+              <input type="date" id="plannedStartDate" formcontrolname="plannedStartDate" class="form-control">
             </div>
             
             <div class="form-group">
-              <label for="plannedEndDate">Planned End Date</label>
-              <input 
-                type="date" 
-                id="plannedEndDate" 
-                formControlName="plannedEndDate"
-                class="form-control">
+              <label for="plannedEndDate">{{ 'create-study-widget.planned_end_date' | translate }}</label>
+              <input type="date" id="plannedEndDate" formcontrolname="plannedEndDate" class="form-control">
             </div>
           </div>
         </div>
         
         <!-- Study Team Section -->
         <div class="form-section">
-          <h3>Study Team</h3>
+          <h3>{{ 'create-study-widget.study_team' | translate }}</h3>
           <div class="form-group">
-            <label for="principalInvestigator">Principal Investigator</label>
-            <input 
-              type="text" 
-              id="principalInvestigator" 
-              formControlName="principalInvestigator"
-              placeholder="Name of PI"
-              class="form-control">
+            <label for="principalInvestigator">{{ 'create-study-widget.principal_investigator' | translate }}</label>
+            <input type="text" id="principalInvestigator" formcontrolname="principalInvestigator" class="form-control" :placeholder="'create-study-widget.name_of_pi' | translate">
           </div>
           
           <div class="form-group">
-            <label for="studyCoordinator">Study Coordinator</label>
-            <input 
-              type="text" 
-              id="studyCoordinator" 
-              formControlName="studyCoordinator"
-              placeholder="Name of coordinator"
-              class="form-control">
+            <label for="studyCoordinator">{{ 'create-study-widget.study_coordinator' | translate }}</label>
+            <input type="text" id="studyCoordinator" formcontrolname="studyCoordinator" class="form-control" :placeholder="'create-study-widget.name_of_coordinator' | translate">
           </div>
           
           <div class="form-group">
-            <label for="dataManager">Data Manager</label>
-            <input 
-              type="text" 
-              id="dataManager" 
-              formControlName="dataManager"
-              placeholder="Name of data manager"
-              class="form-control">
+            <label for="dataManager">{{ 'create-study-widget.data_manager' | translate }}</label>
+            <input type="text" id="dataManager" formcontrolname="dataManager" class="form-control" :placeholder="'create-study-widget.name_of_data_manager' | translate">
           </div>
         </div>
         
         <!-- Regulatory & Compliance Section -->
         <div class="form-section">
-          <h3>Regulatory & Compliance</h3>
+          <h3>{{ 'create-study-widget.regulatory_compliance' | translate }}</h3>
           <div class="form-row">
             <div class="form-group checkbox-group">
               <label>
-                <input 
-                  type="checkbox" 
-                  formControlName="irbApprovalRequired">
-                <span class="checkbox-label">IRB Approval Required</span>
+                <input type="checkbox" formcontrolname="irbApprovalRequired">
+                <span class="checkbox-label">{{ 'create-study-widget.irb_approval_required' | translate }}</span>
               </label>
             </div>
             
             <div class="form-group checkbox-group">
               <label>
-                <input 
-                  type="checkbox" 
-                  formControlName="consentRequired">
-                <span class="checkbox-label">Informed Consent Required</span>
+                <input type="checkbox" formcontrolname="consentRequired">
+                <span class="checkbox-label">{{ 'create-study-widget.informed_consent_required' | translate }}</span>
               </label>
             </div>
           </div>
@@ -240,45 +172,35 @@
           <div class="form-row">
             <div class="form-group checkbox-group">
               <label>
-                <input 
-                  type="checkbox" 
-                  formControlName="requiresElectronicSignatures">
-                <span class="checkbox-label">Electronic Signatures Required</span>
+                <input type="checkbox" formcontrolname="requiresElectronicSignatures">
+                <span class="checkbox-label">{{ 'create-study-widget.electronic_signatures_required' | translate }}</span>
               </label>
             </div>
             
             <div class="form-group checkbox-group">
               <label>
-                <input 
-                  type="checkbox" 
-                  formControlName="auditTrailRequired">
-                <span class="checkbox-label">Audit Trail Required</span>
+                <input type="checkbox" formcontrolname="auditTrailRequired">
+                <span class="checkbox-label">{{ 'create-study-widget.audit_trail_required' | translate }}</span>
               </label>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="dataIntegrityLevel">Data Integrity Level <span class="required">*</span></label>
-              <select id="dataIntegrityLevel" formControlName="dataIntegrityLevel" class="form-control">
-                <option value="basic">Basic</option>
-                <option value="enhanced">Enhanced</option>
-                <option value="maximum">Maximum</option>
+              <label for="dataIntegrityLevel">{{ 'create-study-widget.data_integrity_level' | translate }}<span class="required">*</span></label>
+              <select id="dataIntegrityLevel" formcontrolname="dataIntegrityLevel" class="form-control">
+                <option value="basic">{{ 'create-study-widget.basic' | translate }}</option>
+                <option value="enhanced">{{ 'create-study-widget.enhanced' | translate }}</option>
+                <option value="maximum">{{ 'create-study-widget.maximum' | translate }}</option>
               </select>
             </div>
             
             <div class="form-group">
-              <label for="dataRetentionPeriod">Data Retention Period (months) <span class="required">*</span></label>
-              <input 
-                type="number" 
-                id="dataRetentionPeriod" 
-                formControlName="dataRetentionPeriod"
-                min="12"
-                placeholder="120"
-                class="form-control">
-              <div class="error-message" *ngIf="studyCreationForm.get('dataRetentionPeriod')?.touched && studyCreationForm.get('dataRetentionPeriod')?.errors">
-                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['required']">Retention period is required</span>
-                <span *ngIf="studyCreationForm.get('dataRetentionPeriod')?.errors?.['min']">Must be at least 12 months</span>
+              <label for="dataRetentionPeriod">{{ 'create-study-widget.data_retention_period_months' | translate }}<span class="required">*</span></label>
+              <input type="number" id="dataRetentionPeriod" formcontrolname="dataRetentionPeriod" min="12" placeholder="120" class="form-control">
+              <div class="error-message" *ngif="studyCreationForm.get('dataRetentionPeriod')?.touched &amp;&amp; studyCreationForm.get('dataRetentionPeriod')?.errors">
+                <span *ngif="studyCreationForm.get('dataRetentionPeriod')?.errors?.['required']">{{ 'create-study-widget.retention_period_is_required' | translate }}</span>
+                <span *ngif="studyCreationForm.get('dataRetentionPeriod')?.errors?.['min']">{{ 'create-study-widget.must_be_at_least_12_months' | translate }}</span>
               </div>
             </div>
           </div>
@@ -286,24 +208,19 @@
       </div>
       
       <!-- Form Validation Warning -->
-      <div class="form-validation-warning" *ngIf="!studyCreationForm.valid && studyCreationForm.touched">
-        <i class="material-icons">warning</i>
-        <span>Please fill in all required fields to create study</span>
+      <div class="form-validation-warning" *ngif="!studyCreationForm.valid &amp;&amp; studyCreationForm.touched">
+        <i class="material-icons">{{ 'common.warning' | translate }}</i>
+        <span>{{ 'create-study-widget.please_fill_in_all_required_fields_to_create_study' | translate }}</span>
       </div>
       
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="closeStudyCreationModal()">
-          Cancel
-        </button>
-        <button 
-          type="button" 
-          class="btn btn-primary" 
-          (click)="saveNewStudy()"
-          [disabled]="!studyCreationForm.valid || isCreatingStudy">
-          <span *ngIf="isCreatingStudy">Creating...</span>
-          <span *ngIf="!isCreatingStudy">Create Study</span>
+        <button type="button" class="btn btn-secondary" (click)="closeStudyCreationModal()">{{ 'common.cancel' | translate }}</button>
+        <button type="button" class="btn btn-primary" (click)="saveNewStudy()" [disabled]="!studyCreationForm.valid || isCreatingStudy">
+          <span *ngif="isCreatingStudy">{{ 'create-study-widget.creating' | translate }}</span>
+          <span *ngif="!isCreatingStudy">{{ 'create-study-widget.create_study' | translate }}</span>
         </button>
       </div>
     </form>
   </div>
 </div>
+</body></html>

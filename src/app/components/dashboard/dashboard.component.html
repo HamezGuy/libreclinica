@@ -1,61 +1,53 @@
-<!-- EDC Dashboard with Three-Panel Layout -->
-<div class="edc-dashboard" *ngIf="userProfile$ | async as userProfile">
+<!-- EDC Dashboard with Three-Panel Layout --><html><head></head><body><div class="edc-dashboard" *ngIf="userProfile$ | async as userProfile">
   
   <!-- Top Navigation Bar -->
   <header class="top-bar">
     <div class="top-bar-left">
       <h1 class="app-title">
         <i class="material-icons">medical_services</i>
-        EDC System
+        {{ 'dashboard.title' | translate }} - EDC System
       </h1>
     </div>
     
     <div class="top-bar-center">
       <div class="search-container">
         <i class="material-icons">search</i>
-        <input 
-          type="text" 
-          placeholder="Search patients, forms, or studies..."
-          [(ngModel)]="searchQuery"
-          class="search-input">
+        <input type="text" [placeholder]="'common.search' | translate" [(ngModel)]="searchQuery" class="search-input">
       </div>
     </div>
     
     <div class="top-bar-right">
+      <!-- Language Selector -->
+      <app-language-selector></app-language-selector>
+      
       <!-- Form Template Actions -->
       <div class="template-actions">
-        <button 
-          class="btn btn-primary"
-          (click)="openTemplateModal()"
-          [disabled]="!permissions.canEdit && !permissions.canView"
-          [title]="(permissions.canEdit || permissions.canView) ? 'Manage Templates' : 'Insufficient permissions to manage templates'">
-          <i class="material-icons">description</i>
-          Templates
+        <button class="btn btn-primary" (click)="openTemplateModal()" [disabled]="!permissions.canEdit &amp;&amp; !permissions.canView" [title]="(permissions.canEdit || permissions.canView) ? 'Manage Templates' : 'Insufficient permissions to manage templates'">
+          <i class="material-icons">{{ 'common.description' | translate }}</i>
+          {{ 'dashboard.templates' | translate }}
         </button>
         
-        <button 
-          class="btn btn-success"
-          (click)="createNewTemplate()"
-          [disabled]="!permissions.canCreate"
-          [title]="permissions.canCreate ? 'Create New Template' : 'Insufficient permissions to create templates'">
-          <i class="material-icons">add</i>
-          Create Template
+        <button class="btn btn-success" (click)="createNewTemplate()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? 'Create New Template' : 'Insufficient permissions to create templates'">
+          <i class="material-icons">{{ 'common.add' | translate }}</i>
+          {{ 'dashboard.createTemplate' | translate }}
+        </button>
+
+        <button class="btn btn-info" (click)="openOcrTemplateBuilder()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? 'Create Template from Scanned Document' : 'Insufficient permissions to create templates'">
+          <i class="material-icons">{{ 'dashboard.documentscanner' | translate }}</i>
+          {{ 'dashboard.ocrTemplate' | translate }}
         </button>
       </div>
       
       <!-- User Profile -->
       <div class="user-profile">
-        <div class="profile-info" (click)="openProfileEditModal()" title="Edit Profile">
-          <img 
-            [src]="userProfile.photoURL || '/assets/default-avatar.svg'" 
-            [alt]="userProfile.displayName"
-            class="user-avatar">
+        <div class="profile-info" (click)="openProfileEditModal()" :title="'dashboard.edit_profile' | translate">
+          <img [src]="userProfile.photoURL || '/assets/default-avatar.svg'" [alt]="userProfile.displayName" class="user-avatar">
           <div class="user-info">
             <span class="user-name">{{ userProfile.displayName }}</span>
             <span class="user-role">{{ userProfile.accessLevel }}</span>
           </div>
         </div>
-        <button class="btn btn-link" (click)="signOut()" title="Sign Out">
+        <button class="btn btn-link" (click)="signOut()" :title="'dashboard.sign_out' | translate">
           <i class="material-icons">logout</i>
         </button>
       </div>
@@ -66,22 +58,18 @@
   <nav class="horizontal-nav">
     <div class="nav-container">
       <ul class="nav-tabs">
-        <li 
-          *ngFor="let item of sidebarItems" 
-          class="nav-tab"
-          [class.active]="item.active"
-          (click)="selectSidebarItem(item.id)">
+        <li *ngFor="let item of sidebarItems" class="nav-tab" [class.active]="item.active" (click)="selectSidebarItem(item.id)">
           <i class="material-icons">{{ item.icon }}</i>
-          <span>{{ item.label }}</span>
+          <span>{{ item.label | translate }}</span>
         </li>
       </ul>
       
       <!-- Compliance Badges -->
       <div class="compliance-badges">
-        <span class="badge hipaa">HIPAA</span>
-        <span class="badge cfr21">21 CFR Part 11</span>
-        <span class="badge gdpr">GDPR</span>
-        <span class="badge dpdp">DPDP Act</span>
+        <span class="badge hipaa">{{ 'dashboard.hipaa' | translate }}</span>
+        <span class="badge cfr21">{{ 'dashboard.21_cfr_part_11' | translate }}</span>
+        <span class="badge gdpr">{{ 'dashboard.gdpr' | translate }}</span>
+        <span class="badge dpdp">{{ 'dashboard.dpdp_act' | translate }}</span>
       </div>
     </div>
   </nav>
@@ -89,19 +77,7 @@
   <!-- Main Content Area -->
   <div class="main-content">
     <!-- Dashboard Sidebar Widget -->
-    <app-dashboard-sidebar
-      [activeSidebarItem]="activeSidebarItem"
-      [studies]="studies"
-      [patients]="patients"
-      [permissions]="permissions"
-      [activeSidebarItem]="activeSidebarItem"
-      (activeSidebarItemChange)="selectSidebarItem($event)"
-      (createTemplate)="createNewTemplate()"
-      (createStudy)="createNewStudy()"
-      (selectPatient)="selectPatientFromSidebar($event)"
-      (deletePatient)="deletePatientFromStudy($event.patient, $event.studyId)"
-      (viewPatientForms)="viewPatientForms($event)"
-      (viewPatientHistory)="viewPatientHistory($event)">
+    <app-dashboard-sidebar [activeSidebarItem]="activeSidebarItem" [studies]="studies" [patients]="patients" [permissions]="permissions" (activeSidebarItemChange)="selectSidebarItem($event)" (createTemplate)="createNewTemplate()" (createStudy)="createNewStudy()" (selectPatient)="selectPatientFromSidebar($event)" (deletePatient)="deletePatientFromStudy($event.patient, $event.studyId)" (viewPatientForms)="viewPatientForms($event)" (viewPatientHistory)="viewPatientHistory($event)">
     </app-dashboard-sidebar>
     
     <!-- Main Panel -->
@@ -110,15 +86,11 @@
       <!-- Patients View -->
       <div class="content-section" *ngIf="activeSidebarItem === 'patients'">
         <div class="section-header">
-          <h2>Patients</h2>
+          <h2>{{ 'dashboard.patients' | translate }}</h2>
           <div class="section-actions">
-            <button 
-              class="btn btn-primary" 
-              [disabled]="!permissions.canAddPatients"
-              [title]="permissions.canAddPatients ? 'Add New Patient' : 'Insufficient permissions to add patients'"
-              (click)="openPatientTemplateSelector()">
+            <button class="btn btn-primary" [disabled]="!permissions.canAddPatients" [title]="permissions.canAddPatients ? ('dashboard.add_new_patient' | translate) : ('dashboard.insufficient_permissions_to_add_patients' | translate)" (click)="openPatientTemplateSelector()">
               <i class="material-icons">person_add</i>
-              Add Patient
+              {{ 'dashboard.add_patient' | translate }}
             </button>
           </div>
         </div>
@@ -126,20 +98,16 @@
         <!-- Patient List -->
         <div class="patient-list">
           <div class="list-header">
-            <span>Patient ID</span>
-            <span>Name</span>
-            <span>Study</span>
-            <span>Forms</span>
-            <span>Last Visit</span>
-            <span>Status</span>
-            <span>Actions</span>
+            <span>{{ 'dashboard.patient_id' | translate }}</span>
+            <span>{{ 'common.name' | translate }}</span>
+            <span>{{ 'dashboard.study' | translate }}</span>
+            <span>{{ 'dashboard.forms' | translate }}</span>
+            <span>{{ 'dashboard.last_visit' | translate }}</span>
+            <span>{{ 'dashboard.status' | translate }}</span>
+            <span>{{ 'dashboard.actions' | translate }}</span>
           </div>
           
-          <div 
-            *ngFor="let patient of filteredPatients" 
-            class="patient-item"
-            [class.selected]="selectedPatient?.id === patient.id"
-            (click)="selectPatient(patient)">
+          <div *ngFor="let patient of filteredPatients" class="patient-item" [class.selected]="selectedPatient?.id === patient.id" (click)="selectPatient(patient)">
             <span class="patient-id">{{ patient.identifier }}</span>
             <span class="patient-name">
               {{ patient.displayName }}
@@ -152,10 +120,10 @@
               <span class="status-badge" [class]="patient.status">{{ patient.status }}</span>
             </span>
             <span class="patient-actions">
-              <button class="btn btn-sm btn-link" title="View Details" (click)="viewPatientDetails(patient)">
+              <button class="btn btn-sm btn-link" [title]="'dashboard.view_details' | translate">
                 <i class="material-icons">visibility</i>
               </button>
-              <button class="btn btn-sm btn-link" title="Edit">
+              <button class="btn btn-sm btn-link" [title]="'common.edit' | translate">
                 <i class="material-icons">edit</i>
               </button>
             </span>
@@ -163,7 +131,7 @@
           
           <div *ngIf="filteredPatients.length === 0" class="empty-state">
             <i class="material-icons">people_outline</i>
-            <p>No patients found</p>
+            <p>{{ 'dashboard.no_patients_found' | translate }}</p>
           </div>
         </div>
       </div>
@@ -171,35 +139,25 @@
       <!-- Forms View -->
       <div class="content-section" *ngIf="activeSidebarItem === 'forms'">
         <div class="section-header">
-          <h2>Form Templates</h2>
+          <h2>{{ 'dashboard.form_templates' | translate }}</h2>
           <div class="section-actions">
             <!-- Temporary Fix Button -->
-            <button 
-              class="btn btn-warning" 
-              (click)="fixTemplateIds()"
-              title="Fix Template IDs (One-time migration)">
+            <button class="btn btn-warning" (click)="fixTemplateIds()" [title]="'dashboard.fix_template_ids_onetime_migration' | translate">
               <i class="material-icons">build</i>
-              Fix Template IDs
+              {{ 'dashboard.fix_template_ids' | translate }}
             </button>
             
-            <button 
-              class="btn btn-primary" 
-              (click)="createNewTemplate()"
-              [disabled]="!permissions.canCreate"
-              [title]="permissions.canCreate ? 'Create New Template' : 'Insufficient permissions to create templates'">
+            <button class="btn btn-primary" (click)="createNewTemplate()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? ('dashboard.create_new_template' | translate) : ('dashboard.insufficient_permissions_to_create_templates' | translate)">
               <i class="material-icons">add</i>
-              Create Template
+              {{ 'dashboard.create_template' | translate }}
             </button>
           </div>
         </div>
         
         <!-- Template List -->
         <div class="template-list">
-          <div class="template-grid" *ngIf="filteredTemplates.length > 0">
-            <div 
-              *ngFor="let template of filteredTemplates" 
-              class="template-card"
-              [class]="template.status">
+          <div class="template-grid">
+            <div *ngFor="let template of filteredTemplates" class="template-card" [class]="template.status">
               <div class="template-header">
                 <h3>{{ template.name }}</h3>
                 <span class="template-version">v{{ template.version }}</span>
@@ -214,34 +172,19 @@
               </div>
               
               <div class="template-actions">
-                <button 
-                  class="btn btn-sm btn-info"
-                  (click)="testFormTemplate(template)"
-                  title="Test Form">
+                <button class="btn btn-sm btn-info" (click)="testFormTemplate(template)" :title="'dashboard.test_form' | translate">
                   <i class="material-icons">science</i>
                 </button>
                 
-                <button 
-                  class="btn btn-sm btn-secondary"
-                  (click)="editTemplate(template)"
-                  *ngIf="permissions.canEdit"
-                  title="Edit Template">
+                <button class="btn btn-sm btn-secondary" (click)="editTemplate(template)" *ngIf="permissions.canEdit" :title="'dashboard.edit_template' | translate">
                   <i class="material-icons">edit</i>
                 </button>
                 
-                <button 
-                  class="btn btn-sm btn-success"
-                  (click)="publishTemplate(template)"
-                  *ngIf="permissions.canPublish && template.status === 'draft'"
-                  title="Publish Template">
+                <button class="btn btn-sm btn-success" (click)="publishTemplate(template)" *ngIf="permissions.canPublish && template.status === 'draft'" :title="'dashboard.publish_template' | translate">
                   <i class="material-icons">publish</i>
                 </button>
                 
-                <button 
-                  class="btn btn-sm btn-danger"
-                  (click)="deleteTemplate(template)"
-                  *ngIf="permissions.canDelete"
-                  title="Delete Template">
+                <button class="btn btn-sm btn-danger" (click)="deleteTemplate(template)" *ngIf="permissions.canDelete" :title="'dashboard.delete_template' | translate">
                   <i class="material-icons">delete</i>
                 </button>
               </div>
@@ -250,13 +193,8 @@
           
           <div *ngIf="(templates$ | async)?.length === 0" class="empty-state">
             <i class="material-icons">description</i>
-            <p>No form templates found</p>
-            <button 
-              class="btn btn-primary"
-              (click)="createNewTemplate()"
-              *ngIf="permissions.canCreate">
-              Create Your First Template
-            </button>
+            <p>{{ 'dashboard.no_form_templates_found' | translate }}</p>
+            <button class="btn btn-primary" (click)="createNewTemplate()" *ngIf="permissions.canCreate">{{ 'dashboard.create_your_first_template' | translate }}</button>
           </div>
         </div>
       </div>
@@ -264,15 +202,11 @@
       <!-- Studies View -->
       <div class="content-section" *ngIf="activeSidebarItem === 'studies'">
         <div class="section-header">
-          <h2>Studies Management</h2>
+          <h2>{{ 'dashboard.studies_management' | translate }}</h2>
           <div class="section-actions">
-            <button 
-              class="btn btn-primary" 
-              (click)="createNewStudy()"
-              [disabled]="!permissions.canCreate"
-              [title]="permissions.canCreate ? 'Create New Study' : 'Insufficient permissions to create studies'">
+            <button class="btn btn-primary" (click)="createNewStudy()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? ('dashboard.create_new_study' | translate) : ('dashboard.insufficient_permissions_to_create_studies' | translate)">
               <i class="material-icons">add</i>
-              Create Study
+              {{ 'dashboard.create_study' | translate }}
             </button>
           </div>
         </div>
@@ -285,7 +219,7 @@
             </div>
             <div class="card-content">
               <h3>{{ studies.length }}</h3>
-              <p>Total Studies</p>
+              <p>{{ 'dashboard.total_studies' | translate }}</p>
             </div>
           </div>
           
@@ -295,7 +229,7 @@
             </div>
             <div class="card-content">
               <h3>{{ getTotalEnrollments() }}</h3>
-              <p>Total Enrollments</p>
+              <p>{{ 'dashboard.total_enrollments' | translate }}</p>
             </div>
           </div>
           
@@ -305,7 +239,7 @@
             </div>
             <div class="card-content">
               <h3>{{ getTotalCareAlerts() }}</h3>
-              <p>Care Alerts</p>
+              <p>{{ 'dashboard.care_alerts' | translate }}</p>
             </div>
           </div>
           
@@ -315,7 +249,7 @@
             </div>
             <div class="card-content">
               <h3>{{ getActiveStudiesCount() }}</h3>
-              <p>Active Studies</p>
+              <p>{{ 'dashboard.active_studies' | translate }}</p>
             </div>
           </div>
         </div>
@@ -323,11 +257,7 @@
         <!-- Studies Grid -->
         <div class="studies-list">
           <div class="studies-grid" *ngIf="filteredStudies.length > 0">
-            <div 
-              *ngFor="let study of filteredStudies; trackBy: trackStudy" 
-              class="study-card"
-              [class.selected]="selectedStudy?.id === study.id"
-              (click)="selectStudy(study)">
+            <div *ngFor="let study of filteredStudies; trackBy: trackStudy" class="study-card" [class.selected]="selectedStudy?.id === study.id" (click)="selectStudy(study)">
               
               <div class="study-header">
                 <h3>{{ study.title }}</h3>
@@ -368,43 +298,25 @@
               </div>
               
               <div class="study-actions">
-                <button 
-                  class="btn btn-sm btn-secondary"
-                  (click)="editStudy(study); $event.stopPropagation()"
-                  *ngIf="permissions.canEdit"
-                  title="Edit Study">
+                <button class="btn btn-sm btn-secondary" (click)="editStudy(study); $event.stopPropagation()" *ngIf="permissions.canEdit" :title="'dashboard.edit_study' | translate">
                   <i class="material-icons">edit</i>
                 </button>
                 
-                <button 
-                  class="btn btn-sm btn-primary"
-                  (click)="enrollPatientInStudy(study); $event.stopPropagation()"
-                  *ngIf="permissions.canCreate"
-                  title="Enroll Patient">
+                <button class="btn btn-sm btn-primary" (click)="enrollPatientInStudy(study); $event.stopPropagation()" *ngIf="permissions.canCreate" :title="'dashboard.enroll_patient' | translate">
                   <i class="material-icons">person_add</i>
                 </button>
                 
-                <button 
-                  class="btn btn-sm btn-danger"
-                  (click)="deleteStudy(study); $event.stopPropagation()"
-                  *ngIf="permissions.canDelete"
-                  title="Delete Study">
+                <button class="btn btn-sm btn-danger" (click)="deleteStudy(study); $event.stopPropagation()" *ngIf="permissions.canDelete" :title="'dashboard.delete_study' | translate">
                   <i class="material-icons">delete</i>
                 </button>
               </div>
               
               <!-- Care Indicators -->
               <div class="care-indicators" *ngIf="getCareIndicatorsForStudy(study.id || '').length > 0">
-                <div 
-                  *ngFor="let indicator of getCareIndicatorsForStudy(study.id || '')"
-                  class="care-indicator"
-                  [class]="'severity-' + indicator.severity">
+                <div *ngFor="let indicator of getCareIndicatorsForStudy(study.id || '')" class="care-indicator" [class]="'severity-' + indicator.severity">
                   <i class="material-icons">{{ getCareIndicatorIcon(indicator.type) }}</i>
                   <span>{{ indicator.description }}</span>
-                  <button 
-                    class="btn btn-xs btn-link"
-                    (click)="resolveCareIndicator(indicator); $event.stopPropagation()"
-                    title="Resolve">
+                  <button class="btn btn-xs btn-link" (click)="resolveCareIndicator(indicator); $event.stopPropagation()" :title="'dashboard.resolve' | translate">
                     <i class="material-icons">check</i>
                   </button>
                 </div>
@@ -413,28 +325,13 @@
               <!-- Enhanced Study Management Panel -->
               <div class="enhanced-study-panel" *ngIf="selectedStudy?.id === study.id">
                 <div class="study-tabs">
-                  <button 
-                    class="tab-button active"
-                    (click)="$event.stopPropagation()">
-                    <i class="material-icons">description</i>
-                    Forms & Sections
-                  </button>
-                  <button 
-                    class="tab-button"
-                    (click)="openSubstudyModal(); $event.stopPropagation()">
-                    <i class="material-icons">location_on</i>
-                    Substudies
-                  </button>
-                  <button 
-                    class="tab-button"
-                    (click)="openStudyGroupModal(); $event.stopPropagation()">
-                    <i class="material-icons">group</i>
-                    Study Groups
-                  </button>
-                  <button 
-                    class="tab-button"
-                    *ngIf="getActiveDataQueriesCount() > 0"
-                    (click)="$event.stopPropagation()">
+                  <button class="tab-button active" (click)="$event.stopPropagation()">
+                    <i class="material-icons">description</i>{{ 'dashboard.forms_sections' | translate }}</button>
+                  <button class="tab-button" (click)="openSubstudyModal(); $event.stopPropagation()">
+                    <i class="material-icons">location_on</i>{{ 'dashboard.substudies' | translate }}</button>
+                  <button class="tab-button" (click)="openStudyGroupModal(); $event.stopPropagation()">
+                    <i class="material-icons">group</i>{{ 'dashboard.study_groups' | translate }}</button>
+                  <button class="tab-button" *ngIf="getActiveDataQueriesCount() > 0" (click)="$event.stopPropagation()">
                     <i class="material-icons">help</i>
                     Data Queries ({{ getActiveDataQueriesCount() }})
                   </button>
@@ -442,10 +339,7 @@
                 
                 <!-- Study Sections with Form Management -->
                 <div class="study-sections">
-                  <div 
-                    *ngFor="let section of getSectionsForStudy(study.id || ''); trackBy: trackSection" 
-                    class="section-item"
-                    [class.completed]="isSectionComplete(section.id)">
+                  <div *ngFor="let section of getSectionsForStudy(study.id || ''); trackBy: trackSection" class="section-item" [class.completed]="isSectionComplete(section.id)">
                     
                     <div class="section-header">
                       <div class="section-info">
@@ -460,27 +354,14 @@
                       </div>
                       
                       <div class="section-actions">
-                        <button 
-                          class="btn btn-xs btn-secondary"
-                          (click)="openFormAssignmentModal(section); $event.stopPropagation()"
-                          title="Assign Form">
-                          <i class="material-icons">add</i>
-                          Add Form
-                        </button>
+                        <button class="btn btn-xs btn-secondary" (click)="openFormAssignmentModal(section); $event.stopPropagation()" :title="'dashboard.assign_form' | translate">
+                          <i class="material-icons">add</i>{{ 'dashboard.add_form' | translate }}</button>
                         
-                        <button 
-                          class="btn btn-xs btn-success"
-                          *ngIf="!isSectionComplete(section.id)"
-                          (click)="markSectionComplete(section.id); $event.stopPropagation()"
-                          title="Mark Complete">
+                        <button class="btn btn-xs btn-success" *ngIf="!isSectionComplete(section.id)" (click)="markSectionComplete(section.id); $event.stopPropagation()" :title="'dashboard.mark_complete' | translate">
                           <i class="material-icons">check_circle</i>
                         </button>
                         
-                        <button 
-                          class="btn btn-xs btn-warning"
-                          *ngIf="isSectionComplete(section.id)"
-                          (click)="markSectionIncomplete(section.id); $event.stopPropagation()"
-                          title="Mark Incomplete">
+                        <button class="btn btn-xs btn-warning" *ngIf="isSectionComplete(section.id)" (click)="markSectionIncomplete(section.id); $event.stopPropagation()" :title="'dashboard.mark_incomplete' | translate">
                           <i class="material-icons">radio_button_unchecked</i>
                         </button>
                       </div>
@@ -488,10 +369,7 @@
                     
                     <!-- Section Forms -->
                     <div class="section-forms" *ngIf="getFormInstancesForSection(section.id).length > 0">
-                      <div 
-                        *ngFor="let formInstance of getFormInstancesForSection(section.id); trackBy: trackFormInstance"
-                        class="form-instance"
-                        [class]="'status-' + formInstance.status">
+                      <div *ngFor="let formInstance of getFormInstancesForSection(section.id); trackBy: trackFormInstance" class="form-instance" [class]="'status-' + formInstance.status">
                         
                         <div class="form-info">
                           <span class="form-name">{{ formInstance.templateName }}</span>
@@ -505,18 +383,11 @@
                         </div>
                         
                         <div class="form-actions">
-                          <button 
-                            class="btn btn-xs btn-primary"
-                            (click)="$event.stopPropagation()"
-                            title="Fill Form">
+                          <button class="btn btn-xs btn-primary" (click)="$event.stopPropagation()" :title="'dashboard.fill_form' | translate">
                             <i class="material-icons">edit</i>
                           </button>
                           
-                          <button 
-                            class="btn btn-xs btn-info"
-                            *ngIf="formInstance.queries && formInstance.queries.length > 0"
-                            (click)="loadDataQueriesForForm(formInstance.id); $event.stopPropagation()"
-                            title="View Queries ({{ formInstance.queries.length }})">
+                          <button class="btn btn-xs btn-info" *ngIf="formInstance.queries && formInstance.queries.length > 0" (click)="loadDataQueriesForForm(formInstance.id); $event.stopPropagation()" title="View Queries ({{ formInstance.queries.length }})">
                             <i class="material-icons">help</i>
                             {{ formInstance.queries.length }}
                           </button>
@@ -526,13 +397,9 @@
                     
                     <!-- Empty state for section -->
                     <div class="section-empty" *ngIf="getFormInstancesForSection(section.id).length === 0">
-                      <p>No forms assigned to this section</p>
-                      <button 
-                        class="btn btn-sm btn-primary"
-                        (click)="openFormAssignmentModal(section); $event.stopPropagation()">
-                        <i class="material-icons">add</i>
-                        Assign First Form
-                      </button>
+                      <p>{{ 'dashboard.no_forms_assigned_to_this_section' | translate }}</p>
+                      <button class="btn btn-sm btn-primary" (click)="openFormAssignmentModal(section); $event.stopPropagation()">
+                        <i class="material-icons">add</i>{{ 'dashboard.assign_first_form' | translate }}</button>
                     </div>
                   </div>
                 </div>
@@ -543,190 +410,10 @@
           <!-- Empty State -->
           <div *ngIf="studies.length === 0" class="empty-state">
             <i class="material-icons">folder_open</i>
-            <h3>No Studies Found</h3>
-            <p>Create your first study to begin managing clinical research data.</p>
-            <button 
-              class="btn btn-primary"
-              (click)="createNewStudy()"
-              *ngIf="permissions.canCreate">
-              <i class="material-icons">add</i>
-              Create Your First Study
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Enhanced Study Management Modals -->
-      
-      <!-- Substudy Management Modal -->
-      <div class="modal-overlay" *ngIf="showSubstudyModal">
-        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h3>Manage Substudies</h3>
-            <button class="close-btn" (click)="closeSubstudyModal()">
-              <i class="material-icons">close</i>
-            </button>
-          </div>
-          
-          <div class="modal-body">
-            <div class="substudy-list">
-              <div class="list-header">
-                <h4>Substudies for {{ selectedStudy?.title }}</h4>
-                <button class="btn btn-primary" (click)="createSubstudy(selectedStudy?.id || '', { studyId: selectedStudy?.id || '', name: 'New Substudy', geographicalLocation: { country: 'US', sites: [] }, targetEnrollment: 50, actualEnrollment: 0, status: 'planning', regulatoryApprovals: [], irbApprovals: [], createdBy: '', lastModifiedBy: '' })">
-                  <i class="material-icons">add</i>
-                  Add Substudy
-                </button>
-              </div>
-              
-              <div class="substudy-items" *ngIf="substudies.length > 0">
-                <div 
-                  *ngFor="let substudy of substudies; trackBy: trackSubstudy"
-                  class="substudy-item"
-                  [class.selected]="selectedSubstudy?.id === substudy.id"
-                  (click)="selectSubstudy(substudy)">
-                  
-                  <div class="substudy-info">
-                    <h5>{{ substudy.name }}</h5>
-                    <p>{{ substudy.geographicalLocation.country }} - {{ substudy.geographicalLocation.region || 'All Regions' }}</p>
-                    <div class="substudy-stats">
-                      <span class="stat">{{ substudy.actualEnrollment }}/{{ substudy.targetEnrollment }} enrolled</span>
-                      <span class="status" [class]="'status-' + substudy.status">{{ substudy.status | titlecase }}</span>
-                    </div>
-                  </div>
-                  
-                  <div class="substudy-actions">
-                    <button class="btn btn-sm btn-secondary" title="Edit">
-                      <i class="material-icons">edit</i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="empty-state" *ngIf="substudies.length === 0">
-                <i class="material-icons">location_on</i>
-                <h4>No Substudies</h4>
-                <p>Create geographical substudies to organize your study by location.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Study Group Management Modal -->
-      <div class="modal-overlay" *ngIf="showStudyGroupModal">
-        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h3>Manage Study Groups</h3>
-            <button class="close-btn" (click)="closeStudyGroupModal()">
-              <i class="material-icons">close</i>
-            </button>
-          </div>
-          
-          <div class="modal-body">
-            <div class="study-group-list">
-              <div class="list-header">
-                <h4>Study Groups for {{ selectedStudy?.title }}</h4>
-                <button class="btn btn-primary" (click)="createStudyGroup(selectedStudy?.id || '', { studyId: selectedStudy?.id || '', name: 'Control Group', groupType: 'control', targetEnrollment: 25, actualEnrollment: 0, blindingLevel: 'double', isActive: true, createdBy: '', lastModifiedBy: '' })">
-                  <i class="material-icons">add</i>
-                  Add Group
-                </button>
-              </div>
-              
-              <div class="study-group-items" *ngIf="studyGroups.length > 0">
-                <div 
-                  *ngFor="let group of studyGroups; trackBy: trackStudyGroup"
-                  class="study-group-item"
-                  [class.selected]="selectedStudyGroup?.id === group.id"
-                  (click)="selectStudyGroup(group)">
-                  
-                  <div class="group-info">
-                    <h5>{{ group.name }}</h5>
-                    <p>{{ group.groupType | titlecase }} Group</p>
-                    <div class="group-stats">
-                      <span class="stat">{{ group.actualEnrollment }}/{{ group.targetEnrollment }} enrolled</span>
-                      <span class="blinding">{{ group.blindingLevel | titlecase }} Blind</span>
-                      <span class="status" [class.active]="group.isActive">{{ group.isActive ? 'Active' : 'Inactive' }}</span>
-                    </div>
-                  </div>
-                  
-                  <div class="group-actions">
-                    <button class="btn btn-sm btn-secondary" title="Edit">
-                      <i class="material-icons">edit</i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="empty-state" *ngIf="studyGroups.length === 0">
-                <i class="material-icons">group</i>
-                <h4>No Study Groups</h4>
-                <p>Create treatment arms and control groups to organize patient enrollment.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Form Assignment Modal -->
-      <div class="modal-overlay" *ngIf="showFormAssignmentModal">
-        <div class="modal-content enhanced-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h3>Assign Form to Section</h3>
-            <button class="close-btn" (click)="closeFormAssignmentModal()">
-              <i class="material-icons">close</i>
-            </button>
-          </div>
-          
-          <div class="modal-body">
-            <div class="form-assignment">
-              <div class="section-info">
-                <h4>Section: {{ selectedSection?.name }}</h4>
-                <p>{{ selectedSection?.description }}</p>
-              </div>
-              
-              <div class="template-selection">
-                <h5>Select Form Template</h5>
-                <div class="template-grid" *ngIf="availableTemplates.length > 0">
-                  <div 
-                    *ngFor="let template of availableTemplates"
-                    class="template-card"
-                    [class.selected]="selectedTemplateForAssignment?.id === template.id"
-                    (click)="selectedTemplateForAssignment = template">
-                    
-                    <div class="template-header">
-                      <h6>{{ template.name }}</h6>
-                      <span class="template-type" [class]="'type-' + template.templateType">{{ template.templateType | titlecase }}</span>
-                    </div>
-                    
-                    <div class="template-info">
-                      <p>{{ template.description }}</p>
-                      <div class="template-stats">
-                        <span class="field-count">{{ template.fields.length || 0 }} fields</span>
-                        <span class="version">v{{ template.version }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="empty-state" *ngIf="availableTemplates.length === 0">
-                  <i class="material-icons">description</i>
-                  <h4>No Templates Available</h4>
-                  <p>Create form templates first before assigning them to study sections.</p>
-                </div>
-              </div>
-              
-              <div class="assignment-actions" *ngIf="selectedTemplateForAssignment">
-                <button 
-                  class="btn btn-primary"
-                  (click)="assignFormToSection(selectedSection?.id || '', selectedTemplateForAssignment.id!)">
-                  <i class="material-icons">assignment</i>
-                  Assign Form
-                </button>
-                <button class="btn btn-secondary" (click)="closeFormAssignmentModal()">
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <h3>{{ 'dashboard.no_studies_found' | translate }}</h3>
+            <p>{{ 'dashboard.create_your_first_study_to_begin_managing_clinical' | translate }}</p>
+            <button class="btn btn-primary" (click)="createNewStudy()" *ngIf="permissions.canCreate">
+              <i class="material-icons">add</i>{{ 'dashboard.create_your_first_study' | translate }}</button>
           </div>
         </div>
       </div>
@@ -752,8 +439,8 @@
     <!-- Right Panel (Patient Details) -->
     <aside class="right-panel" *ngIf="selectedPatient">
       <div class="panel-header">
-        <h3>Patient Details</h3>
-        <button class="btn btn-link" (click)="selectedPatient = null" title="Close">
+        <h3>{{ 'dashboard.patient_details' | translate }}</h3>
+        <button class="btn btn-link" (click)="selectedPatient = null" :title="'common.close' | translate">
           <i class="material-icons">close</i>
         </button>
       </div>
@@ -762,34 +449,31 @@
         <!-- Non-PHI Information -->
         <div class="patient-summary">
           <h4>{{ selectedPatient.displayName }}</h4>
-          <p><strong>ID:</strong> {{ selectedPatient.identifier }}</p>
-          <p><strong>Study:</strong> {{ selectedPatient.studyId || 'N/A' }}</p>
-          <p><strong>Status:</strong> 
+          <p><strong>{{ 'dashboard.id' | translate }}</strong> {{ selectedPatient.identifier }}</p>
+          <p><strong>{{ 'dashboard.study' | translate }}</strong> {{ selectedPatient.studyId || 'N/A' }}</p>
+          <p><strong>{{ 'dashboard.status' | translate }}</strong> 
             <span class="status-badge" [class]="selectedPatient.status">{{ selectedPatient.status }}</span>
           </p>
         </div>
         
         <!-- PHI Information (if accessible) -->
         <div class="phi-section" *ngIf="selectedPatientPhiData">
-          <h4>Clinical Information</h4>
+          <h4>{{ 'dashboard.clinical_information' | translate }}</h4>
           <div class="phi-warning">
-            <i class="material-icons">security</i>
-            <span>Protected Health Information</span>
+            <i class="material-icons">{{ 'dashboard.security' | translate }}</i>
+            <span>{{ 'dashboard.protected_health_information' | translate }}</span>
           </div>
           
           <div class="phi-data">
-            <p *ngIf="selectedPatientPhiData.gender"><strong>Gender:</strong> {{ selectedPatientPhiData.gender }}</p>
-            <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>Birth Date:</strong> {{ selectedPatientPhiData.dateOfBirth | date }}</p>
+            <p *ngIf="selectedPatientPhiData.gender"><strong>{{ 'dashboard.gender' | translate }}</strong> {{ selectedPatientPhiData.gender }}</p>
+            <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>{{ 'dashboard.birth_date' | translate }}</strong> {{ selectedPatientPhiData.dateOfBirth | date }}</p>
             <!-- Add more PHI fields as needed -->
           </div>
         </div>
         
         <!-- Phase Progress -->
         <div class="phase-progress-section" *ngIf="selectedPatient.studyId">
-          <app-patient-phase-progress
-            [patientId]="selectedPatient.id!"
-            [studyId]="selectedPatient.studyId"
-            (phaseSelected)="onPhaseSelected($event)">
+          <app-patient-phase-progress [patientId]="selectedPatient.id!" [studyId]="selectedPatient.studyId" (phaseSelected)="onPhaseSelected($event)">
           </app-patient-phase-progress>
         </div>
         
@@ -797,18 +481,16 @@
         <div class="patient-forms">
           <h4>Forms ({{ selectedPatientForms.length }})</h4>
           <div class="form-list">
-            <div 
-              *ngFor="let form of selectedPatientForms" 
-              class="form-item">
+            <div *ngFor="let form of selectedPatientForms" class="form-item">
               <div class="form-info">
                 <span class="form-name">{{ form.templateId }}</span>
                 <span class="form-status" [class]="form.status">{{ form.status }}</span>
               </div>
               <div class="form-actions">
-                <button class="btn btn-sm btn-link" title="View Form">
-                  <i class="material-icons">visibility</i>
+                <button class="btn btn-sm btn-link" :title="'dashboard.view_form' | translate">
+                  <i class="material-icons">{{ 'dashboard.visibility' | translate }}</i>
                 </button>
-                <button class="btn btn-sm btn-link" title="Edit Form" *ngIf="form.status !== 'locked'">
+                <button class="btn btn-sm btn-link" *ngIf="form.status !== 'locked'" :title="'dashboard.edit_form' | translate">
                   <i class="material-icons">edit</i>
                 </button>
               </div>
@@ -817,35 +499,24 @@
           
           <!-- Create New Form for Patient -->
           <div class="create-form-section" *ngIf="(templates$ | async) as templates">
-            <h5>Create New Form</h5>
+            <h5>{{ 'dashboard.create_new_form' | translate }}</h5>
             <div class="template-selector">
               <div class="template-dropdown">
-                <select 
-                  class="form-select"
-                  [(ngModel)]="selectedTemplateForPatient"
-                  (change)="onTemplateSelected()">
-                  <option value="" disabled selected>Select a template...</option>
-                  <option 
-                    *ngFor="let template of templates" 
-                    [value]="template.id"
-                    [disabled]="template.status !== 'published'">
+                <select class="form-select" [(ngModel)]="selectedTemplateForPatient" (change)="onTemplateSelected()">
+                  <option value="" disabled="" selected="">{{ 'dashboard.select_a_template' | translate }}</option>
+                  <option *ngFor="let template of templates" [value]="template.id" [disabled]="template.status !== 'published'">
                     {{ template.name }} 
-                    <span *ngIf="template.status !== 'published'">({{ template.status }})</span>
+                    ({{ template.status }})
                   </option>
                 </select>
-                <button 
-                  class="btn btn-primary btn-sm"
-                  (click)="createFormForSelectedTemplate()"
-                  [disabled]="!selectedTemplateForPatient || !permissions.canCreate">
-                  <i class="material-icons">add</i>
-                  Create Form
-                </button>
+                <button class="btn btn-primary btn-sm" (click)="createFormForSelectedTemplate()" [disabled]="!selectedTemplateForPatient || !permissions.canCreate">
+                  <i class="material-icons">{{ 'common.add' | translate }}</i>{{ 'dashboard.create_form' | translate }}</button>
               </div>
               <div class="template-info" *ngIf="getSelectedTemplateInfo() as templateInfo">
                 <p class="template-description">{{ templateInfo.description || 'No description available' }}</p>
                 <div class="template-meta">
-                  <span><i class="material-icons">category</i> {{ templateInfo.category || 'General' }}</span>
-                  <span><i class="material-icons">input</i> {{ templateInfo.fields.length || 0 }} fields</span>
+                  <span><i class="material-icons">{{ 'dashboard.category' | translate }}</i> {{ templateInfo.category || 'General' }}</span>
+                  <span><i class="material-icons">{{ 'dashboard.input' | translate }}</i> {{ templateInfo.fields.length || 0 }} fields</span>
                 </div>
               </div>
             </div>
@@ -859,28 +530,18 @@
 </div>
 
 <!-- Template Management Modal -->
-<app-template-management
-  [templates]="allTemplates"
-  [permissions]="permissions"
-  [isVisible]="showTemplateModal"
-  (close)="closeTemplateModal()"
-  (createTemplate)="createNewTemplate()"
-  (editTemplate)="editTemplate($event)"
-  (deleteTemplate)="deleteTemplate($event)"
-  (publishTemplate)="publishTemplate($event)"
-  (duplicateTemplate)="duplicateTemplate($event)"
-  (exportTemplate)="exportTemplate($event)"
-  (fillTemplate)="fillTemplate($event)">
+<app-template-management [templates]="allTemplates" [permissions]="permissions"  [isVisible]="showTemplateModal" (close)="closeTemplateModal()" (createTemplate)="createNewTemplate()" (editTemplate)="editTemplate($event)" (deleteTemplate)="deleteTemplate($event)" (publishTemplate)="publishTemplate($event)" (duplicateTemplate)="duplicateTemplate($event)" (exportTemplate)="exportTemplate($event)" (fillTemplate)="fillTemplate($event)">
 </app-template-management>
 
     <!-- Form Builder Modal -->
     <div *ngIf="showFormBuilderModal" class="modal-overlay">
       <div class="modal-content form-builder-modal">
-        <app-form-builder
-          [templateId]="editingTemplateId"
-          [isModal]="true"
-          (templateSaved)="onTemplateSaved($event)"
-          (builderClosed)="closeFormBuilder()">
+        <app-form-builder 
+          [templateId]="editingTemplateId" 
+          [isModal]="true" 
+          (templateSaved)="onTemplateSaved($event)" 
+          (builderClosed)="closeFormBuilder()"
+          (close)="closeFormBuilder()">
         </app-form-builder>
       </div>
     </div>
@@ -890,29 +551,22 @@
       <div class="modal-content template-fill-modal">
         <div class="modal-header">
           <h2>
-            <i class="material-icons">edit_note</i>
+            <i class="material-icons">{{ 'dashboard.editnote' | translate }}</i>
             Fill Template: {{ templateToFill?.name }}
           </h2>
-          <button class="btn btn-link" (click)="closeTemplateFillModal()" title="Close">
-            <i class="material-icons">close</i>
+          <button class="btn btn-link" (click)="closeTemplateFillModal()" :title="'common.close' | translate">
+            <i class="material-icons">{{ 'common.close' | translate }}</i>
           </button>
         </div>
         
         <div class="modal-body">
           <div class="fill-template-info">
             <p class="info-message">
-              <i class="material-icons">info</i>
-              You are filling out a test instance of this template. Your responses will be saved as a form instance for testing purposes.
-            </p>
+              <i class="material-icons">{{ 'common.info' | translate }}</i>{{ 'dashboard.you_are_filling_out_a_test_instance_of_this_templa' | translate }}</p>
           </div>
           
           <!-- Form Preview Component to render the fillable form -->
-          <app-form-preview
-            *ngIf="templateToFill"
-            [template]="templateToFill"
-            [readonly]="false"
-            (formSubmitted)="onTemplateFillSubmitted($event)"
-            (formSaved)="onTemplateFillSaved($event)">
+          <app-form-preview *ngIf="templateToFill" [template]="templateToFill" [readonly]="false" (formSubmitted)="onTemplateFillSubmitted($event)" (formSaved)="onTemplateFillSaved($event)">
           </app-form-preview>
         </div>
       </div>
@@ -923,31 +577,25 @@
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h2>
-            <i class="material-icons">person_add</i>
-            Create New Patient
-          </h2>
-          <button class="btn btn-link" (click)="closePatientTemplateModal()" title="Close">
-            <i class="material-icons">close</i>
+            <i class="material-icons">{{ 'dashboard.personadd' | translate }}</i>{{ 'dashboard.create_new_patient' | translate }}</h2>
+          <button class="btn btn-link" (click)="closePatientTemplateModal()" :title="'common.close' | translate">
+            <i class="material-icons">{{ 'common.close' | translate }}</i>
           </button>
         </div>
         
         <div class="modal-body patient-template-selector">
           <div class="selection-header">
-            <h3>Select Patient Template</h3>
-            <p>Choose a template to create a new patient record. Patient templates contain PHI data and are encrypted for security.</p>
+            <h3>{{ 'dashboard.select_patient_template' | translate }}</h3>
+            <p>{{ 'dashboard.choose_a_template_to_create_a_new_patient_record_p' | translate }}</p>
           </div>
           
           <!-- Template Selection Grid -->
           <div class="template-grid" *ngIf="patientTemplates.length > 0">
-            <div 
-              *ngFor="let template of patientTemplates" 
-              class="template-card" 
-              [class.selected]="selectedPatientTemplate?.id === template.id"
-              (click)="selectPatientTemplate(template)">
+            <div *ngFor="let template of patientTemplates" class="template-card" [class.selected]="selectedPatientTemplate?.id === template.id" (click)="selectPatientTemplate(template)">
               
               <div class="template-icon">
-                <i class="material-icons">person</i>
-                <div class="phi-badge">PHI</div>
+                <i class="material-icons">{{ 'dashboard.person' | translate }}</i>
+                <div class="phi-badge">{{ 'dashboard.phi' | translate }}</div>
               </div>
               
               <div class="template-info">
@@ -955,7 +603,7 @@
                 <p>{{ template.description }}</p>
                 <div class="template-meta">
                   <span class="field-count">
-                    <i class="material-icons">list</i>
+                    <i class="material-icons">{{ 'dashboard.list' | translate }}</i>
                     {{ template.fields.length }} fields
                   </span>
                   <span class="template-status" [class]="template.status">{{ template.status }}</span>
@@ -966,26 +614,22 @@
           
           <!-- No Templates Available -->
           <div class="no-templates" *ngIf="patientTemplates.length === 0">
-            <i class="material-icons">info</i>
-            <h3>No Patient Templates Available</h3>
-            <p>You need to create a patient template before you can add patients.</p>
+            <i class="material-icons">{{ 'common.info' | translate }}</i>
+            <h3>{{ 'dashboard.no_patient_templates_available' | translate }}</h3>
+            <p>{{ 'dashboard.you_need_to_create_a_patient_template_before_you_c' | translate }}</p>
             <button class="btn btn-primary" (click)="createPatientTemplate()">
-              <i class="material-icons">add</i>
-              Create Patient Template
-            </button>
+              <i class="material-icons">{{ 'common.add' | translate }}</i>{{ 'dashboard.create_patient_template' | translate }}</button>
           </div>
           
           <!-- Selected Template Preview -->
           <div class="selected-template-preview" *ngIf="selectedPatientTemplate">
             <h4>Template Preview: {{ selectedPatientTemplate.name }}</h4>
             <div class="field-preview-list">
-              <div 
-                *ngFor="let field of selectedPatientTemplate.fields.slice(0, 5)" 
-                class="field-preview-item">
+              <div *ngFor="let field of selectedPatientTemplate.fields.slice(0, 5)" class="field-preview-item">
                 <i class="material-icons">{{ getFieldIcon(field.type) }}</i>
                 <span class="field-name">{{ field.label }}</span>
                 <span class="phi-indicator" *ngIf="field.isPhiField">
-                  <i class="material-icons" title="PHI Field">security</i>
+                  <i class="material-icons" :title="'dashboard.phi_field' | translate">{{ 'dashboard.security' | translate }}</i>
                 </span>
               </div>
               <div class="more-fields" *ngIf="selectedPatientTemplate.fields.length > 5">
@@ -996,41 +640,22 @@
         </div>
         
         <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="closePatientTemplateModal()">
-            Cancel
-          </button>
-          <button 
-            class="btn btn-success" 
-            [disabled]="!selectedPatientTemplate"
-            (click)="createPatientFromTemplate()">
-            <i class="material-icons">person_add</i>
-            Create Patient
-          </button>
+          <button class="btn btn-secondary" (click)="closePatientTemplateModal()">{{ 'common.cancel' | translate }}</button>
+          <button class="btn btn-success" [disabled]="!selectedPatientTemplate" (click)="createPatientFromTemplate()">
+            <i class="material-icons">{{ 'dashboard.personadd' | translate }}</i>{{ 'dashboard.create_patient' | translate }}</button>
         </div>
       </div>
     </div>
 
     <!-- Patient Creation Form Modal -->
-    <app-patient-form-modal
-      [show]="showPatientFormModal"
-      [template]="selectedPatientTemplate"
-      [availableStudies]="availableStudies"
-      [defaultStudyId]="defaultStudyIdForPatient"
-      (close)="closePatientFormModal()"
-      (submit)="onPatientFormSubmit($event)">
+    <app-patient-form-modal [show]="showPatientFormModal" [template]="selectedPatientTemplate" [availableStudies]="studies" [defaultStudyId]="selectedStudy?.id || null" (close)="closePatientFormModal()" (submit)="onPatientFormSubmit($event)">
     </app-patient-form-modal>
 
     <!-- Profile Edit Popup -->
-    <app-profile-edit-popup
-      [userProfile]="currentUserProfile"
-      [isVisible]="showProfileEditModal"
-      (closePopup)="closeProfileEditModal()"
-      (profileUpdated)="onProfileUpdated($event)">
+    <app-profile-edit-popup [userProfile]="userProfile$ | async" [isVisible]="showProfileEditModal" (closePopup)="closeProfileEditModal()" (profileUpdated)="onProfileUpdated($event)">
     </app-profile-edit-popup>
 
     <!-- Study Creation Modal -->
-    <app-study-creation-modal
-      [show]="showStudyCreationModal"
-      (close)="onStudyWidgetClosed()"
-      (create)="onStudyCreated($event)">
+    <app-study-creation-modal [show]="showStudyCreationModal" (close)="onStudyWidgetClosed()" (create)="onStudyCreated($event)">
     </app-study-creation-modal>
+</body></html>

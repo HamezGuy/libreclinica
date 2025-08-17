@@ -1,8 +1,22 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, runInInjectionContext, Injector, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, takeUntil, Observable, combineLatest, map, of, withLatestFrom, firstValueFrom } from 'rxjs';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatMenuModule } from '@angular/material/menu';
 
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { StudyPhaseService } from '../../services/study-phase.service';
@@ -18,17 +32,22 @@ import { FormBuilderComponent } from '../form-builder/form-builder.component';
 import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { TemplateManagementComponent } from '../template-management/template-management.component';
-import { StudyCreationModalComponent } from '../study-creation-modal/study-creation-modal.component';
-import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
+import { OcrTemplateBuilderComponent } from '../ocr-template-builder/ocr-template-builder.component';
+import { LanguageSelectorComponent } from '../language-selector/language-selector.component';
+import { TranslatePipe } from '../../pipes/translate.pipe';
+import { PatientDetailComponent } from '../patient-detail/patient-detail.component';
 import { DashboardSidebarComponent } from '../dashboard-sidebar/dashboard-sidebar.component';
 import { PatientPhaseProgressComponent } from '../patient-phase-progress/patient-phase-progress.component';
+import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
 import { SurveyManagementComponent } from '../survey-management/survey-management.component';
-import { SurveyResponseComponent } from '../survey-response/survey-response.component';
+import { StudyCreationModalComponent } from '../study-creation-modal/study-creation-modal.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
 import { Study, StudySection, StudySite, EligibilityCriteria, PatientStudyEnrollment, CareIndicator, Substudy, StudyGroup, StudyFormInstance, StudyFormInstanceStatus, DataQuery, EnhancedStudySection, StudySectionFormTemplate } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
+
+
 
 // Patient display model (non-PHI)
 export interface PatientListItem {
@@ -81,12 +100,39 @@ export interface Patient {
   };
 }
 
-
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FormBuilderComponent, ProfileEditPopupComponent, TemplateManagementComponent, StudyCreationModalComponent, PatientFormModalComponent, DashboardSidebarComponent, PatientPhaseProgressComponent, SurveyManagementComponent, FormPreviewComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatCheckboxModule,
+    MatRadioModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    MatTabsModule,
+    FormBuilderComponent,
+    FormPreviewComponent,
+    LanguageSelectorComponent,
+    TranslatePipe,
+    MatMenuModule,
+    DashboardSidebarComponent,
+    PatientPhaseProgressComponent,
+    TemplateManagementComponent,
+    PatientFormModalComponent,
+    ProfileEditPopupComponent,
+    SurveyManagementComponent,
+    StudyCreationModalComponent
+  ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss', './dashboard-template-fill.scss']
 })
@@ -105,6 +151,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private patientService = inject(PatientService);
   private toastService = inject(ToastService);
   private studyPhaseService = inject(StudyPhaseService);
+  private dialog = inject(MatDialog);
+  private injector: Injector = inject(Injector);
   
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
@@ -185,12 +233,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Sidebar navigation
   sidebarItems = [
-    { id: 'patients', label: 'Patients', icon: 'people', active: true },
-    { id: 'forms', label: 'Forms', icon: 'description', active: false },
-    { id: 'studies', label: 'Studies', icon: 'folder', active: false },
-    { id: 'surveys', label: 'Surveys', icon: 'quiz', active: false },
-    { id: 'reports', label: 'Reports', icon: 'assessment', active: false },
-    { id: 'audit', label: 'Audit Logs', icon: 'history', active: false }
+    { id: 'patients', label: 'patient.patients', icon: 'people', active: true },
+    { id: 'forms', label: 'form.forms', icon: 'description', active: false },
+    { id: 'studies', label: 'study.studies', icon: 'folder', active: false },
+    { id: 'surveys', label: 'form.surveys', icon: 'quiz', active: false },
+    { id: 'reports', label: 'report.reports', icon: 'assessment', active: false },
+    { id: 'audit', label: 'report.auditLogs', icon: 'history', active: false }
   ];
   activeSidebarItem = 'patients';
 
@@ -290,14 +338,91 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  async createSamplePatient(): Promise<void> {
+    if (!this.permissions.canAddPatients) {
+      alert('You do not have permission to create patients');
+      return;
+    }
+
+    try {
+      // Sample patient data with proper type
+      const samplePatients = [
+        {
+          firstName: 'John',
+          lastName: 'Doe',
+          dateOfBirth: new Date('1980-05-15'),
+          gender: 'male' as 'male' | 'female' | 'other' | 'unknown',
+          email: 'john.doe@example.com',
+          phone: '555-0101'
+        },
+        {
+          firstName: 'Jane',
+          lastName: 'Smith',
+          dateOfBirth: new Date('1975-08-22'),
+          gender: 'female' as 'male' | 'female' | 'other' | 'unknown',
+          email: 'jane.smith@example.com',
+          phone: '555-0102'
+        },
+        {
+          firstName: 'Robert',
+          lastName: 'Johnson',
+          dateOfBirth: new Date('1990-03-10'),
+          gender: 'male' as 'male' | 'female' | 'other' | 'unknown',
+          email: 'robert.j@example.com',
+          phone: '555-0103'
+        }
+      ];
+
+      // Get a random sample patient
+      const randomIndex = Math.floor(Math.random() * samplePatients.length);
+      const sampleData = samplePatients[randomIndex];
+
+      // Get first available study
+      const studies = this.studies;
+      const studyId = studies.length > 0 ? studies[0].id : null;
+
+      if (!studyId) {
+        // Create a default study if none exists
+        await this.createNewStudy();
+        // Get the newly created study
+        const updatedStudies = this.studies;
+        if (updatedStudies.length > 0) {
+          const newStudyId = updatedStudies[updatedStudies.length - 1].id;
+          if (newStudyId) {
+            await this.patientService.createPatient(newStudyId, {
+              demographics: sampleData,
+              studyId: newStudyId
+            });
+          }
+        }
+      } else {
+        // Create patient with existing study
+        await this.patientService.createPatient(studyId, {
+          demographics: sampleData,
+          studyId: studyId
+        });
+      }
+
+      console.log('Sample patient created successfully');
+      await this.loadPatients();
+      alert('Sample patient created successfully!');
+    } catch (error) {
+      console.error('Error creating sample patient:', error);
+      alert('Failed to create sample patient: ' + (error as Error).message);
+    }
+  }
+
   async loadPatients(): Promise<void> {
     try {
       // Load patients directly from Firestore (avoids Healthcare API FHIR store 404 errors)
-      const { collection, getDocs, getFirestore } = await import('@angular/fire/firestore');
-      const firestore = getFirestore();
-
-      const patientsRef = collection(firestore, 'patients');
-      const snapshot = await getDocs(patientsRef);
+      const snapshot = await runInInjectionContext(this.injector, async () => {
+        const { collection, getDocs, getFirestore } = await import('@angular/fire/firestore');
+        return await runInInjectionContext(this.injector, async () => {
+          const firestore = getFirestore();
+          const patientsRef = collection(firestore, 'patients');
+          return await getDocs(patientsRef);
+        });
+      });
 
       this.patients = snapshot.docs.map(doc => {
         const patient = { id: doc.id, ...doc.data() } as any;
@@ -1608,9 +1733,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * This is a temporary method - in production, use proper PatientService
    */
   private async createPatientDirectly(patientData: any): Promise<{id: string}> {
-    const { collection, addDoc, getFirestore } = await import('@angular/fire/firestore');
-    const firestore = getFirestore();
-    
     // Clean the data to remove any undefined values
     const cleanedData = this.cleanUndefinedValues({
       ...patientData,
@@ -1620,8 +1742,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     console.log('Creating patient with cleaned data:', cleanedData);
     
-    const patientsRef = collection(firestore, 'patients');
-    const docRef = await addDoc(patientsRef, cleanedData);
+    const docRef = await runInInjectionContext(this.injector, async () => {
+      const { collection, addDoc, getFirestore } = await import('@angular/fire/firestore');
+      const firestore = getFirestore();
+      const patientsRef = collection(firestore, 'patients');
+      return await addDoc(patientsRef, cleanedData);
+    });
     
     return { id: docRef.id };
   }
@@ -2154,6 +2280,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
     console.log('Template test form saved as draft:', formInstance);
     this.toastService.success('Template test response saved as draft');
     // Don't close the modal on save, allow user to continue editing
+  }
+
+  /**
+   * Open OCR Template Builder modal
+   */
+  openOcrTemplateBuilder(): void {
+    const dialogRef = this.dialog.open(OcrTemplateBuilderComponent, {
+      width: '95vw',
+      height: '95vh',
+      maxWidth: '95vw',
+      maxHeight: '95vh',
+      panelClass: 'ocr-dialog-panel',
+      data: {
+        templateName: 'OCR Generated Template'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('OCR Template created:', result);
+        this.toastService.success('Template created successfully from OCR scan');
+        // Templates will automatically refresh via the templates$ observable
+      }
+    });
+  }
+
+  /**
+   * Close OCR Template Builder modal
+   */
+  closeOcrTemplateBuilder(): void {
+    // No longer needed as dialog handles its own closing
   }
 
 }

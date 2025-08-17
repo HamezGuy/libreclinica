@@ -7,11 +7,12 @@ import { EventBusService } from '../../services/event-bus.service';
 import { ComplianceTermsAcceptedEvent, ComplianceTrainingCompletedEvent } from '../../models/compliance-events.model';
 import { Firestore, doc, updateDoc } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-compliance-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './compliance-setup.component.html',
   styleUrls: ['./compliance-setup.component.scss']
 })

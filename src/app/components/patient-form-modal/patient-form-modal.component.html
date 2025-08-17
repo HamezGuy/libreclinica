@@ -1,16 +1,15 @@
-<!-- Patient Form Modal -->
-<div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
+<!-- Patient Form Modal --><div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
   <div class="modal-container" (click)="$event.stopPropagation()">
     <!-- Header -->
     <div class="modal-header">
       <div class="header-content">
         <i class="material-icons header-icon">person_add</i>
         <div>
-          <h2>Create New Patient</h2>
-          <p class="header-subtitle">Add a patient to a study with the appropriate form template</p>
+          <h2>{{ 'patient-form-modal.create_new_patient' | translate }}</h2>
+          <p class="header-subtitle">{{ 'patient-form-modal.add_a_patient_to_a_study_with_the_appropriate_form' | translate }}</p>
         </div>
       </div>
-      <button class="close-btn" (click)="onClose()" title="Close">
+      <button class="close-btn" (click)="onClose()" [title]="'common.close' | translate">
         <i class="material-icons">close</i>
       </button>
     </div>
@@ -21,27 +20,19 @@
         <div class="form-section">
           <div class="section-header">
             <span class="step-number">1</span>
-            <h3>Select Study</h3>
-            <span class="required-indicator">Required</span>
+            <h3>{{ 'patient-form-modal.select_study' | translate }}</h3>
+            <span class="required-indicator">{{ 'patient-form-modal.required' | translate }}</span>
           </div>
           
           <div class="study-selection">
-            <label for="study-select" class="form-label">
-              Choose the study this patient will be enrolled in
-            </label>
-            <select 
-              id="study-select"
-              formControlName="studyId"
-              class="form-control study-select"
-              [class.error]="patientForm.get('studyId')?.invalid && patientForm.get('studyId')?.touched">
-              <option value="" disabled>Select a study...</option>
+            <label for="study-select" class="form-label">{{ 'patient-form-modal.choose_the_study_this_patient_will_be_enrolled_in' | translate }}</label>
+            <select id="study-select" formControlName="studyId" class="form-control study-select" [class.error]="patientForm.get('studyId')?.invalid &amp;&amp; patientForm.get('studyId')?.touched">
+              <option value="" disabled="">{{ 'patient-form-modal.select_a_study' | translate }}</option>
               <option *ngFor="let study of availableStudies" [value]="study.id">
                 {{ study.title }} ({{ study.protocolNumber }})
               </option>
             </select>
-            <div class="error-message" *ngIf="patientForm.get('studyId')?.invalid && patientForm.get('studyId')?.touched">
-              Please select a study
-            </div>
+            <div class="error-message" *ngIf="patientForm.get('studyId')?.invalid &amp;&amp; patientForm.get('studyId')?.touched">{{ 'patient-form-modal.please_select_a_study' | translate }}</div>
           </div>
         </div>
 
@@ -49,63 +40,35 @@
         <div class="form-section" [class.disabled]="!patientForm.get('studyId')?.value">
           <div class="section-header">
             <span class="step-number">2</span>
-            <h3>Patient Information</h3>
+            <h3>{{ 'patient-form-modal.patient_information' | translate }}</h3>
             <div class="template-info" *ngIf="template">
               <i class="material-icons">description</i>
               <span>{{ template.name }}</span>
             </div>
           </div>
 
-          <div class="form-grid" *ngIf="template && patientForm.get('studyId')?.value">
-            <div class="form-field" 
-                 *ngFor="let field of template?.fields"
-                 [class.full-width]="field.type === 'textarea'">
+          <div class="form-grid" *ngIf="template &amp;&amp; patientForm.get('studyId')?.value">
+            <div class="form-field" *ngFor="let field of template?.fields" [class.full-width]="field.type === 'textarea'">
               <label [for]="field.id" class="field-label">
                 {{ field.label }}
                 <span class="required" *ngIf="field.required">*</span>
-                <i class="material-icons help-icon" 
-                   *ngIf="field.helpText" 
-                   [title]="field.helpText">help_outline</i>
+                <i class="material-icons help-icon" *ngIf="field.helpText" [title]="field.helpText">help_outline</i>
               </label>
               
               <!-- Text Input -->
-              <input 
-                *ngIf="field.type === 'text'"
-                [id]="field.id"
-                type="text"
-                [formControlName]="field.id"
-                [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()"
-                class="form-control"
-                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              <input *ngIf="field.type === 'text'" [id]="field.id" type="text" [formControlName]="field.id" [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()" class="form-control" [class.error]="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched">
               
               <!-- Number Input -->
-              <input 
-                *ngIf="field.type === 'number'"
-                [id]="field.id"
-                type="number"
-                [formControlName]="field.id"
-                [placeholder]="field.placeholder || 'Enter number'"
-                class="form-control"
-                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              <input *ngIf="field.type === 'number'" [id]="field.id" type="number" [formControlName]="field.id" [placeholder]="field.placeholder || 'Enter number'" class="form-control" [class.error]="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched">
               
               <!-- Date Input -->
               <div class="date-input-wrapper" *ngIf="field.type === 'date'">
-                <input 
-                  [id]="field.id"
-                  type="date"
-                  [formControlName]="field.id"
-                  class="form-control"
-                  [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+                <input [id]="field.id" type="date" [formControlName]="field.id" class="form-control" [class.error]="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched">
                 <i class="material-icons date-icon">calendar_today</i>
               </div>
               
               <!-- Select Dropdown -->
-              <select 
-                *ngIf="field.type === 'select'"
-                [id]="field.id"
-                [formControlName]="field.id"
-                class="form-control"
-                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              <select *ngIf="field.type === 'select'" [id]="field.id" [formControlName]="field.id" class="form-control" [class.error]="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched">
                 <option value="">{{ field.placeholder || 'Select ' + field.label.toLowerCase() }}</option>
                 <option *ngFor="let option of field.options" [value]="option.value">
                   {{ option.label }}
@@ -113,30 +76,18 @@
               </select>
               
               <!-- Textarea -->
-              <textarea 
-                *ngIf="field.type === 'textarea'"
-                [id]="field.id"
-                [formControlName]="field.id"
-                [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()"
-                rows="4"
-                class="form-control"
-                [class.error]="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
-              </textarea>
+              <textarea *ngIf="field.type === 'textarea'" [id]="field.id" [formControlName]="field.id" [placeholder]="field.placeholder || 'Enter ' + field.label.toLowerCase()" rows="4" class="form-control" [class.error]="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched"></textarea>
               
               <!-- Checkbox -->
               <div class="checkbox-wrapper" *ngIf="field.type === 'checkbox'">
-                <input 
-                  [id]="field.id"
-                  type="checkbox"
-                  [formControlName]="field.id"
-                  class="checkbox">
+                <input [id]="field.id" type="checkbox" [formControlName]="field.id" class="checkbox">
                 <label [for]="field.id" class="checkbox-label">
                   {{ field.placeholder || field.label }}
                 </label>
               </div>
               
               <!-- Error Messages -->
-              <div class="error-messages" *ngIf="getFieldControl(field.id).invalid && getFieldControl(field.id).touched">
+              <div class="error-messages" *ngIf="getFieldControl(field.id).invalid &amp;&amp; getFieldControl(field.id).touched">
                 <span class="error-message" *ngFor="let error of getFieldErrors(field)">
                   <i class="material-icons">error_outline</i>
                   {{ error }}
@@ -148,7 +99,7 @@
           <!-- No study selected message -->
           <div class="empty-state" *ngIf="!patientForm.get('studyId')?.value">
             <i class="material-icons">info</i>
-            <p>Please select a study first to continue with patient information</p>
+            <p>{{ 'patient-form-modal.please_select_a_study_first_to_continue_with_patie' | translate }}</p>
           </div>
         </div>
       </form>
@@ -157,17 +108,12 @@
     <!-- Footer -->
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
-        <i class="material-icons">close</i>
-        Cancel
-      </button>
-      <button type="submit" 
-              class="btn btn-primary" 
-              (click)="onSubmit()" 
-              [disabled]="patientForm.invalid || isSubmitting || !patientForm.get('studyId')?.value">
+        <i class="material-icons">close</i>{{ 'common.cancel' | translate }}</button>
+      <button type="submit" class="btn btn-primary" (click)="onSubmit()" [disabled]="patientForm.invalid || isSubmitting || !patientForm.get('studyId')?.value">
         <i class="material-icons" *ngIf="!isSubmitting">check</i>
         <i class="material-icons spinning" *ngIf="isSubmitting">refresh</i>
-        <span *ngIf="!isSubmitting">Create Patient</span>
-        <span *ngIf="isSubmitting">Creating...</span>
+        <span *ngIf="!isSubmitting">{{ 'patient-form-modal.create_patient' | translate }}</span>
+        <span *ngIf="isSubmitting">{{ 'patient-form-modal.creating' | translate }}</span>
       </button>
     </div>
   </div>

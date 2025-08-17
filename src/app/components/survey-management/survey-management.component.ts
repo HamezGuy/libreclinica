@@ -9,11 +9,12 @@ import { AccessLevel } from '../../enums/access-levels.enum';
 import { SurveyEditorComponent } from '../survey-editor/survey-editor.component';
 import { SurveyPopupComponent } from '../survey-popup/survey-popup.component';
 import { SurveyResponseComponent } from '../survey-response/survey-response.component';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-survey-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SurveyEditorComponent, SurveyPopupComponent, SurveyResponseComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, SurveyEditorComponent, SurveyPopupComponent, SurveyResponseComponent, TranslatePipe],
   templateUrl: './survey-management.component.html',
   styleUrls: ['./survey-management.component.scss']
 })

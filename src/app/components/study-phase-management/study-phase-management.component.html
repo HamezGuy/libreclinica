@@ -1,17 +1,16 @@
-<div class="study-phase-management">
+<html><head></head><body><div class="study-phase-management">
   <div class="modal-header">
-    <h2>Manage Study Phases</h2>
+    <h2>{{ 'study-phase.manage_study_phases' | translate }}</h2>
     <button type="button" class="close-button" (click)="cancel()">
       <i class="fas fa-times"></i>
     </button>
   </div>
 
   <div class="modal-body">
-    <div class="phase-templates" *ngIf="existingPhases.length === 0">
-      <h3>Quick Start Templates</h3>
+    <div class="phase-templates" *ngif="existingPhases.length === 0">
+      <h3>{{ 'study-phase.quick_start_templates' | translate }}</h3>
       <div class="template-grid">
-        <div class="template-card" *ngFor="let template of phaseTemplates" 
-             (click)="usePhaseTemplate(template)">
+        <div class="template-card" *ngfor="let template of phaseTemplates" (click)="usePhaseTemplate(template)">
           <div class="template-code">{{ template.code }}</div>
           <div class="template-name">{{ template.name }}</div>
           <div class="template-description">{{ template.description }}</div>
@@ -19,24 +18,20 @@
       </div>
     </div>
 
-    <form [formGroup]="phaseForm">
-      <div class="phases-container" formArrayName="phases">
-        <div class="phase-card" *ngFor="let phase of phases.controls; let i = index" 
-             [formGroupName]="i">
+    <form [formgroup]="phaseForm">
+      <div class="phases-container" formarrayname="phases">
+        <div class="phase-card" *ngfor="let phase of phases.controls; let i = index" [formgroupname]="i">
           
           <div class="phase-header">
             <h3>Phase {{ i + 1 }}</h3>
             <div class="phase-actions">
-              <button type="button" class="icon-button" (click)="movePhaseUp(i)" 
-                      [disabled]="i === 0" title="Move up">
+              <button type="button" class="icon-button" (click)="movePhaseUp(i)" [disabled]="i === 0" :title="'study-phase.move_up' | translate">
                 <i class="fas fa-arrow-up"></i>
               </button>
-              <button type="button" class="icon-button" (click)="movePhaseDown(i)" 
-                      [disabled]="i === phases.length - 1" title="Move down">
+              <button type="button" class="icon-button" (click)="movePhaseDown(i)" [disabled]="i === phases.length - 1" :title="'study-phase.move_down' | translate">
                 <i class="fas fa-arrow-down"></i>
               </button>
-              <button type="button" class="icon-button danger" (click)="removePhase(i)" 
-                      title="Remove phase">
+              <button type="button" class="icon-button danger" (click)="removePhase(i)" :title="'study-phase.remove_phase' | translate">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -45,102 +40,84 @@
           <div class="phase-content">
             <div class="form-row">
               <div class="form-group">
-                <label>Phase Name <span class="required">*</span></label>
-                <input type="text" formControlName="phaseName" class="form-control"
-                       placeholder="e.g., Screening, Baseline">
-                <div class="error-message" 
-                     *ngIf="phase.get('phaseName')?.touched && phase.get('phaseName')?.errors?.['required']">
-                  Phase name is required
-                </div>
+                <label>{{ 'study-phase.phase_name' | translate }}<span class="required">*</span></label>
+                <input type="text" formcontrolname="phaseName" class="form-control" :placeholder="'study-phase.eg_screening_baseline' | translate">
+                <div class="error-message" *ngif="phase.get('phaseName')?.touched &amp;&amp; phase.get('phaseName')?.errors?.['required']">{{ 'study-phase.phase_name_is_required' | translate }}</div>
               </div>
 
               <div class="form-group">
-                <label>Phase Code <span class="required">*</span></label>
-                <input type="text" formControlName="phaseCode" class="form-control"
-                       placeholder="e.g., SCR, BSL" maxlength="10">
-                <div class="error-message" 
-                     *ngIf="phase.get('phaseCode')?.touched && phase.get('phaseCode')?.errors?.['required']">
-                  Phase code is required
-                </div>
+                <label>{{ 'study-phase.phase_code' | translate }}<span class="required">*</span></label>
+                <input type="text" formcontrolname="phaseCode" class="form-control" maxlength="10" :placeholder="'study-phase.eg_scr_bsl' | translate">
+                <div class="error-message" *ngif="phase.get('phaseCode')?.touched &amp;&amp; phase.get('phaseCode')?.errors?.['required']">{{ 'study-phase.phase_code_is_required' | translate }}</div>
               </div>
             </div>
 
             <div class="form-group">
-              <label>Description</label>
-              <textarea formControlName="description" class="form-control" rows="2"
-                        placeholder="Brief description of this phase"></textarea>
+              <label>{{ 'common.description' | translate }}</label>
+              <textarea formcontrolname="description" class="form-control" rows="2" :placeholder="'study-phase.brief_description_of_this_phase' | translate"></textarea>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Duration (days)</label>
-                <input type="number" formControlName="plannedDurationDays" class="form-control"
-                       placeholder="e.g., 30" min="1">
+                <label>{{ 'study-phase.duration_days' | translate }}</label>
+                <input type="number" formcontrolname="plannedDurationDays" class="form-control" min="1" :placeholder="'study-phase.eg_30' | translate">
               </div>
 
               <div class="form-group">
-                <label>Window Start (days)</label>
-                <input type="number" formControlName="windowStartDays" class="form-control"
-                       placeholder="e.g., -3" min="-365" max="0">
+                <label>{{ 'study-phase.window_start_days' | translate }}</label>
+                <input type="number" formcontrolname="windowStartDays" class="form-control" min="-365" max="0" :placeholder="'study-phase.eg_3' | translate">
               </div>
 
               <div class="form-group">
-                <label>Window End (days)</label>
-                <input type="number" formControlName="windowEndDays" class="form-control"
-                       placeholder="e.g., 3" min="0" max="365">
+                <label>{{ 'study-phase.window_end_days' | translate }}</label>
+                <input type="number" formcontrolname="windowEndDays" class="form-control" min="0" max="365" :placeholder="'study-phase.eg_3' | translate">
               </div>
             </div>
 
             <div class="form-row checkboxes">
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="isActive">
-                <span>Active</span>
+                <input type="checkbox" formcontrolname="isActive">
+                <span>{{ 'study-phase.active' | translate }}</span>
               </label>
               
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="allowSkip">
-                <span>Allow Skip</span>
+                <input type="checkbox" formcontrolname="allowSkip">
+                <span>{{ 'study-phase.allow_skip' | translate }}</span>
               </label>
               
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="allowParallel">
-                <span>Allow Parallel</span>
+                <input type="checkbox" formcontrolname="allowParallel">
+                <span>{{ 'study-phase.allow_parallel' | translate }}</span>
               </label>
             </div>
 
             <!-- Template Assignments -->
             <div class="template-assignments">
-              <h4>Assigned Templates</h4>
+              <h4>{{ 'study-phase.assigned_templates' | translate }}</h4>
               
-              <div formArrayName="templateAssignments">
-                <div class="template-assignment" 
-                     *ngFor="let template of getTemplateAssignments(i).controls; let j = index"
-                     [formGroupName]="j">
+              <div formarrayname="templateAssignments">
+                <div class="template-assignment" *ngfor="let template of getTemplateAssignments(i).controls; let j = index" [formgroupname]="j">
                   
                   <div class="template-row">
                     <div class="form-group template-select">
-                      <select formControlName="templateId" class="form-control"
-                              (change)="onTemplateSelected(i, j, template.get('templateId')?.value)">
-                        <option value="">Select a template...</option>
-                        <option *ngFor="let tmpl of getAvailableTemplatesForPhase(i)" 
-                                [value]="tmpl.id">
+                      <select formcontrolname="templateId" class="form-control" (change)="onTemplateSelected(i, j, template.get('templateId')?.value)">
+                        <option value="">{{ 'study-phase.select_a_template' | translate }}</option>
+                        <option *ngfor="let tmpl of getAvailableTemplatesForPhase(i)" [value]="tmpl.id">
                           {{ tmpl.name }} ({{ tmpl.templateType }})
                         </option>
                       </select>
                     </div>
 
                     <label class="checkbox-label required-checkbox">
-                      <input type="checkbox" formControlName="isRequired">
-                      <span>Required</span>
+                      <input type="checkbox" formcontrolname="isRequired">
+                      <span>{{ 'study-phase.required' | translate }}</span>
                     </label>
 
                     <div class="form-group due-days">
-                      <input type="number" formControlName="dueAfterDays" 
-                             class="form-control" placeholder="Due in days" min="0">
+                      <input type="number" formcontrolname="dueAfterDays" class="form-control" min="0" :placeholder="'study-phase.due_in_days' | translate">
                     </div>
 
-                    <button type="button" class="icon-button danger" 
-                            (click)="removeTemplateFromPhase(i, j)" title="Remove template">
+                    <button type="button" class="icon-button danger" (click)="removeTemplateFromPhase(i, j)" :title="'study-phase.remove_template' | translate">
                       <i class="fas fa-times"></i>
                     </button>
                   </div>
@@ -148,34 +125,29 @@
               </div>
 
               <button type="button" class="add-template-button" (click)="addTemplateToPhase(i)">
-                <i class="fas fa-plus"></i> Add Template
-              </button>
+                <i class="fas fa-plus"></i>{{ 'study-phase.add_template' | translate }}</button>
             </div>
           </div>
         </div>
       </div>
 
       <button type="button" class="add-phase-button" (click)="addPhase()">
-        <i class="fas fa-plus"></i> Add Phase
-      </button>
+        <i class="fas fa-plus"></i>{{ 'study-phase.add_phase' | translate }}</button>
     </form>
 
-    <div class="error-banner" *ngIf="error">
+    <div class="error-banner" *ngif="error">
       <i class="fas fa-exclamation-triangle"></i>
       {{ error }}
     </div>
   </div>
 
   <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="cancel()">
-      Cancel
-    </button>
-    <button type="button" class="btn btn-primary" (click)="savePhases()" 
-            [disabled]="loading || phaseForm.invalid">
-      <span *ngIf="!loading">Save Phases</span>
-      <span *ngIf="loading">
-        <i class="fas fa-spinner fa-spin"></i> Saving...
-      </span>
+    <button type="button" class="btn btn-secondary" (click)="cancel()">{{ 'common.cancel' | translate }}</button>
+    <button type="button" class="btn btn-primary" (click)="savePhases()" [disabled]="loading || phaseForm.invalid">
+      <span *ngif="!loading">{{ 'study-phase.save_phases' | translate }}</span>
+      <span *ngif="loading">
+        <i class="fas fa-spinner fa-spin"></i>{{ 'study-phase.saving' | translate }}</span>
     </button>
   </div>
 </div>
+</body></html>

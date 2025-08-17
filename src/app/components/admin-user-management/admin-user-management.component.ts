@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 import { Observable, combineLatest, BehaviorSubject } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 
@@ -20,7 +21,7 @@ interface UserManagementFilters {
 @Component({
   selector: 'app-admin-user-management',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './admin-user-management.component.html',
   styleUrls: ['./admin-user-management.component.scss']
 })

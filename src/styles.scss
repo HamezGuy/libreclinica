@@ -62,3 +62,27 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: #a0aec0;
 }
+
+/* OCR Dialog fullscreen panel adjustments */
+.ocr-dialog-panel {
+  width: 95vw !important;
+  max-width: 95vw !important;
+  height: 95vh !important;
+  max-height: 95vh !important;
+}
+
+.ocr-dialog-panel .mat-mdc-dialog-container {
+  height: 100%;
+  padding: 0 !important;
+}
+
+.ocr-dialog-panel .mdc-dialog__surface {
+  height: 100%;
+}
+
+.ocr-dialog-panel .mdc-dialog__content,
+.ocr-dialog-panel .mat-mdc-dialog-content {
+  height: 100%;
+  padding: 0 !important;
+  display: flex;
+}

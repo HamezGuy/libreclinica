@@ -7,6 +7,7 @@ import { PatientService } from '../../services/patient.service';
 import { StudyPhaseService } from '../../services/study-phase.service';
 import { PatientPhaseProgress } from '../../models/study-phase.model';
 import { firstValueFrom } from 'rxjs';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 interface SidebarItem {
   id: string;
@@ -45,7 +46,7 @@ interface Study {
 @Component({
   selector: 'app-dashboard-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './dashboard-sidebar.component.html',
   styleUrls: ['./dashboard-sidebar.component.scss']
 })

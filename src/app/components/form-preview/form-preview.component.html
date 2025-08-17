@@ -2,7 +2,7 @@
 <div class="form-preview-container" [class.readonly]="readonly">
   
   <!-- Form Header -->
-  <div class="form-header" *ngIf="template">
+  <div class="form-header" *ngIf="!readonly && template">
     <div class="form-title">
       <h3>{{ template.name }}</h3>
       <span class="form-version">v{{ template.version }}</span>
@@ -23,158 +23,79 @@
     
     <!-- Form Fields -->
     <div class="form-fields">
-      <div 
-        *ngFor="let field of template.fields; trackBy: trackField"
-        class="form-field-container"
-        [class.field-required]="isFieldRequired(field)"
-        [class.field-hidden]="isFieldHidden(field)"
-        [class.field-error]="getFieldControl(field.id)?.invalid && getFieldControl(field.id)?.touched">
+      <div *ngFor="let field of template.fields; trackBy: trackField" class="form-field-container" [class.field-required]="isFieldRequired(field)" [class.field-hidden]="isFieldHidden(field)" [class.field-error]="getFieldControl(field.id)?.invalid && getFieldControl(field.id)?.touched">
         
         <!-- Field Label -->
         <label [for]="field.id" class="field-label">
           <i class="material-icons field-icon">{{ getFieldIcon(field.type) }}</i>
-          <span class="label-text">{{ field.label }}</span>
+          <span>{{ field.label | translate: { default: field.label } }}</span>
           <span class="required-indicator" *ngIf="isFieldRequired(field)">*</span>
-          <span class="phi-indicator" *ngIf="field.isPhiField" title="Personal Health Information">PHI</span>
+          <span class="phi-badge" *ngIf="field.isPhiField" [title]="'form.phi' | translate">
+            <i class="material-icons">lock</i>
+            {{ 'form-preview.phi' | translate }}
+          </span>
         </label>
 
         <!-- Field Help Text -->
         <div class="field-help" *ngIf="field.helpText">
-          <small>{{ field.helpText }}</small>
+          <small>{{ field.helpText | translate: { default: field.helpText } }}</small>
         </div>
 
         <!-- Field Input - Text -->
-        <input 
-          *ngIf="field.type === 'text'"
-          type="text"
-          [id]="field.id"
-          [formControlName]="field.id"
-          [placeholder]="field.placeholder || ''"
-          class="form-control">
+        <input *ngIf="field.type === 'text'" type="text" [id]="field.id" [formControlName]="field.id" [placeholder]="(field.placeholder || '') | translate: { default: field.placeholder }" class="form-control">
 
         <!-- Field Input - Textarea -->
-        <textarea 
-          *ngIf="field.type === 'textarea'"
-          [id]="field.id"
-          [formControlName]="field.id"
-          [placeholder]="field.placeholder || ''"
-          rows="4"
-          class="form-control"></textarea>
+        <textarea *ngIf="field.type === 'textarea'" [id]="field.id" [formControlName]="field.id" [placeholder]="(field.placeholder || '') | translate: { default: field.placeholder }" rows="4" class="form-control"></textarea>
 
         <!-- Field Input - Number -->
-        <input 
-          *ngIf="field.type === 'number'"
-          type="number"
-          [id]="field.id"
-          [formControlName]="field.id"
-          [placeholder]="field.placeholder || ''"
-          class="form-control">
+        <input *ngIf="field.type === 'number'" type="number" [id]="field.id" [formControlName]="field.id" [placeholder]="(field.placeholder || '') | translate: { default: field.placeholder }" class="form-control">
 
         <!-- Field Input - Email -->
-        <input 
-          *ngIf="field.type === 'email'"
-          type="email"
-          [id]="field.id"
-          [formControlName]="field.id"
-          [placeholder]="field.placeholder || 'Enter email address'"
-          class="form-control">
+        <input *ngIf="field.type === 'email'" type="email" [id]="field.id" [formControlName]="field.id" [placeholder]="field.placeholder ? (field.placeholder | translate: { default: field.placeholder }) : ('form.enterEmail' | translate)" class="form-control">
 
         <!-- Field Input - Phone -->
-        <input 
-          *ngIf="field.type === 'phone'"
-          type="tel"
-          [id]="field.id"
-          [formControlName]="field.id"
-          [placeholder]="field.placeholder || 'Enter phone number'"
-          class="form-control">
+        <input *ngIf="field.type === 'phone'" type="tel" [id]="field.id" [formControlName]="field.id" [placeholder]="field.placeholder ? (field.placeholder | translate: { default: field.placeholder }) : ('form.enterPhone' | translate)" class="form-control">
 
         <!-- Field Input - Date -->
-        <input 
-          *ngIf="field.type === 'date'"
-          type="date"
-          [id]="field.id"
-          [formControlName]="field.id"
-          class="form-control">
+        <input *ngIf="field.type === 'date'" type="date" [id]="field.id" [formControlName]="field.id" class="form-control">
 
         <!-- Field Input - Time -->
-        <input 
-          *ngIf="field.type === 'time'"
-          type="time"
-          [id]="field.id"
-          [formControlName]="field.id"
-          class="form-control">
+        <input *ngIf="field.type === 'time'" type="time" [id]="field.id" [formControlName]="field.id" class="form-control">
 
         <!-- Field Input - DateTime -->
-        <input 
-          *ngIf="field.type === 'datetime'"
-          type="datetime-local"
-          [id]="field.id"
-          [formControlName]="field.id"
-          class="form-control">
+        <input *ngIf="field.type === 'datetime'" type="datetime-local" [id]="field.id" [formControlName]="field.id" class="form-control">
 
         <!-- Field Input - Select -->
-        <select 
-          *ngIf="field.type === 'select'"
-          [id]="field.id"
-          [formControlName]="field.id"
-          class="form-control">
-          <option value="">{{ field.placeholder || 'Select an option' }}</option>
-          <option 
-            *ngFor="let option of field.options"
-            [value]="option.value"
-            [disabled]="option.disabled">
-            {{ option.label }}
+        <select *ngIf="field.type === 'select'" [id]="field.id" [formControlName]="field.id" class="form-control">
+          <option value="">{{ field.placeholder ? (field.placeholder | translate: { default: field.placeholder }) : ('form.selectOption' | translate) }}</option>
+          <option *ngFor="let option of field.options" [value]="option.value" [disabled]="option.disabled">
+            {{ option.label | translate: { default: option.label } }}
           </option>
         </select>
 
         <!-- Field Input - Multi-Select -->
-        <select 
-          *ngIf="field.type === 'multiselect'"
-          [id]="field.id"
-          [formControlName]="field.id"
-          multiple
-          class="form-control multi-select">
-          <option 
-            *ngFor="let option of field.options"
-            [value]="option.value"
-            [disabled]="option.disabled">
-            {{ option.label }}
+        <select *ngIf="field.type === 'multiselect'" [id]="field.id" [formControlName]="field.id" multiple="" class="form-control multi-select">
+          <option *ngFor="let option of field.options" [value]="option.value" [disabled]="option.disabled">
+            {{ option.label | translate: { default: option.label } }}
           </option>
         </select>
 
         <!-- Field Input - Radio Group -->
         <div *ngIf="field.type === 'radio'" class="radio-group">
-          <div 
-            *ngFor="let option of field.options"
-            class="radio-option">
-            <input 
-              type="radio"
-              [id]="field.id + '_' + option.value"
-              [name]="field.id"
-              [value]="option.value"
-              [formControlName]="field.id"
-              [disabled]="option.disabled || false">
+          <div *ngFor="let option of field.options; trackBy: trackOption">
+            <input type="radio" [id]="field.id + '_' + option.value" [name]="field.id" [value]="option.value" [formControlName]="field.id" [disabled]="option.disabled || false">
             <label [for]="field.id + '_' + option.value" class="radio-label">
-              {{ option.label }}
+              {{ option.label | translate: { default: option.label } }}
             </label>
           </div>
         </div>
 
         <!-- Field Input - Checkbox Group -->
         <div *ngIf="field.type === 'checkbox'" class="checkbox-group">
-          <div 
-            *ngFor="let option of field.options; let i = index"
-            class="checkbox-option">
-            <input 
-              type="checkbox"
-              [id]="field.id + '_' + option.value"
-              [value]="option.value"
-              [checked]="isCheckboxChecked(field.id, option.value)"
-              (change)="onCheckboxChange(field.id, option.value, $event)"
-              [disabled]="option.disabled || readonly"
-              class="form-check-input">
+          <div *ngFor="let option of field.options; let i = index" class="checkbox-option">
+            <input type="checkbox" [id]="field.id + '_' + option.value" [value]="option.value" [checked]="isCheckboxChecked(field.id, option.value)" (change)="onCheckboxChange(field.id, option.value, $event)" [disabled]="option.disabled || readonly" class="form-check-input">
             <label [for]="field.id + '_' + option.value" class="checkbox-label">
-              {{ option.label }}
+              {{ option.label | translate: { default: option.label } }}
             </label>
           </div>
         </div>
@@ -182,37 +103,27 @@
         <!-- Field Input - Boolean (Yes/No) -->
         <div *ngIf="field.type === 'boolean'" class="boolean-field">
           <div class="boolean-toggle">
-            <input 
-              type="checkbox"
-              [id]="field.id"
-              [formControlName]="field.id"
-              class="boolean-checkbox">
+            <input type="checkbox" [id]="field.id" [formControlName]="field.id" class="boolean-checkbox">
             <label [for]="field.id" class="boolean-label">
               <span class="toggle-switch"></span>
-              <span class="toggle-text">{{ getFieldControl(field.id)?.value ? 'Yes' : 'No' }}</span>
+              <span class="boolean-text">{{ getFieldControl(field.id)?.value ? ('common.yes' | translate) : ('common.no' | translate) }}</span>
             </label>
           </div>
         </div>
 
         <!-- Field Input - File Upload -->
         <div *ngIf="field.type === 'file'" class="file-upload">
-          <input 
-            type="file"
-            [id]="field.id"
-            [accept]="getFileAcceptTypes(field)"
-            [multiple]="field.maxFiles ? field.maxFiles > 1 : false"
-            (change)="onFileSelected(field.id, $event)"
-            class="file-input">
+          <input type="file" [id]="field.id" [accept]="getFileAcceptTypes(field)" [multiple]="field.maxFiles ? field.maxFiles > 1 : false" (change)="onFileSelected(field.id, $event)" class="file-input">
           <label [for]="field.id" class="file-label">
             <i class="material-icons">cloud_upload</i>
-            <span>{{ getFileDisplayText(field.id) || field.placeholder || 'Choose file(s)' }}</span>
+            <span>{{ getFileDisplayText(field.id) || (field.placeholder ? (field.placeholder | translate: { default: field.placeholder }) : ('form.chooseFiles' | translate)) }}</span>
           </label>
           <div class="file-list" *ngIf="getSelectedFiles(field.id)?.length">
             <div *ngFor="let file of getSelectedFiles(field.id)" class="file-item">
               <i class="material-icons">insert_drive_file</i>
               <span>{{ file.name }}</span>
               <button type="button" (click)="removeFile(field.id, file)" class="remove-file">
-                <i class="material-icons">close</i>
+                <i class="material-icons">clear</i>
               </button>
             </div>
           </div>
@@ -221,27 +132,16 @@
         <!-- Field Input - E-Signature -->
         <div *ngIf="field.type === 'signature'" class="signature-field">
           <div class="signature-container">
-            <canvas 
-              [id]="'signature-' + field.id"
-              class="signature-canvas"
-              width="400"
-              height="150"
-              (mousedown)="startDrawing(field.id, $event)"
-              (mousemove)="draw(field.id, $event)"
-              (mouseup)="stopDrawing(field.id)"
-              (mouseleave)="stopDrawing(field.id)"
-              (touchstart)="startDrawing(field.id, $event)"
-              (touchmove)="draw(field.id, $event)"
-              (touchend)="stopDrawing(field.id)">
-            </canvas>
+            <div *ngIf="!getSignature(field.id)" class="signature-canvas" width="400" height="150" (mousedown)="startDrawing(field.id, $event)" (mousemove)="draw(field.id, $event)" (mouseup)="stopDrawing(field.id)" (mouseleave)="stopDrawing(field.id)" (touchstart)="startDrawing(field.id, $event)" (touchmove)="draw(field.id, $event)" (touchend)="stopDrawing(field.id)">
+            </div>
             <div class="signature-actions">
               <button type="button" (click)="clearSignature(field.id)" class="btn-clear">
                 <i class="material-icons">clear</i>
-                Clear
+                {{ 'common.clear' | translate }}
               </button>
               <span class="signature-status" *ngIf="hasSignature(field.id)">
                 <i class="material-icons">check_circle</i>
-                Signed
+                {{ 'form.signed' | translate }}
               </span>
             </div>
           </div>
@@ -250,24 +150,15 @@
         <!-- Medical Field - Height -->
         <div *ngIf="field.type === 'height'" class="medical-field height-field">
           <label [for]="field.id" class="field-label">
-            {{ field.label || 'Height' }}
+            {{ field.label ? (field.label | translate: { default: field.label }) : ('form.height' | translate) }}
             <span class="phi-badge" *ngIf="field.isPhiField">
-              <i class="material-icons">lock</i> PHI
-            </span>
+              <i class="material-icons">lock</i>{{ 'form-preview.phi' | translate }}</span>
           </label>
           <div class="input-with-unit">
-            <input 
-              type="number"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="getUnitPlaceholder('height')"
-              [min]="getMinValue('height')"
-              [max]="getMaxValue('height')"
-              [step]="0.1"
-              class="form-control">
+            <input type="number" [id]="field.id" [formControlName]="field.id" [placeholder]="getUnitPlaceholderKey('height') | translate" [min]="getMinValue('height')" [max]="getMaxValue('height')" [step]="0.1" class="form-control">
             <div class="unit-switcher">
-              <span class="unit">{{ getUnit('height') }}</span>
-              <button type="button" class="unit-toggle" (click)="toggleUnit('height')" title="Switch units">
+              <span class="unit">{{ getUnitKey('height') | translate }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('height')" [title]="'form.switchUnits' | translate">
                 <i class="material-icons">swap_horiz</i>
               </button>
             </div>
@@ -277,24 +168,15 @@
         <!-- Medical Field - Weight -->
         <div *ngIf="field.type === 'weight'" class="medical-field weight-field">
           <label [for]="field.id" class="field-label">
-            {{ field.label || 'Weight' }}
+            {{ field.label ? (field.label | translate: { default: field.label }) : ('form.weight' | translate) }}
             <span class="phi-badge" *ngIf="field.isPhiField">
-              <i class="material-icons">lock</i> PHI
-            </span>
+              <i class="material-icons">lock</i>{{ 'form-preview.phi' | translate }}</span>
           </label>
           <div class="input-with-unit">
-            <input 
-              type="number"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="getUnitPlaceholder('weight')"
-              [min]="getMinValue('weight')"
-              [max]="getMaxValue('weight')"
-              step="0.1"
-              class="form-control">
+            <input type="number" [id]="field.id" [formControlName]="field.id" [placeholder]="getUnitPlaceholderKey('weight') | translate" [min]="getMinValue('weight')" [max]="getMaxValue('weight')" step="0.1" class="form-control">
             <div class="unit-switcher">
-              <span class="unit">{{ getUnit('weight') }}</span>
-              <button type="button" class="unit-toggle" (click)="toggleUnit('weight')" title="Switch units">
+              <span class="unit">{{ getUnitKey('weight') | translate }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('weight')" [title]="'form.switchUnits' | translate">
                 <i class="material-icons">swap_horiz</i>
               </button>
             </div>
@@ -304,24 +186,15 @@
         <!-- Medical Field - Temperature -->
         <div *ngIf="field.type === 'temperature'" class="medical-field temperature-field">
           <label [for]="field.id" class="field-label">
-            {{ field.label || 'Temperature' }}
+            {{ field.label ? (field.label | translate: { default: field.label }) : ('form.temperature' | translate) }}
             <span class="phi-badge" *ngIf="field.isPhiField">
-              <i class="material-icons">lock</i> PHI
-            </span>
+              <i class="material-icons">lock</i>{{ 'form-preview.phi' | translate }}</span>
           </label>
           <div class="input-with-unit">
-            <input 
-              type="number"
-              [id]="field.id"
-              [formControlName]="field.id"
-              [placeholder]="getUnitPlaceholder('temperature')"
-              [min]="getMinValue('temperature')"
-              [max]="getMaxValue('temperature')"
-              step="0.1"
-              class="form-control">
+            <input type="number" [id]="field.id" [formControlName]="field.id" [placeholder]="getUnitPlaceholderKey('temperature') | translate" [min]="getMinValue('temperature')" [max]="getMaxValue('temperature')" step="0.1" class="form-control">
             <div class="unit-switcher">
-              <span class="unit">{{ getUnit('temperature') }}</span>
-              <button type="button" class="unit-toggle" (click)="toggleUnit('temperature')" title="Switch units">
+              <span class="unit">{{ getUnitKey('temperature') | translate }}</span>
+              <button type="button" class="unit-toggle" (click)="toggleUnit('temperature')" [title]="'form.switchUnits' | translate">
                 <i class="material-icons">swap_horiz</i>
               </button>
             </div>
@@ -331,29 +204,16 @@
         <!-- Medical Field - Blood Pressure -->
         <div *ngIf="field.type === 'blood_pressure'" class="medical-field bp-field">
           <label class="field-label">
-            {{ field.label || 'Blood Pressure' }}
+            {{ field.label ? (field.label | translate: { default: field.label }) : ('form.bloodPressure' | translate: { default: 'Blood Pressure' }) }}
             <span class="phi-badge" *ngIf="field.isPhiField">
-              <i class="material-icons">lock</i> PHI
-            </span>
+              <i class="material-icons">lock</i>{{ 'form-preview.phi' | translate }}</span>
           </label>
           <ng-container *ngIf="getFieldGroupControl(field.id) as bpGroup">
             <div class="bp-inputs" [formGroup]="bpGroup">
-              <input 
-                type="number"
-                formControlName="systolic"
-                [placeholder]="'Systolic'"
-                min="50"
-                max="300"
-                class="form-control bp-systolic">
+              <input type="number" formControlName="systolic" [placeholder]="'form.systolic' | translate" min="50" max="300" class="form-control bp-systolic">
               <span class="bp-separator">/</span>
-              <input 
-                type="number"
-                formControlName="diastolic"
-                [placeholder]="'Diastolic'"
-                min="30"
-                max="200"
-                class="form-control bp-diastolic">
-              <span class="unit">mmHg</span>
+              <input type="number" formControlName="diastolic" [placeholder]="'form.diastolic' | translate" min="30" max="200" class="form-control bp-diastolic">
+              <span class="unit">{{ 'form.units.bp.mmhg' | translate }}</span>
             </div>
           </ng-container>
         </div>
@@ -361,58 +221,43 @@
         <!-- Medical Field - Medication -->
         <div *ngIf="field.type === 'medication'" class="medical-field medication-field">
           <label class="field-label">
-            {{ field.label || 'Medication' }}
+            {{ field.label ? (field.label | translate: { default: field.label }) : ('form.medication.title' | translate: { default: 'Medication' }) }}
             <span class="phi-badge" *ngIf="field.isPhiField">
-              <i class="material-icons">lock</i> PHI
-            </span>
+              <i class="material-icons">lock</i>{{ 'form-preview.phi' | translate }}</span>
           </label>
-          <ng-container *ngIf="getFieldGroupControl(field.id) as medGroup">
-            <div class="medication-inputs" [formGroup]="medGroup">
+          <ng-container *ngIf="getFieldGroupControl(field.id) as medicationGroup">
+            <div class="medication-inputs" [formGroup]="medicationGroup">
               <div class="medication-row">
-                <input 
-                  type="text"
-                  formControlName="name"
-                  placeholder="Medication name"
-                  class="form-control medication-name">
-                <input 
-                  type="text"
-                  formControlName="dosage"
-                  placeholder="Dosage (e.g., 50mg)"
-                  class="form-control medication-dosage">
+                <input type="text" formControlName="name" [placeholder]="'form.medication.namePlaceholder' | translate" class="form-control medication-name">
+                <input type="text" formControlName="dosage" [placeholder]="'form.medication.dosagePlaceholder' | translate" class="form-control medication-dosage">
               </div>
               <div class="medication-row">
                 <select formControlName="frequency" class="form-control medication-frequency">
-                  <option value="">Select frequency</option>
-                  <option value="once-daily">Once daily</option>
-                  <option value="twice-daily">Twice daily</option>
-                  <option value="three-times-daily">Three times daily</option>
-                  <option value="four-times-daily">Four times daily</option>
-                  <option value="as-needed">As needed</option>
-                  <option value="other">Other</option>
+                  <option value="">{{ 'form.medication.selectFrequency' | translate }}</option>
+                  <option value="once-daily">{{ 'form.medication.frequency.onceDaily' | translate }}</option>
+                  <option value="twice-daily">{{ 'form.medication.frequency.twiceDaily' | translate }}</option>
+                  <option value="three-times-daily">{{ 'form.medication.frequency.threeTimesDaily' | translate }}</option>
+                  <option value="four-times-daily">{{ 'form.medication.frequency.fourTimesDaily' | translate }}</option>
+                  <option value="as-needed">{{ 'form.medication.frequency.asNeeded' | translate }}</option>
+                  <option value="other">{{ 'form.medication.frequency.other' | translate }}</option>
                 </select>
                 <select formControlName="route" class="form-control medication-route">
-                  <option value="">Select route</option>
-                  <option value="oral">Oral</option>
-                  <option value="injection">Injection</option>
-                  <option value="topical">Topical</option>
-                  <option value="inhalation">Inhalation</option>
-                  <option value="other">Other</option>
+                  <option value="">{{ 'form.medication.selectRoute' | translate }}</option>
+                  <option value="oral">{{ 'form.medication.route.oral' | translate }}</option>
+                  <option value="injection">{{ 'form.medication.route.injection' | translate }}</option>
+                  <option value="topical">{{ 'form.medication.route.topical' | translate }}</option>
+                  <option value="inhalation">{{ 'form.medication.route.inhalation' | translate }}</option>
+                  <option value="other">{{ 'form.medication.route.other' | translate }}</option>
                 </select>
               </div>
               <div class="medication-row">
                 <div class="date-field">
-                  <label>Start Date:</label>
-                  <input 
-                    type="date"
-                    formControlName="startDate"
-                    class="form-control">
+                  <label>{{ 'form.startDate' | translate }}:</label>
+                  <input type="date" formControlName="startDate" class="form-control">
                 </div>
                 <div class="date-field">
-                  <label>End Date:</label>
-                  <input 
-                    type="date"
-                    formControlName="endDate"
-                    class="form-control">
+                  <label>{{ 'form.endDate' | translate }}:</label>
+                  <input type="date" formControlName="endDate" class="form-control">
                 </div>
               </div>
             </div>
@@ -424,38 +269,27 @@
           <ng-container *ngIf="getFieldGroupControl(field.id) as diagGroup">
             <div class="diagnosis-inputs" [formGroup]="diagGroup">
               <div class="diagnosis-row">
-                <input 
-                  type="text"
-                  formControlName="code"
-                  placeholder="ICD-10 Code"
-                  class="form-control diagnosis-code">
+                <input type="text" formControlName="code" [placeholder]="'form.diagnosis.icdCodePlaceholder' | translate" class="form-control diagnosis-code">
                 <select formControlName="system" class="form-control diagnosis-system">
-                  <option value="ICD-10">ICD-10</option>
-                  <option value="ICD-9">ICD-9</option>
-                  <option value="SNOMED-CT">SNOMED-CT</option>
+                  <option value="ICD-10">{{ 'form.diagnosis.system.icd10' | translate }}</option>
+                  <option value="ICD-9">{{ 'form.diagnosis.system.icd9' | translate }}</option>
+                  <option value="SNOMED-CT">{{ 'form.diagnosis.system.snomed' | translate }}</option>
                 </select>
               </div>
               <div class="diagnosis-row">
-                <input 
-                  type="text"
-                  formControlName="description"
-                  placeholder="Diagnosis description"
-                  class="form-control diagnosis-description">
+                <input type="text" formControlName="description" [placeholder]="'form.diagnosis.descriptionPlaceholder' | translate" class="form-control diagnosis-description">
               </div>
               <div class="diagnosis-row">
                 <select formControlName="severity" class="form-control diagnosis-severity">
-                  <option value="">Select severity</option>
-                  <option value="mild">Mild</option>
-                  <option value="moderate">Moderate</option>
-                  <option value="severe">Severe</option>
-                  <option value="critical">Critical</option>
+                  <option value="">{{ 'form.diagnosis.selectSeverity' | translate }}</option>
+                  <option value="mild">{{ 'form.severity.mild' | translate }}</option>
+                  <option value="moderate">{{ 'form.severity.moderate' | translate }}</option>
+                  <option value="severe">{{ 'form.severity.severe' | translate }}</option>
+                  <option value="critical">{{ 'form.severity.critical' | translate }}</option>
                 </select>
                 <div class="date-field">
-                  <label>Onset Date:</label>
-                  <input 
-                    type="date"
-                    formControlName="onset"
-                    class="form-control">
+                  <label>{{ 'form.onsetDate' | translate }}:</label>
+                  <input type="date" formControlName="onset" class="form-control">
                 </div>
               </div>
             </div>
@@ -464,48 +298,46 @@
 
         <!-- Field Description -->
         <div class="field-description" *ngIf="field.description">
-          <small>{{ field.description }}</small>
+          <small>{{ field.description | translate: { default: field.description } }}</small>
         </div>
 
         <!-- Field Validation Errors -->
-        <div class="field-errors" *ngIf="getFieldControl(field.id)?.invalid && getFieldControl(field.id)?.touched">
+        <div class="field-error" *ngIf="getFieldError(field.id) as error">
           <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['required']">
-            This field is required
+            {{ 'validation.required' | translate: { default: 'This field is required' } }}
           </div>
           <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['email']">
-            Please enter a valid email address
+            {{ 'validation.email' | translate: { default: 'Please enter a valid email address' } }}
           </div>
-          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['pattern']">
-            Please enter a valid format
-          </div>
-          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['minlength']">
-            Minimum {{ getFieldControl(field.id)?.errors?.['minlength']?.requiredLength }} characters required
-          </div>
-          <div class="error-message" *ngIf="getFieldControl(field.id)?.errors?.['maxlength']">
-            Maximum {{ getFieldControl(field.id)?.errors?.['maxlength']?.requiredLength }} characters allowed
-          </div>
+          <span *ngIf="error.pattern">
+            {{ 'validation.pattern' | translate: { default: 'Please enter a valid format' } }}
+          </span>
+          <span *ngIf="error.minlength">
+            {{ 'validation.minlength' | translate: { requiredLength: error.minlength.requiredLength, default: 'Minimum {{requiredLength}} characters required' } }}
+          </span>
+          <span *ngIf="error.maxlength">
+            {{ 'validation.maxlength' | translate: { requiredLength: error.maxlength.requiredLength, default: 'Maximum {{requiredLength}} characters allowed' } }}
+          </span>
+          <span *ngIf="error.min">
+            {{ 'validation.min' | translate: { min: error.min.min, default: 'Minimum value is {{min}}' } }}
+          </span>
+          <span *ngIf="error.max">
+            {{ 'validation.max' | translate: { max: error.max.max, default: 'Maximum value is {{max}}' } }}
+          </span>
         </div>
       </div>
     </div>
 
     <!-- Form Actions -->
     <div class="form-actions" *ngIf="!readonly">
-      <button 
-        type="button"
-        class="btn btn-secondary"
-        (click)="saveForm()"
-        [disabled]="isLoading || !hasUnsavedChanges">
+      <button type="button" class="btn btn-secondary" (click)="saveForm()" [disabled]="isLoading || !hasUnsavedChanges">
         <i class="material-icons">save</i>
-        {{ isLoading ? 'Saving...' : 'Save Draft' }}
+        {{ isLoading ? ('form.saving' | translate) : ('form.saveDraft' | translate) }}
       </button>
       
-      <button 
-        type="button"
-        class="btn btn-primary"
-        (click)="submitForm()"
-        [disabled]="isLoading || previewForm.invalid || !currentInstance">
+      <button type="button" class="btn btn-primary" (click)="submitForm()" [disabled]="isLoading || previewForm.invalid || !currentInstance">
         <i class="material-icons">send</i>
-        {{ isLoading ? 'Submitting...' : 'Submit Form' }}
+        {{ isLoading ? ('form.submitting' | translate) : ('form.submitForm' | translate) }}
       </button>
     </div>
   </form>
@@ -513,7 +345,7 @@
   <!-- Empty State -->
   <div class="empty-state" *ngIf="!template || !template.fields?.length">
     <i class="material-icons">description</i>
-    <h4>No Fields Available</h4>
-    <p>This template doesn't have any fields to preview.</p>
+    <h4>{{ 'form.noFieldsTitle' | translate }}</h4>
+    <p>{{ 'form.noFieldsDescription' | translate }}</p>
   </div>
 </div>

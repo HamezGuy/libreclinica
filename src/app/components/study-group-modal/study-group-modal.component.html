@@ -1,123 +1,80 @@
-<!-- Study Group Modal -->
-<div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
+<!-- Study Group Modal --><html><head></head><body><div class="modal-overlay" *ngif="show" (click)="onBackdropClick($event)">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>
-        <i class="material-icons">group</i>
+        <i class="material-icons">{{ 'study-group-modal.group' | translate }}</i>
         {{ isEditMode ? 'Edit' : 'Create' }} Study Group
-        <span class="study-name" *ngIf="study">for {{ study.title }}</span>
+        <span class="study-name" *ngif="study">for {{ study.title }}</span>
       </h2>
       <button class="close-button" (click)="onClose()" [disabled]="isSubmitting">
-        <i class="material-icons">close</i>
+        <i class="material-icons">{{ 'common.close' | translate }}</i>
       </button>
     </div>
     
     <div class="modal-body">
-      <form [formGroup]="groupForm" (ngSubmit)="onSubmit()">
+      <form [formgroup]="groupForm" (ngsubmit)="onSubmit()">
         <div class="form-group">
-          <label for="name">
-            Group Name
-            <span class="required">*</span>
+          <label for="name">{{ 'study-group-modal.group_name' | translate }}<span class="required">*</span>
           </label>
-          <input 
-            type="text"
-            id="name"
-            formControlName="name"
-            class="form-control"
-            placeholder="e.g., Control Group, Treatment Group A"
-            [class.error]="groupForm.get('name')?.invalid && groupForm.get('name')?.touched">
-          <div class="error-message" *ngIf="groupForm.get('name')?.invalid && groupForm.get('name')?.touched">
-            <span *ngIf="groupForm.get('name')?.errors?.['required']">Group name is required</span>
-            <span *ngIf="groupForm.get('name')?.errors?.['minlength']">Group name must be at least 3 characters</span>
+          <input type="text" id="name" formcontrolname="name" class="form-control" [class.error]="groupForm.get('name')?.invalid &amp;&amp; groupForm.get('name')?.touched" :placeholder="'study-group-modal.eg_control_group_treatment_group_a' | translate">
+          <div class="error-message" *ngif="groupForm.get('name')?.invalid &amp;&amp; groupForm.get('name')?.touched">
+            <span *ngif="groupForm.get('name')?.errors?.['required']">{{ 'study-group-modal.group_name_is_required' | translate }}</span>
+            <span *ngif="groupForm.get('name')?.errors?.['minlength']">{{ 'study-group-modal.group_name_must_be_at_least_3_characters' | translate }}</span>
           </div>
         </div>
         
         <div class="form-group">
-          <label for="description">
-            Description
-            <span class="required">*</span>
+          <label for="description">{{ 'common.description' | translate }}<span class="required">*</span>
           </label>
-          <textarea 
-            id="description"
-            formControlName="description"
-            class="form-control"
-            rows="3"
-            placeholder="Describe the purpose and characteristics of this group"
-            [class.error]="groupForm.get('description')?.invalid && groupForm.get('description')?.touched">
-          </textarea>
-          <div class="error-message" *ngIf="groupForm.get('description')?.invalid && groupForm.get('description')?.touched">
-            <span *ngIf="groupForm.get('description')?.errors?.['required']">Description is required</span>
-            <span *ngIf="groupForm.get('description')?.errors?.['minlength']">Description must be at least 10 characters</span>
+          <textarea id="description" formcontrolname="description" class="form-control" rows="3" [class.error]="groupForm.get('description')?.invalid &amp;&amp; groupForm.get('description')?.touched" :placeholder="'study-group-modal.describe_the_purpose_and_characteristics_of_this_g' | translate">          </textarea>
+          <div class="error-message" *ngif="groupForm.get('description')?.invalid &amp;&amp; groupForm.get('description')?.touched">
+            <span *ngif="groupForm.get('description')?.errors?.['required']">{{ 'study-group-modal.description_is_required' | translate }}</span>
+            <span *ngif="groupForm.get('description')?.errors?.['minlength']">{{ 'study-group-modal.description_must_be_at_least_10_characters' | translate }}</span>
           </div>
         </div>
         
         <div class="form-group">
-          <label for="criteria">
-            Inclusion/Exclusion Criteria
-            <span class="required">*</span>
+          <label for="criteria">{{ 'study-group-modal.inclusionexclusion_criteria' | translate }}<span class="required">*</span>
           </label>
-          <textarea 
-            id="criteria"
-            formControlName="criteria"
-            class="form-control"
-            rows="4"
-            placeholder="Define the criteria for patient inclusion in this group"
-            [class.error]="groupForm.get('criteria')?.invalid && groupForm.get('criteria')?.touched">
-          </textarea>
-          <div class="error-message" *ngIf="groupForm.get('criteria')?.invalid && groupForm.get('criteria')?.touched">
-            <span *ngIf="groupForm.get('criteria')?.errors?.['required']">Criteria is required</span>
+          <textarea id="criteria" formcontrolname="criteria" class="form-control" rows="4" [class.error]="groupForm.get('criteria')?.invalid &amp;&amp; groupForm.get('criteria')?.touched" :placeholder="'study-group-modal.define_the_criteria_for_patient_inclusion_in_this_' | translate">          </textarea>
+          <div class="error-message" *ngif="groupForm.get('criteria')?.invalid &amp;&amp; groupForm.get('criteria')?.touched">
+            <span *ngif="groupForm.get('criteria')?.errors?.['required']">{{ 'study-group-modal.criteria_is_required' | translate }}</span>
           </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label for="targetSize">
-              Target Size
-              <span class="required">*</span>
+            <label for="targetSize">{{ 'study-group-modal.target_size' | translate }}<span class="required">*</span>
             </label>
-            <input 
-              type="number"
-              id="targetSize"
-              formControlName="targetSize"
-              class="form-control"
-              placeholder="Number of participants"
-              min="1"
-              max="1000"
-              [class.error]="groupForm.get('targetSize')?.invalid && groupForm.get('targetSize')?.touched">
-            <div class="error-message" *ngIf="groupForm.get('targetSize')?.invalid && groupForm.get('targetSize')?.touched">
-              <span *ngIf="groupForm.get('targetSize')?.errors?.['required']">Target size is required</span>
-              <span *ngIf="groupForm.get('targetSize')?.errors?.['min']">Target size must be at least 1</span>
-              <span *ngIf="groupForm.get('targetSize')?.errors?.['max']">Target size cannot exceed 1000</span>
+            <input type="number" id="targetSize" formcontrolname="targetSize" class="form-control" min="1" max="1000" [class.error]="groupForm.get('targetSize')?.invalid &amp;&amp; groupForm.get('targetSize')?.touched" :placeholder="'study-group-modal.number_of_participants' | translate">
+            <div class="error-message" *ngif="groupForm.get('targetSize')?.invalid &amp;&amp; groupForm.get('targetSize')?.touched">
+              <span *ngif="groupForm.get('targetSize')?.errors?.['required']">{{ 'study-group-modal.target_size_is_required' | translate }}</span>
+              <span *ngif="groupForm.get('targetSize')?.errors?.['min']">{{ 'study-group-modal.target_size_must_be_at_least_1' | translate }}</span>
+              <span *ngif="groupForm.get('targetSize')?.errors?.['max']">{{ 'study-group-modal.target_size_cannot_exceed_1000' | translate }}</span>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="status">
-              Status
-              <span class="required">*</span>
+            <label for="status">{{ 'common.status' | translate }}<span class="required">*</span>
             </label>
-            <select 
-              id="status"
-              formControlName="status"
-              class="form-control"
-              [class.error]="groupForm.get('status')?.invalid && groupForm.get('status')?.touched">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="full">Full</option>
+            <select id="status" formcontrolname="status" class="form-control" [class.error]="groupForm.get('status')?.invalid &amp;&amp; groupForm.get('status')?.touched">
+              <option value="active">{{ 'study-group-modal.active' | translate }}</option>
+              <option value="inactive">{{ 'study-group-modal.inactive' | translate }}</option>
+              <option value="full">{{ 'study-group-modal.full' | translate }}</option>
             </select>
-            <div class="error-message" *ngIf="groupForm.get('status')?.invalid && groupForm.get('status')?.touched">
-              <span *ngIf="groupForm.get('status')?.errors?.['required']">Status is required</span>
+            <div class="error-message" *ngif="groupForm.get('status')?.invalid &amp;&amp; groupForm.get('status')?.touched">
+              <span *ngif="groupForm.get('status')?.errors?.['required']">{{ 'study-group-modal.status_is_required' | translate }}</span>
             </div>
           </div>
         </div>
         
-        <div class="info-box" *ngIf="group">
+        <div class="info-box" *ngif="group">
           <div class="info-item">
-            <i class="material-icons">people</i>
+            <i class="material-icons">{{ 'study-group-modal.people' | translate }}</i>
             <span>Current Size: {{ group.currentSize || 0 }} / {{ groupForm.get('targetSize')?.value }}</span>
           </div>
           <div class="info-item">
-            <i class="material-icons">event</i>
+            <i class="material-icons">{{ 'study-group-modal.event' | translate }}</i>
             <span>Created: {{ group.createdAt | date:'short' }}</span>
           </div>
         </div>
@@ -125,19 +82,15 @@
     </div>
     
     <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
-        Cancel
-      </button>
-      <button 
-        class="btn btn-primary" 
-        (click)="onSubmit()"
-        [disabled]="groupForm.invalid || isSubmitting">
-        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Create' }} Group</span>
-        <span *ngIf="isSubmitting">
-          <i class="material-icons spin">refresh</i>
+      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">{{ 'common.cancel' | translate }}</button>
+      <button class="btn btn-primary" (click)="onSubmit()" [disabled]="groupForm.invalid || isSubmitting">
+        <span *ngif="!isSubmitting">{{ isEditMode ? 'Update' : 'Create' }} Group</span>
+        <span *ngif="isSubmitting">
+          <i class="material-icons spin">{{ 'common.refresh' | translate }}</i>
           {{ isEditMode ? 'Updating' : 'Creating' }}...
         </span>
       </button>
     </div>
   </div>
 </div>
+</body></html>

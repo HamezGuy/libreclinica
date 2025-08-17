@@ -5,11 +5,12 @@ import { FormTemplate, FormField, PhiFieldType, ValidationRule } from '../../mod
 import { Study } from '../../models/study.model';
 import { Patient } from '../../services/healthcare-api.service';
 import { StudyService } from '../../services/study.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-patient-form-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './patient-form-modal.component.html',
   styleUrls: ['./patient-form-modal.component.scss']
 })

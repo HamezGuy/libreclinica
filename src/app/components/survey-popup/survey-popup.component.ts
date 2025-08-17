@@ -5,11 +5,12 @@ import { Survey, SurveyQuestion, SurveyResponse } from '../../models/survey.mode
 import { SurveyService } from '../../services/survey.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { ToastService } from '../../services/toast.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-survey-popup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './survey-popup.component.html',
   styleUrls: ['./survey-popup.component.scss']
 })

@@ -1,174 +1,113 @@
-<!-- Substudy Modal -->
-<div class="modal-overlay" *ngIf="show" (click)="onBackdropClick($event)">
+<!-- Substudy Modal --><html><head></head><body><div class="modal-overlay" *ngif="show" (click)="onBackdropClick($event)">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>
-        <i class="material-icons">science</i>
+        <i class="material-icons">{{ 'substudy-modal.science' | translate }}</i>
         {{ isEditMode ? 'Edit' : 'Create' }} Substudy
-        <span class="parent-study" *ngIf="parentStudy">for {{ parentStudy.title }}</span>
+        <span class="parent-study" *ngif="parentStudy">for {{ parentStudy.title }}</span>
       </h2>
       <button class="close-button" (click)="onClose()" [disabled]="isSubmitting">
-        <i class="material-icons">close</i>
+        <i class="material-icons">{{ 'common.close' | translate }}</i>
       </button>
     </div>
     
     <div class="modal-body">
-      <form [formGroup]="substudyForm" (ngSubmit)="onSubmit()">
+      <form [formgroup]="substudyForm" (ngsubmit)="onSubmit()">
         <div class="form-group">
-          <label for="name">
-            Substudy Name
-            <span class="required">*</span>
+          <label for="name">{{ 'substudy-modal.substudy_name' | translate }}<span class="required">*</span>
           </label>
-          <input 
-            type="text"
-            id="name"
-            formControlName="name"
-            class="form-control"
-            placeholder="Enter substudy name"
-            [class.error]="substudyForm.get('name')?.invalid && substudyForm.get('name')?.touched">
-          <div class="error-message" *ngIf="substudyForm.get('name')?.invalid && substudyForm.get('name')?.touched">
-            <span *ngIf="substudyForm.get('name')?.errors?.['required']">Substudy name is required</span>
-            <span *ngIf="substudyForm.get('name')?.errors?.['minlength']">Substudy name must be at least 3 characters</span>
+          <input type="text" id="name" formcontrolname="name" class="form-control" [class.error]="substudyForm.get('name')?.invalid &amp;&amp; substudyForm.get('name')?.touched" :placeholder="'substudy-modal.enter_substudy_name' | translate">
+          <div class="error-message" *ngif="substudyForm.get('name')?.invalid &amp;&amp; substudyForm.get('name')?.touched">
+            <span *ngif="substudyForm.get('name')?.errors?.['required']">{{ 'substudy-modal.substudy_name_is_required' | translate }}</span>
+            <span *ngif="substudyForm.get('name')?.errors?.['minlength']">{{ 'substudy-modal.substudy_name_must_be_at_least_3_characters' | translate }}</span>
           </div>
         </div>
         
         <div class="form-group">
-          <label for="description">
-            Description
-            <span class="required">*</span>
+          <label for="description">{{ 'common.description' | translate }}<span class="required">*</span>
           </label>
-          <textarea 
-            id="description"
-            formControlName="description"
-            class="form-control"
-            rows="3"
-            placeholder="Describe the purpose and objectives of this substudy"
-            [class.error]="substudyForm.get('description')?.invalid && substudyForm.get('description')?.touched">
-          </textarea>
-          <div class="error-message" *ngIf="substudyForm.get('description')?.invalid && substudyForm.get('description')?.touched">
-            <span *ngIf="substudyForm.get('description')?.errors?.['required']">Description is required</span>
-            <span *ngIf="substudyForm.get('description')?.errors?.['minlength']">Description must be at least 10 characters</span>
+          <textarea id="description" formcontrolname="description" class="form-control" rows="3" [class.error]="substudyForm.get('description')?.invalid &amp;&amp; substudyForm.get('description')?.touched" :placeholder="'substudy-modal.describe_the_purpose_and_objectives_of_this_substu' | translate">          </textarea>
+          <div class="error-message" *ngif="substudyForm.get('description')?.invalid &amp;&amp; substudyForm.get('description')?.touched">
+            <span *ngif="substudyForm.get('description')?.errors?.['required']">{{ 'substudy-modal.description_is_required' | translate }}</span>
+            <span *ngif="substudyForm.get('description')?.errors?.['minlength']">{{ 'substudy-modal.description_must_be_at_least_10_characters' | translate }}</span>
           </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label for="protocolNumber">
-              Protocol Number
-              <span class="required">*</span>
+            <label for="protocolNumber">{{ 'substudy-modal.protocol_number' | translate }}<span class="required">*</span>
             </label>
-            <input 
-              type="text"
-              id="protocolNumber"
-              formControlName="protocolNumber"
-              class="form-control"
-              placeholder="e.g., SUB-2024-001"
-              [class.error]="substudyForm.get('protocolNumber')?.invalid && substudyForm.get('protocolNumber')?.touched">
-            <div class="error-message" *ngIf="substudyForm.get('protocolNumber')?.invalid && substudyForm.get('protocolNumber')?.touched">
-              <span *ngIf="substudyForm.get('protocolNumber')?.errors?.['required']">Protocol number is required</span>
+            <input type="text" id="protocolNumber" formcontrolname="protocolNumber" class="form-control" [class.error]="substudyForm.get('protocolNumber')?.invalid &amp;&amp; substudyForm.get('protocolNumber')?.touched" :placeholder="'substudy-modal.eg_sub2024001' | translate">
+            <div class="error-message" *ngif="substudyForm.get('protocolNumber')?.invalid &amp;&amp; substudyForm.get('protocolNumber')?.touched">
+              <span *ngif="substudyForm.get('protocolNumber')?.errors?.['required']">{{ 'substudy-modal.protocol_number_is_required' | translate }}</span>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="phase">
-              Phase
-              <span class="required">*</span>
+            <label for="phase">{{ 'substudy-modal.phase' | translate }}<span class="required">*</span>
             </label>
-            <select 
-              id="phase"
-              formControlName="phase"
-              class="form-control"
-              [class.error]="substudyForm.get('phase')?.invalid && substudyForm.get('phase')?.touched">
-              <option value="">Select phase...</option>
-              <option *ngFor="let phase of phases" [value]="phase.value">
+            <select id="phase" formcontrolname="phase" class="form-control" [class.error]="substudyForm.get('phase')?.invalid &amp;&amp; substudyForm.get('phase')?.touched">
+              <option value="">{{ 'substudy-modal.select_phase' | translate }}</option>
+              <option *ngfor="let phase of phases" [value]="phase.value">
                 {{ phase.label }}
               </option>
             </select>
-            <div class="error-message" *ngIf="substudyForm.get('phase')?.invalid && substudyForm.get('phase')?.touched">
-              <span *ngIf="substudyForm.get('phase')?.errors?.['required']">Phase is required</span>
+            <div class="error-message" *ngif="substudyForm.get('phase')?.invalid &amp;&amp; substudyForm.get('phase')?.touched">
+              <span *ngif="substudyForm.get('phase')?.errors?.['required']">{{ 'substudy-modal.phase_is_required' | translate }}</span>
             </div>
           </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label for="status">
-              Status
-              <span class="required">*</span>
+            <label for="status">{{ 'common.status' | translate }}<span class="required">*</span>
             </label>
-            <select 
-              id="status"
-              formControlName="status"
-              class="form-control"
-              [class.error]="substudyForm.get('status')?.invalid && substudyForm.get('status')?.touched">
-              <option *ngFor="let status of statuses" [value]="status.value">
+            <select id="status" formcontrolname="status" class="form-control" [class.error]="substudyForm.get('status')?.invalid &amp;&amp; substudyForm.get('status')?.touched">
+              <option *ngfor="let status of statuses" [value]="status.value">
                 {{ status.label }}
               </option>
             </select>
-            <div class="error-message" *ngIf="substudyForm.get('status')?.invalid && substudyForm.get('status')?.touched">
-              <span *ngIf="substudyForm.get('status')?.errors?.['required']">Status is required</span>
+            <div class="error-message" *ngif="substudyForm.get('status')?.invalid &amp;&amp; substudyForm.get('status')?.touched">
+              <span *ngif="substudyForm.get('status')?.errors?.['required']">{{ 'substudy-modal.status_is_required' | translate }}</span>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="targetEnrollment">
-              Target Enrollment
-              <span class="required">*</span>
+            <label for="targetEnrollment">{{ 'substudy-modal.target_enrollment' | translate }}<span class="required">*</span>
             </label>
-            <input 
-              type="number"
-              id="targetEnrollment"
-              formControlName="targetEnrollment"
-              class="form-control"
-              placeholder="Number of participants"
-              min="1"
-              max="10000"
-              [class.error]="substudyForm.get('targetEnrollment')?.invalid && substudyForm.get('targetEnrollment')?.touched">
-            <div class="error-message" *ngIf="substudyForm.get('targetEnrollment')?.invalid && substudyForm.get('targetEnrollment')?.touched">
-              <span *ngIf="substudyForm.get('targetEnrollment')?.errors?.['required']">Target enrollment is required</span>
-              <span *ngIf="substudyForm.get('targetEnrollment')?.errors?.['min']">Target enrollment must be at least 1</span>
-              <span *ngIf="substudyForm.get('targetEnrollment')?.errors?.['max']">Target enrollment cannot exceed 10,000</span>
+            <input type="number" id="targetEnrollment" formcontrolname="targetEnrollment" class="form-control" min="1" max="10000" [class.error]="substudyForm.get('targetEnrollment')?.invalid &amp;&amp; substudyForm.get('targetEnrollment')?.touched" :placeholder="'substudy-modal.number_of_participants' | translate">
+            <div class="error-message" *ngif="substudyForm.get('targetEnrollment')?.invalid &amp;&amp; substudyForm.get('targetEnrollment')?.touched">
+              <span *ngif="substudyForm.get('targetEnrollment')?.errors?.['required']">{{ 'substudy-modal.target_enrollment_is_required' | translate }}</span>
+              <span *ngif="substudyForm.get('targetEnrollment')?.errors?.['min']">{{ 'substudy-modal.target_enrollment_must_be_at_least_1' | translate }}</span>
+              <span *ngif="substudyForm.get('targetEnrollment')?.errors?.['max']">{{ 'substudy-modal.target_enrollment_cannot_exceed_10000' | translate }}</span>
             </div>
           </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label for="startDate">
-              Start Date
-              <span class="required">*</span>
+            <label for="startDate">{{ 'substudy-modal.start_date' | translate }}<span class="required">*</span>
             </label>
-            <input 
-              type="date"
-              id="startDate"
-              formControlName="startDate"
-              class="form-control"
-              [class.error]="substudyForm.get('startDate')?.invalid && substudyForm.get('startDate')?.touched">
-            <div class="error-message" *ngIf="substudyForm.get('startDate')?.invalid && substudyForm.get('startDate')?.touched">
-              <span *ngIf="substudyForm.get('startDate')?.errors?.['required']">Start date is required</span>
+            <input type="date" id="startDate" formcontrolname="startDate" class="form-control" [class.error]="substudyForm.get('startDate')?.invalid &amp;&amp; substudyForm.get('startDate')?.touched">
+            <div class="error-message" *ngif="substudyForm.get('startDate')?.invalid &amp;&amp; substudyForm.get('startDate')?.touched">
+              <span *ngif="substudyForm.get('startDate')?.errors?.['required']">{{ 'substudy-modal.start_date_is_required' | translate }}</span>
             </div>
           </div>
           
           <div class="form-group">
-            <label for="endDate">
-              End Date
-              <span class="optional">(Optional)</span>
+            <label for="endDate">{{ 'substudy-modal.end_date' | translate }}<span class="optional">(Optional)</span>
             </label>
-            <input 
-              type="date"
-              id="endDate"
-              formControlName="endDate"
-              class="form-control">
+            <input type="date" id="endDate" formcontrolname="endDate" class="form-control">
           </div>
         </div>
         
-        <div class="info-box" *ngIf="substudy">
+        <div class="info-box" *ngif="substudy">
           <div class="info-item">
-            <i class="material-icons">people</i>
+            <i class="material-icons">{{ 'substudy-modal.people' | translate }}</i>
             <span>Current Enrollment: {{ substudy.currentEnrollment || 0 }} / {{ substudyForm.get('targetEnrollment')?.value }}</span>
           </div>
           <div class="info-item">
-            <i class="material-icons">event</i>
+            <i class="material-icons">{{ 'substudy-modal.event' | translate }}</i>
             <span>Created: {{ substudy.createdAt | date:'short' }}</span>
           </div>
         </div>
@@ -176,19 +115,15 @@
     </div>
     
     <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">
-        Cancel
-      </button>
-      <button 
-        class="btn btn-primary" 
-        (click)="onSubmit()"
-        [disabled]="substudyForm.invalid || isSubmitting">
-        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Create' }} Substudy</span>
-        <span *ngIf="isSubmitting">
-          <i class="material-icons spin">refresh</i>
+      <button class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting">{{ 'common.cancel' | translate }}</button>
+      <button class="btn btn-primary" (click)="onSubmit()" [disabled]="substudyForm.invalid || isSubmitting">
+        <span *ngif="!isSubmitting">{{ isEditMode ? 'Update' : 'Create' }} Substudy</span>
+        <span *ngif="isSubmitting">
+          <i class="material-icons spin">{{ 'common.refresh' | translate }}</i>
           {{ isEditMode ? 'Updating' : 'Creating' }}...
         </span>
       </button>
     </div>
   </div>
 </div>
+</body></html>

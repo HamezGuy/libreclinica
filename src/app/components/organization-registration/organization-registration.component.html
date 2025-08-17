@@ -5,10 +5,8 @@
   <div class="registration-header">
     <div class="header-content">
       <h1>
-        <i class="material-icons">domain</i>
-        Organization Registration
-      </h1>
-      <p class="subtitle">Secure onboarding for clinical research organizations</p>
+        <i class="material-icons">domain</i>{{ 'organization-registration.organization_registration' | translate }}</h1>
+      <p class="subtitle">{{ 'organization-registration.secure_onboarding_for_clinical_research_organizati' | translate }}</p>
     </div>
     
     <!-- Progress Bar -->
@@ -19,15 +17,15 @@
       <div class="step-indicators">
         <div class="step" [class.active]="currentStep >= 1" [class.completed]="currentStep > 1">
           <span class="step-number">1</span>
-          <span class="step-label">Create Organization</span>
+          <span class="step-label">{{ 'organization-registration.create_organization' | translate }}</span>
         </div>
         <div class="step" [class.active]="currentStep >= 2" [class.completed]="currentStep > 2">
           <span class="step-number">2</span>
-          <span class="step-label">Verify Organization</span>
+          <span class="step-label">{{ 'organization-registration.verify_organization' | translate }}</span>
         </div>
         <div class="step" [class.active]="currentStep >= 3" [class.completed]="currentStep > 3">
           <span class="step-number">3</span>
-          <span class="step-label">Complete Registration</span>
+          <span class="step-label">{{ 'organization-registration.complete_registration' | translate }}</span>
         </div>
       </div>
     </div>
@@ -39,50 +37,38 @@
     <!-- Step 1: Create Organization -->
     <div class="step-content" *ngIf="currentStep === 1">
       <div class="step-header">
-        <h2>Create Your Organization</h2>
-        <p>Set up your clinical research organization in our secure database.</p>
+        <h2>{{ 'organization-registration.create_your_organization' | translate }}</h2>
+        <p>{{ 'organization-registration.set_up_your_clinical_research_organization_in_our_' | translate }}</p>
       </div>
       
       <form [formGroup]="organizationForm" (ngSubmit)="createOrganization()" class="organization-form">
         
         <!-- Basic Information -->
         <div class="form-section">
-          <h3>Basic Information</h3>
+          <h3>{{ 'organization-registration.basic_information' | translate }}</h3>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="name">Organization Name *</label>
-              <input 
-                type="text" 
-                id="name" 
-                formControlName="name"
-                [class.error]="isFieldInvalid(organizationForm, 'name')"
-                placeholder="Enter your organization's legal name">
+              <label for="name">{{ 'organization-registration.organization_name_' | translate }}</label>
+              <input type="text" id="name" formControlName="name" [class.error]="isFieldInvalid(organizationForm, 'name')" [placeholder]="'organization-registration.enter_your_organizations_legal_name' | translate">
               <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'name')">
                 {{ getFieldError(organizationForm, 'name') }}
               </div>
             </div>
             
             <div class="form-group">
-              <label for="displayName">Display Name</label>
-              <input 
-                type="text" 
-                id="displayName" 
-                formControlName="displayName"
-                placeholder="Public-facing name (optional)">
+              <label for="displayName">{{ 'organization-registration.display_name' | translate }}</label>
+              <input type="text" id="displayName" formControlName="displayName" [placeholder]="'organization-registration.publicfacing_name_optional' | translate">
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="type">Organization Type *</label>
-              <select 
-                id="type" 
-                formControlName="type"
-                [class.error]="isFieldInvalid(organizationForm, 'type')">
-                <option value="">Select organization type</option>
-                <option *ngFor="let type of organizationTypes" [value]="type.value">
-                  {{ type.label }}
+              <label for="type">{{ 'organization-registration.organization_type_' | translate }}</label>
+              <select id="type" formControlName="type" [class.error]="isFieldInvalid(organizationForm, 'type')">
+                <option value="">{{ 'organization-registration.select_organization_type' | translate }}</option>
+                <option *ngFor="let dept of departments" [value]="dept.value">
+                  {{ dept.label }}
                 </option>
               </select>
               <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'type')">
@@ -91,7 +77,7 @@
             </div>
             
             <div class="form-group">
-              <label for="tier">Subscription Tier *</label>
+              <label for="tier">{{ 'organization-registration.subscription_tier_' | translate }}</label>
               <select id="tier" formControlName="tier">
                 <option *ngFor="let tier of organizationTiers" [value]="tier.value">
                   {{ tier.label }} - {{ tier.description }}
@@ -103,54 +89,36 @@
         
         <!-- Contact Information -->
         <div class="form-section">
-          <h3>Contact Information</h3>
+          <h3>{{ 'organization-registration.contact_information' | translate }}</h3>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="contactEmail">Contact Email *</label>
-              <input 
-                type="email" 
-                id="contactEmail" 
-                formControlName="contactEmail"
-                [class.error]="isFieldInvalid(organizationForm, 'contactEmail')"
-                placeholder="primary@organization.com">
-              <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'contactEmail')">
-                {{ getFieldError(organizationForm, 'contactEmail') }}
+              <label for="contactEmail">{{ 'organization-registration.contact_email_' | translate }}</label>
+              <input type="email" id="contactEmail" formControlName="email" [class.error]="isFieldInvalid(organizationForm, 'email')" [placeholder]="'organization-registration.primaryorganizationcom' | translate">
+              <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'email')">
+                {{ getFieldError(organizationForm, 'email') }}
               </div>
             </div>
             
             <div class="form-group">
-              <label for="contactPhone">Phone Number</label>
-              <input 
-                type="tel" 
-                id="contactPhone" 
-                formControlName="contactPhone"
-                placeholder="+1 (555) 123-4567">
+              <label for="contactPhone">{{ 'organization-registration.phone_number' | translate }}</label>
+              <input type="tel" id="contactPhone" formControlName="phone" placeholder="+1 (555) 123-4567">
             </div>
           </div>
           
           <div class="form-group">
-            <label for="website">Website</label>
-            <input 
-              type="url" 
-              id="website" 
-              formControlName="website"
-              placeholder="https://www.organization.com">
+            <label for="website">{{ 'organization-registration.website' | translate }}</label>
+            <input type="url" id="website" formControlName="website" placeholder="https://www.organization.com">
           </div>
         </div>
         
         <!-- Address -->
         <div class="form-section">
-          <h3>Address</h3>
+          <h3>{{ 'organization-registration.address' | translate }}</h3>
           
           <div class="form-group">
-            <label for="street">Street Address *</label>
-            <input 
-              type="text" 
-              id="street" 
-              formControlName="street"
-              [class.error]="isFieldInvalid(organizationForm, 'street')"
-              placeholder="123 Medical Center Drive">
+            <label for="street">{{ 'organization-registration.street_address_' | translate }}</label>
+            <input type="text" id="street" formControlName="street" [class.error]="isFieldInvalid(organizationForm, 'street')" [placeholder]="'organization-registration.123_medical_center_drive' | translate">
             <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'street')">
               {{ getFieldError(organizationForm, 'street') }}
             </div>
@@ -158,54 +126,34 @@
           
           <div class="form-row">
             <div class="form-group">
-              <label for="city">City *</label>
-              <input 
-                type="text" 
-                id="city" 
-                formControlName="city"
-                [class.error]="isFieldInvalid(organizationForm, 'city')"
-                placeholder="City">
+              <label for="city">{{ 'organization-registration.city_' | translate }}</label>
+              <input type="text" id="city" formControlName="city" [class.error]="isFieldInvalid(organizationForm, 'city')" [placeholder]="'organization-registration.city' | translate">
               <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'city')">
                 {{ getFieldError(organizationForm, 'city') }}
               </div>
             </div>
             
             <div class="form-group">
-              <label for="state">State/Province *</label>
-              <input 
-                type="text" 
-                id="state" 
-                formControlName="state"
-                [class.error]="isFieldInvalid(organizationForm, 'state')"
-                placeholder="State">
-              <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'state')">
-                {{ getFieldError(organizationForm, 'state') }}
+              <label for="firstName">{{ 'organization-registration.first_name_' | translate }}</label>
+              <input type="text" id="lastName" formControlName="lastName" [class.error]="isFieldInvalid(organizationForm, 'firstName')" [placeholder]="'organization-registration.first_name' | translate">
+              <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'firstName')">
+                {{ getFieldError(organizationForm, 'firstName') }}
               </div>
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="postalCode">Postal Code *</label>
-              <input 
-                type="text" 
-                id="postalCode" 
-                formControlName="postalCode"
-                [class.error]="isFieldInvalid(organizationForm, 'postalCode')"
-                placeholder="12345">
+              <label for="postalCode">{{ 'organization-registration.postal_code_' | translate }}</label>
+              <input type="text" id="postalCode" formControlName="postalCode" [class.error]="isFieldInvalid(organizationForm, 'postalCode')" placeholder="12345">
               <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'postalCode')">
                 {{ getFieldError(organizationForm, 'postalCode') }}
               </div>
             </div>
             
             <div class="form-group">
-              <label for="country">Country *</label>
-              <input 
-                type="text" 
-                id="country" 
-                formControlName="country"
-                [class.error]="isFieldInvalid(organizationForm, 'country')"
-                placeholder="United States">
+              <label for="country">{{ 'organization-registration.country_' | translate }}</label>
+              <input type="text" id="country" formControlName="country" [class.error]="isFieldInvalid(organizationForm, 'country')" [placeholder]="'organization-registration.united_states' | translate">
               <div class="error-message" *ngIf="isFieldInvalid(organizationForm, 'country')">
                 {{ getFieldError(organizationForm, 'country') }}
               </div>
@@ -215,26 +163,20 @@
         
         <!-- Security Settings -->
         <div class="form-section">
-          <h3>Security Settings</h3>
+          <h3>{{ 'organization-registration.security_settings' | translate }}</h3>
           
           <div class="checkbox-group">
             <label class="checkbox-label">
               <input type="checkbox" formControlName="allowSelfRegistration">
-              <span class="checkmark"></span>
-              Allow self-registration with verification key
-            </label>
+              <span class="checkmark"></span>{{ 'organization-registration.allow_selfregistration_with_verification_key' | translate }}</label>
             
             <label class="checkbox-label">
               <input type="checkbox" formControlName="requireAdminApproval">
-              <span class="checkmark"></span>
-              Require admin approval for new users
-            </label>
+              <span class="checkmark"></span>{{ 'organization-registration.require_admin_approval_for_new_users' | translate }}</label>
             
             <label class="checkbox-label">
               <input type="checkbox" formControlName="requireMFA">
-              <span class="checkmark"></span>
-              Require multi-factor authentication
-            </label>
+              <span class="checkmark"></span>{{ 'organization-registration.require_multifactor_authentication' | translate }}</label>
           </div>
         </div>
         
@@ -251,14 +193,9 @@
         
         <!-- Actions -->
         <div class="step-actions">
-          <button type="button" class="btn btn-secondary" (click)="cancelRegistration()">
-            Cancel
-          </button>
-          <button 
-            type="submit" 
-            class="btn btn-primary"
-            [disabled]="organizationForm.invalid || isLoading">
-            <i class="material-icons" *ngIf="isLoading">hourglass_empty</i>
+          <button type="button" class="btn btn-secondary" (click)="cancelRegistration()">{{ 'common.cancel' | translate }}</button>
+          <button type="submit" class="btn btn-primary" [disabled]="organizationForm.invalid || isLoading">
+            <i class="material-icons" *ngIf="isLoading">{{ 'organization-registration.hourglassempty' | translate }}</i>
             <i class="material-icons" *ngIf="!isLoading">arrow_forward</i>
             {{ isLoading ? 'Creating...' : 'Create Organization' }}
           </button>
@@ -269,8 +206,8 @@
     <!-- Step 2: Verify Organization -->
     <div class="step-content" *ngIf="currentStep === 2">
       <div class="step-header">
-        <h2>Verify Your Organization</h2>
-        <p>Enter the verification key provided by your organization administrator.</p>
+        <h2>{{ 'organization-registration.verify_your_organization' | translate }}</h2>
+        <p>{{ 'organization-registration.enter_the_verification_key_provided_by_your_organi' | translate }}</p>
       </div>
       
       <form [formGroup]="verificationForm" (ngSubmit)="verifyOrganization()" class="verification-form">
@@ -279,49 +216,33 @@
           <div class="info-card">
             <i class="material-icons">info</i>
             <div class="info-content">
-              <h3>Verification Key Format</h3>
-              <p>Your verification key should be in the format: <strong>WORD-WORD-0000</strong></p>
-              <p>Example: <code>ALPHA-BRAVO-1234</code></p>
+              <h3>{{ 'organization-registration.verification_key_format' | translate }}</h3>
+              <p>{{ 'organization-registration.your_verification_key_should_be_in_the_format' | translate }}<strong>{{ 'organization-registration.wordword0000' | translate }}</strong></p>
+              <p>{{ 'organization-registration.example' | translate }}<code>{{ 'organization-registration.alphabravo1234' | translate }}</code></p>
             </div>
           </div>
         </div>
         
         <div class="form-section">
           <div class="form-group">
-            <label for="verificationKey">Organization Verification Key *</label>
-            <input 
-              type="text" 
-              id="verificationKey" 
-              formControlName="verificationKey"
-              [class.error]="isFieldInvalid(verificationForm, 'verificationKey')"
-              placeholder="ALPHA-BRAVO-1234"
-              style="text-transform: uppercase;">
+            <label for="verificationKey">{{ 'organization-registration.organization_verification_key_' | translate }}</label>
+            <input type="text" id="verificationKey" formControlName="verificationKey" class="large-input" [class.error]="isFieldInvalid(verificationForm, 'verificationKey')" style="text-transform: uppercase;" [placeholder]="'organization-registration.alphabravo1234' | translate">
             <div class="error-message" *ngIf="isFieldInvalid(verificationForm, 'verificationKey')">
               {{ getFieldError(verificationForm, 'verificationKey') }}
             </div>
           </div>
           
           <div class="form-group">
-            <label for="userEmail">Your Email Address *</label>
-            <input 
-              type="email" 
-              id="userEmail" 
-              formControlName="userEmail"
-              [class.error]="isFieldInvalid(verificationForm, 'userEmail')"
-              placeholder="your.email@domain.com">
+            <label for="userEmail">{{ 'organization-registration.your_email_address_' | translate }}</label>
+            <input type="email" id="userEmail" formControlName="userEmail" [class.error]="isFieldInvalid(verificationForm, 'userEmail')" [placeholder]="'organization-registration.youremaildomaincom' | translate">
             <div class="error-message" *ngIf="isFieldInvalid(verificationForm, 'userEmail')">
               {{ getFieldError(verificationForm, 'userEmail') }}
             </div>
           </div>
           
           <div class="form-group">
-            <label for="displayName">Your Display Name *</label>
-            <input 
-              type="text" 
-              id="displayName" 
-              formControlName="displayName"
-              [class.error]="isFieldInvalid(verificationForm, 'displayName')"
-              placeholder="Dr. Jane Smith">
+            <label for="displayName">{{ 'organization-registration.your_display_name_' | translate }}</label>
+            <input type="text" id="displayName" formControlName="displayName" [class.error]="isFieldInvalid(verificationForm, 'displayName')" [placeholder]="'organization-registration.dr_jane_smith' | translate">
             <div class="error-message" *ngIf="isFieldInvalid(verificationForm, 'displayName')">
               {{ getFieldError(verificationForm, 'displayName') }}
             </div>
@@ -354,14 +275,9 @@
         <!-- Actions -->
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" (click)="previousStep()">
-            <i class="material-icons">arrow_back</i>
-            Back
-          </button>
-          <button 
-            type="submit" 
-            class="btn btn-primary"
-            [disabled]="verificationForm.invalid || isLoading">
-            <i class="material-icons" *ngIf="isLoading">hourglass_empty</i>
+            <i class="material-icons">arrow_back</i>{{ 'common.back' | translate }}</button>
+          <button type="submit" class="btn btn-primary" [disabled]="verificationForm.invalid || isLoading">
+            <i class="material-icons" *ngIf="isLoading">{{ 'organization-registration.hourglassempty' | translate }}</i>
             <i class="material-icons" *ngIf="!isLoading">verified_user</i>
             {{ isLoading ? 'Verifying...' : 'Verify Organization' }}
           </button>
@@ -372,15 +288,15 @@
     <!-- Step 3: Complete Registration -->
     <div class="step-content" *ngIf="currentStep === 3">
       <div class="step-header">
-        <h2>Complete Your Registration</h2>
-        <p>Provide additional information to complete your account setup.</p>
+        <h2>{{ 'organization-registration.complete_your_registration' | translate }}</h2>
+        <p>{{ 'organization-registration.provide_additional_information_to_complete_your_ac' | translate }}</p>
       </div>
       
       <form [formGroup]="userRegistrationForm" (ngSubmit)="completeRegistration()" class="user-registration-form">
         
         <!-- Organization Summary -->
         <div class="organization-summary" *ngIf="verifiedOrganization">
-          <h3>Joining Organization</h3>
+          <h3>{{ 'organization-registration.joining_organization' | translate }}</h3>
           <div class="org-card">
             <div class="org-info">
               <h4>{{ verifiedOrganization.displayName }}</h4>
@@ -388,68 +304,49 @@
             </div>
             <div class="org-settings">
               <span class="setting" *ngIf="verifiedOrganization.settings.requireAdminApproval">
-                <i class="material-icons">admin_panel_settings</i>
-                Admin Approval Required
-              </span>
+                <i class="material-icons">admin_panel_settings</i>{{ 'organization-registration.admin_approval_required' | translate }}</span>
               <span class="setting" *ngIf="verifiedOrganization.settings.requireMFA">
-                <i class="material-icons">security</i>
-                MFA Required
-              </span>
+                <i class="material-icons">security</i>{{ 'organization-registration.mfa_enabled' | translate }}</span>
             </div>
           </div>
         </div>
         
         <div class="form-section">
-          <h3>Personal Information</h3>
+          <h3>{{ 'organization-registration.personal_information' | translate }}</h3>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="userDisplayName">Display Name *</label>
-              <input 
-                type="text" 
-                id="userDisplayName" 
-                formControlName="displayName"
-                [class.error]="isFieldInvalid(userRegistrationForm, 'displayName')"
-                placeholder="Dr. Jane Smith">
+              <label for="userDisplayName">{{ 'organization-registration.display_name_' | translate }}</label>
+              <input type="text" id="userDisplayName" formControlName="displayName" [class.error]="isFieldInvalid(userRegistrationForm, 'displayName')" [placeholder]="'organization-registration.dr_jane_smith' | translate">
               <div class="error-message" *ngIf="isFieldInvalid(userRegistrationForm, 'displayName')">
                 {{ getFieldError(userRegistrationForm, 'displayName') }}
               </div>
             </div>
             
             <div class="form-group">
-              <label for="jobTitle">Job Title</label>
-              <input 
-                type="text" 
-                id="jobTitle" 
-                formControlName="jobTitle"
-                placeholder="Principal Investigator">
+              <label for="jobTitle">{{ 'organization-registration.job_title' | translate }}</label>
+              <input type="text" id="jobTitle" formControlName="jobTitle" [placeholder]="'organization-registration.principal_investigator' | translate">
             </div>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="department">Department</label>
-              <input 
-                type="text" 
-                id="department" 
-                formControlName="department"
-                placeholder="Cardiology">
+              <label for="department">{{ 'organization-registration.department' | translate }}</label>
+              <select id="department" formControlName="department">
+                <option value="">{{ 'organization-registration.cardiology' | translate }}</option>
+              </select>
             </div>
             
             <div class="form-group">
-              <label for="supervisorEmail">Supervisor Email</label>
-              <input 
-                type="email" 
-                id="supervisorEmail" 
-                formControlName="supervisorEmail"
-                placeholder="supervisor@organization.com">
+              <label for="supervisorEmail">{{ 'organization-registration.supervisor_email' | translate }}</label>
+              <input type="email" id="supervisorEmail" formControlName="supervisorEmail" [placeholder]="'organization-registration.supervisororganizationcom' | translate">
             </div>
           </div>
         </div>
         
         <!-- Role Selection -->
         <div class="form-section">
-          <h3>Requested Access Level</h3>
+          <h3>{{ 'organization-registration.requested_access_level' | translate }}</h3>
           
           <div class="role-selection">
             <div class="role-option" *ngFor="let role of accessLevels">
@@ -468,13 +365,8 @@
         <!-- Reason for Access -->
         <div class="form-section">
           <div class="form-group">
-            <label for="reasonForAccess">Reason for Access *</label>
-            <textarea 
-              id="reasonForAccess" 
-              formControlName="reasonForAccess"
-              [class.error]="isFieldInvalid(userRegistrationForm, 'reasonForAccess')"
-              placeholder="Please describe why you need access to this organization's clinical data systems..."
-              rows="4"></textarea>
+            <label for="reasonForAccess">{{ 'organization-registration.reason_for_access_' | translate }}</label>
+            <textarea id="reasonForAccess" formControlName="reasonForAccess" [class.error]="isFieldInvalid(userRegistrationForm, 'reasonForAccess')" rows="4" [placeholder]="'organization-registration.please_describe_why_you_need_access_to_this_organi' | translate"></textarea>
             <div class="error-message" *ngIf="isFieldInvalid(userRegistrationForm, 'reasonForAccess')">
               {{ getFieldError(userRegistrationForm, 'reasonForAccess') }}
             </div>
@@ -495,13 +387,8 @@
         <!-- Actions -->
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" (click)="previousStep()">
-            <i class="material-icons">arrow_back</i>
-            Back
-          </button>
-          <button 
-            type="submit" 
-            class="btn btn-primary"
-            [disabled]="userRegistrationForm.invalid || isLoading">
+            <i class="material-icons">arrow_back</i>{{ 'common.back' | translate }}</button>
+          <button type="submit" class="btn btn-primary" [disabled]="userRegistrationForm.invalid || isLoading">
             <i class="material-icons" *ngIf="isLoading">hourglass_empty</i>
             <i class="material-icons" *ngIf="!isLoading">check</i>
             {{ isLoading ? 'Submitting...' : 'Complete Registration' }}
@@ -516,15 +403,14 @@
   <div class="registration-footer">
     <div class="footer-content">
       <p>
-        <i class="material-icons">security</i>
-        This registration process is secured with enterprise-grade encryption and complies with HIPAA, GDPR, and 21 CFR Part 11 requirements.
-      </p>
+        <i class="material-icons">{{ 'organization-registration.security' | translate }}</i>{{ 'organization-registration.this_registration_process_is_secured_with_enterpri' | translate }}</p>
       <div class="compliance-badges">
-        <span class="badge">HIPAA</span>
-        <span class="badge">GDPR</span>
-        <span class="badge">21 CFR Part 11</span>
+        <span class="badge">{{ 'organization-registration.hipaa' | translate }}</span>
+        <span class="badge">{{ 'organization-registration.gdpr' | translate }}</span>
+        <span class="badge">{{ 'organization-registration.21_cfr_part_11' | translate }}</span>
       </div>
     </div>
   </div>
   
 </div>
+</body></html>

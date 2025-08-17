@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 import { Survey, SurveyQuestion, QuestionType, QuestionOption, SurveyType, SurveyStatus, SurveyDisplayMode, SurveyTriggerType } from '../../models/survey.model';
 import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
@@ -9,7 +10,7 @@ import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.servi
 @Component({
   selector: 'app-survey-editor',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './survey-editor.component.html',
   styleUrls: ['./survey-editor.component.scss']
 })

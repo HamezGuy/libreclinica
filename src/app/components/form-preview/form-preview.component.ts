@@ -5,11 +5,12 @@ import { FormTemplate, FormField, FormInstance, FormFieldType } from '../../mode
 import { FormInstanceService } from '../../services/form-instance.service';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-form-preview',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './form-preview.component.html',
   styleUrls: ['./form-preview.component.scss']
 })
@@ -352,6 +353,26 @@ export class FormPreviewComponent implements OnInit, OnDestroy, OnChanges {
     return field.id;
   }
 
+  trackOption(index: number, option: any): any {
+    return (option && 'value' in option) ? option.value : index;
+  }
+
+  getSignature(fieldId: string): string | null {
+    const sig = this.signatureData.get(fieldId);
+    if (sig) return sig;
+    const ctrl = this.getFieldControl(fieldId);
+    const val = ctrl?.value;
+    return typeof val === 'string' ? val : null;
+  }
+
+  getFieldError(fieldId: string): any {
+    const ctrl = this.getFieldControl(fieldId);
+    if (ctrl && ctrl.invalid && (ctrl.dirty || ctrl.touched)) {
+      return ctrl.errors;
+    }
+    return null;
+  }
+
   // Checkbox handling methods
   isCheckboxChecked(fieldId: string, optionValue: string): boolean {
     const control = this.getFieldControl(fieldId);
@@ -577,6 +598,35 @@ export class FormPreviewComponent implements OnInit, OnDestroy, OnChanges {
         return unit === 'metric' ? 'kg' : 'lbs';
       case 'temperature':
         return unit === 'metric' ? '°C' : '°F';
+      default:
+        return '';
+    }
+  }
+
+  // Translation key helpers for units and placeholders
+  getUnitKey(fieldType: string): string {
+    const unit = this.unitPreferences.get(fieldType) || 'metric';
+    switch (fieldType) {
+      case 'height':
+        return unit === 'metric' ? 'form.units.height.cm' : 'form.units.height.ft_in';
+      case 'weight':
+        return unit === 'metric' ? 'form.units.weight.kg' : 'form.units.weight.lbs';
+      case 'temperature':
+        return unit === 'metric' ? 'form.units.temperature.celsius' : 'form.units.temperature.fahrenheit';
+      default:
+        return '';
+    }
+  }
+
+  getUnitPlaceholderKey(fieldType: string): string {
+    const unit = this.unitPreferences.get(fieldType) || 'metric';
+    switch (fieldType) {
+      case 'height':
+        return unit === 'metric' ? 'form.placeholders.height.metric' : 'form.placeholders.height.imperial';
+      case 'weight':
+        return unit === 'metric' ? 'form.placeholders.weight.metric' : 'form.placeholders.weight.imperial';
+      case 'temperature':
+        return unit === 'metric' ? 'form.placeholders.temperature.metric' : 'form.placeholders.temperature.imperial';
       default:
         return '';
     }

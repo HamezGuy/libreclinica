@@ -2,7 +2,7 @@
 <div class="popup-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
   <div class="popup-container">
     <div class="popup-header">
-      <h2>Edit Profile</h2>
+      <h2>{{ 'profile-edit.edit_profile' | translate }}</h2>
       <button class="close-btn" (click)="onClose()" type="button">
         <i class="material-icons">close</i>
       </button>
@@ -18,117 +18,65 @@
 
         <!-- Basic Information -->
         <div class="form-section">
-          <h3>Basic Information</h3>
+          <h3>{{ 'profile-edit.basic_information' | translate }}</h3>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="displayName">Display Name *</label>
-              <input
-                type="text"
-                id="displayName"
-                [(ngModel)]="profileForm.displayName"
-                name="displayName"
-                required
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="displayName">{{ 'profile-edit.display_name_' | translate }}</label>
+              <input type="text" id="displayName" [(ngModel)]="profileForm.displayName" name="displayName" required [disabled]="isLoading" class="form-control">
             </div>
 
             <div class="form-group">
-              <label for="username">Username *</label>
-              <input
-                type="text"
-                id="username"
-                [(ngModel)]="profileForm.username"
-                name="username"
-                required
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="username">{{ 'profile-edit.username_' | translate }}</label>
+              <input type="text" id="username" [(ngModel)]="profileForm.username" name="username" required [disabled]="isLoading" class="form-control">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="email">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                [(ngModel)]="profileForm.email"
-                name="email"
-                readonly
-                class="form-control readonly"
-                title="Email cannot be changed">
+              <label for="email">{{ 'profile-edit.email_address' | translate }}</label>
+              <input type="email" id="email" [(ngModel)]="profileForm.email" name="email" readonly class="form-control readonly" [title]="('profile-edit.email_cannot_be_changed' | translate)">
             </div>
 
             <div class="form-group">
-              <label for="phoneNumber">Phone Number</label>
-              <input
-                type="tel"
-                id="phoneNumber"
-                [(ngModel)]="profileForm.phoneNumber"
-                name="phoneNumber"
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="phoneNumber">{{ 'profile-edit.phone_number' | translate }}</label>
+              <input type="tel" id="phoneNumber" [(ngModel)]="profileForm.phoneNumber" name="phoneNumber" [disabled]="isLoading" class="form-control">
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="organization">Organization</label>
-              <input
-                type="text"
-                id="organization"
-                [(ngModel)]="profileForm.organization"
-                name="organization"
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="organization">{{ 'profile-edit.organization' | translate }}</label>
+              <input type="text" id="organization" [(ngModel)]="profileForm.organization" name="organization" [disabled]="isLoading" class="form-control">
             </div>
 
             <div class="form-group">
-              <label for="title">Title</label>
-              <input
-                type="text"
-                id="title"
-                [(ngModel)]="profileForm.title"
-                name="title"
-                [disabled]="isLoading"
-                class="form-control"
-                placeholder="e.g., Principal Investigator, Data Manager">
+              <label for="title">{{ 'profile-edit.title' | translate }}</label>
+              <input type="text" id="title" [(ngModel)]="profileForm.title" name="title" [disabled]="isLoading" class="form-control" [placeholder]="('profile-edit.eg_principal_investigator_data_manager' | translate)">
             </div>
           </div>
         </div>
 
         <!-- Access & Permissions -->
         <div class="form-section">
-          <h3>Access & Permissions</h3>
+          <h3>{{ 'profile-edit.access_permissions' | translate }}</h3>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="accessLevel">Access Level *</label>
-              <select
-                id="accessLevel"
-                [(ngModel)]="profileForm.accessLevel"
-                name="accessLevel"
-                required
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="accessLevel">{{ 'profile-edit.access_level_' | translate }}</label>
+              <select id="accessLevel" [(ngModel)]="profileForm.accessLevel" name="accessLevel" required [disabled]="isLoading" class="form-control">
                 <option *ngFor="let level of accessLevelOptions" [value]="level">
                   {{ getAccessLevelDisplayName(level) }}
                 </option>
               </select>
               <small class="help-text">
-                <strong>Note:</strong> Changing access level will update user permissions automatically.
+                <strong>{{ 'profile-edit.note' | translate }}</strong>{{ 'profile-edit.changing_access_level_will_update_user_permissions' | translate }}
               </small>
             </div>
 
             <div class="form-group">
-              <label for="status">Account Status *</label>
-              <select
-                id="status"
-                [(ngModel)]="profileForm.status"
-                name="status"
-                required
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="status">{{ 'profile-edit.account_status_' | translate }}</label>
+              <select id="status" [(ngModel)]="profileForm.status" name="status" required [disabled]="isLoading" class="form-control">
                 <option *ngFor="let status of userStatusOptions" [value]="status">
                   {{ getUserStatusDisplayName(status) }}
                 </option>
@@ -138,56 +86,53 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="complianceRegion">Compliance Region *</label>
-              <select
-                id="complianceRegion"
-                [(ngModel)]="profileForm.complianceRegion"
-                name="complianceRegion"
-                required
-                [disabled]="isLoading"
-                class="form-control">
+              <label for="complianceRegion">{{ 'profile-edit.compliance_region' | translate }}</label>
+              <select id="complianceRegion" [(ngModel)]="profileForm.complianceRegion" name="complianceRegion" [disabled]="isLoading" class="form-control">
                 <option *ngFor="let region of complianceRegionOptions" [value]="region">
                   {{ getComplianceRegionDisplayName(region) }}
                 </option>
               </select>
+              <small class="help-text">{{ 'profile-edit.determines_which_data_privacy_regulations_apply_to' | translate }}</small>
+            </div>
+
+            <div class="form-group">
+              <label for="language">{{ 'profile-edit.language_preference' | translate }}</label>
+              <select id="language" [(ngModel)]="profileForm.language" name="language" [disabled]="isLoading" class="form-control">
+                <option *ngFor="let lang of availableLanguages" [value]="lang.code">
+                  {{ lang.flag }} {{ lang.name }} ({{ lang.nativeName }})
+                </option>
+              </select>
+              <small class="help-text">{{ 'profile-edit.select_your_preferred_language_for_the_interface' | translate }}</small>
             </div>
           </div>
         </div>
 
         <!-- Access Level Information -->
         <div class="info-section">
-          <h4>Access Level Permissions</h4>
+          <h4>{{ 'profile-edit.access_level_permissions' | translate }}</h4>
           <div class="access-info" [ngSwitch]="profileForm.accessLevel">
             <div *ngSwitchCase="AccessLevel.SUPER_ADMIN" class="permission-info super-admin">
-              <strong>Super Admin:</strong> Full system access including user management, all data operations, audit logs, and system configuration.
-            </div>
+              <strong>{{ 'profile-edit.super_admin' | translate }}</strong>{{ 'profile-edit.full_system_access_including_user_management_all_d' | translate }}</div>
             <div *ngSwitchCase="AccessLevel.ADMIN" class="permission-info admin">
-              <strong>Admin:</strong> Can create/edit studies, view all data, export data, manage users, and view audit logs.
-            </div>
+              <strong>{{ 'profile-edit.admin' | translate }}</strong>{{ 'profile-edit.can_createedit_studies_view_all_data_export_data_m' | translate }}</div>
             <div *ngSwitchCase="AccessLevel.INVESTIGATOR" class="permission-info investigator">
-              <strong>Investigator:</strong> Can edit studies and export data for assigned studies.
-            </div>
+              <strong>{{ 'profile-edit.investigator' | translate }}</strong>{{ 'profile-edit.can_edit_studies_and_export_data_for_assigned_stud' | translate }}</div>
             <div *ngSwitchCase="AccessLevel.MONITOR" class="permission-info monitor">
-              <strong>Monitor:</strong> Can view all data and audit logs for quality assurance.
-            </div>
+              <strong>{{ 'profile-edit.monitor' | translate }}</strong>{{ 'profile-edit.can_view_all_data_and_audit_logs_for_quality_assur' | translate }}</div>
             <div *ngSwitchCase="AccessLevel.DATA_ENTRY" class="permission-info data-entry">
-              <strong>Data Entry:</strong> Can edit study data but cannot export or manage users.
-            </div>
+              <strong>{{ 'profile-edit.data_entry' | translate }}</strong>{{ 'profile-edit.can_edit_study_data_but_cannot_export_or_manage_us' | translate }}</div>
             <div *ngSwitchCase="AccessLevel.VIEWER" class="permission-info viewer">
-              <strong>Viewer:</strong> Read-only access to assigned studies.
-            </div>
+              <strong>{{ 'profile-edit.viewer' | translate }}</strong>{{ 'profile-edit.readonly_access_to_assigned_studies' | translate }}</div>
           </div>
         </div>
 
         <!-- Action Buttons -->
         <div class="popup-actions">
-          <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isLoading">
-            Cancel
-          </button>
+          <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isLoading">{{ 'common.cancel' | translate }}</button>
           <button type="submit" class="btn btn-primary" [disabled]="isLoading || !ngForm.valid">
             <span *ngIf="isLoading" class="loading-spinner"></span>
-            <span *ngIf="!isLoading">Save Changes</span>
-            <span *ngIf="isLoading">Saving...</span>
+            <span *ngIf="!isLoading">{{ 'profile-edit.save_changes' | translate }}</span>
+            <span *ngIf="isLoading">{{ 'profile-edit.saving' | translate }}</span>
           </button>
         </div>
       </form>

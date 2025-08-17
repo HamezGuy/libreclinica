@@ -3,53 +3,49 @@
   <div class="page-header">
     <div class="header-content">
       <h1>
-        <i class="material-icons">poll</i>
-        Survey Management
+          <i class="material-icons">poll</i>
+        {{ 'survey.management.title' | translate }}
       </h1>
-      <p class="subtitle">Create and manage surveys, feedback forms, and questionnaires</p>
+      <p class="subtitle">{{ 'survey.management.subtitle' | translate }}</p>
     </div>
     <button class="btn btn-primary" (click)="createSurvey()">
       <i class="material-icons">add</i>
-      Create Survey
+      {{ 'survey.actions.create' | translate }}
     </button>
   </div>
   
   <!-- Filters -->
   <div class="filters-section">
     <div class="filter-group">
-      <label>Status</label>
+      <label>{{ 'survey.filters.status.label' | translate }}</label>
       <select [(ngModel)]="statusFilter" (change)="applyFilters()" class="form-control">
-        <option value="all">All Statuses</option>
-        <option value="draft">Draft</option>
-        <option value="active">Active</option>
-        <option value="paused">Paused</option>
-        <option value="completed">Completed</option>
-        <option value="archived">Archived</option>
+        <option value="all">{{ 'survey.status.all' | translate }}</option>
+        <option value="draft">{{ 'survey.status.draft' | translate }}</option>
+        <option value="active">{{ 'survey.status.active' | translate }}</option>
+        <option value="paused">{{ 'survey.status.paused' | translate }}</option>
+        <option value="completed">{{ 'survey.status.completed' | translate }}</option>
+        <option value="archived">{{ 'survey.status.archived' | translate }}</option>
       </select>
     </div>
     
     <div class="filter-group">
-      <label>Type</label>
+      <label>{{ 'survey.filters.type.label' | translate }}</label>
       <select [(ngModel)]="typeFilter" (change)="applyFilters()" class="form-control">
-        <option value="all">All Types</option>
-        <option value="feedback">Feedback</option>
-        <option value="satisfaction">Satisfaction</option>
-        <option value="nps">NPS</option>
-        <option value="research">Research</option>
-        <option value="screening">Screening</option>
-        <option value="custom">Custom</option>
+        <option value="all">{{ 'survey.type.all' | translate }}</option>
+        <option value="feedback">{{ 'survey.type.feedback' | translate }}</option>
+        <option value="satisfaction">{{ 'survey.type.satisfaction' | translate }}</option>
+        <option value="nps">{{ 'survey.type.nps' | translate }}</option>
+        <option value="research">{{ 'survey.type.research' | translate }}</option>
+        <option value="screening">{{ 'survey.type.screening' | translate }}</option>
+        <option value="custom">{{ 'survey.type.custom' | translate }}</option>
       </select>
     </div>
     
     <div class="filter-group search-group">
-      <label>Search</label>
+      <label>{{ 'common.search' | translate }}</label>
       <div class="search-input">
         <i class="material-icons">search</i>
-        <input type="text" 
-               [(ngModel)]="searchQuery" 
-               (ngModelChange)="applyFilters()"
-               placeholder="Search surveys..."
-               class="form-control">
+        <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" [placeholder]="'survey.filters.searchPlaceholder' | translate" class="form-control">
       </div>
     </div>
   </div>
@@ -57,26 +53,23 @@
   <!-- Loading state -->
   <div class="loading-state" *ngIf="isLoading">
     <i class="fas fa-spinner fa-spin"></i>
-    Loading surveys...
+    {{ 'survey.loading' | translate }}
   </div>
   
   <!-- Empty state -->
   <div class="empty-state" *ngIf="!isLoading && filteredSurveys.length === 0">
     <i class="fas fa-poll"></i>
-    <h3>No surveys found</h3>
-    <p *ngIf="surveys.length === 0">Create your first survey to get started</p>
-    <p *ngIf="surveys.length > 0">Try adjusting your filters</p>
+    <h3>{{ 'survey.empty.title' | translate }}</h3>
+    <p *ngIf="surveys.length === 0">{{ 'survey.empty.createFirst' | translate }}</p>
+    <p *ngIf="surveys.length > 0">{{ 'survey.empty.adjustFilters' | translate }}</p>
     <button class="btn btn-primary" (click)="createSurvey()" *ngIf="surveys.length === 0">
-      Create Survey
+      {{ 'survey.actions.create' | translate }}
     </button>
   </div>
   
   <!-- Survey list -->
   <div class="survey-list" *ngIf="!isLoading && filteredSurveys.length > 0">
-    <div class="survey-card" 
-         *ngFor="let survey of paginatedSurveys"
-         (click)="previewSurvey(survey)"
-         [class.clickable]="true">
+    <div class="survey-card" *ngFor="let survey of paginatedSurveys" (click)="previewSurvey(survey)" [class.clickable]="true">
       <div class="survey-header">
         <div class="survey-icon" [class]="getSurveyIcon(survey.type)"></div>
         <div class="survey-info">
@@ -84,19 +77,19 @@
           <p class="description" *ngIf="survey.description">{{ survey.description }}</p>
           <div class="survey-meta">
             <span class="badge" [ngClass]="getSurveyStatusClass(survey.status)">
-              {{ survey.status }}
+              {{ ('survey.status.' + survey.status) | translate }}
             </span>
             <span class="meta-item">
               <i class="material-icons">label</i>
-              {{ getSurveyTypeLabel(survey.type) }}
+              {{ ('survey.type.' + survey.type) | translate }}
             </span>
             <span class="meta-item">
               <i class="material-icons">help_outline</i>
-              {{ survey.questions.length }} questions
+              {{ 'survey.list.questions' | translate: { count: survey.questions.length } }}
             </span>
             <span class="meta-item" *ngIf="survey.responseCount">
               <i class="material-icons">people</i>
-              {{ survey.responseCount }} responses
+              {{ 'survey.list.responses' | translate: { count: survey.responseCount } }}
             </span>
           </div>
         </div>
@@ -105,62 +98,43 @@
       <div class="survey-stats" *ngIf="survey.responseCount && survey.responseCount > 0">
         <div class="stat">
           <span class="stat-value">{{ survey.completionRate || 0 }}%</span>
-          <span class="stat-label">Completion Rate</span>
+          <span class="stat-label">{{ 'survey.stats.completionRate' | translate }}</span>
         </div>
         <div class="stat" *ngIf="survey.averageCompletionTime">
-          <span class="stat-value">{{ getCompletionTimeInMinutes(survey.averageCompletionTime) }}m</span>
-          <span class="stat-label">Avg. Time</span>
+          <span class="stat-value">{{ getCompletionTimeInMinutes(survey.averageCompletionTime) }}{{ 'survey.stats.minutesAbbr' | translate }}</span>
+          <span class="stat-label">{{ 'survey.stats.avgTime' | translate }}</span>
         </div>
       </div>
       
-      <div class="survey-actions" (click)="$event.stopPropagation()">
-        <button class="btn btn-sm btn-primary" 
-                (click)="editSurvey(survey)"
-                title="Edit Survey">
+      <div class="action-buttons">
+        <button class="btn btn-sm btn-primary" (click)="editSurvey(survey)" [title]="'survey.actions.editTitle' | translate">
           <i class="material-icons">edit</i>
-          Edit
+          {{ 'common.edit' | translate }}
         </button>
         
-        <button class="btn btn-sm btn-success" 
-                (click)="fillOutSurvey(survey, $event)"
-                title="Fill Out Survey"
-                *ngIf="survey.status === 'active'">
+        <button class="btn btn-sm btn-success" (click)="fillOutSurvey(survey, $event)" [title]="'survey.actions.fillTitle' | translate" *ngIf="survey.status === 'active'">
           <i class="material-icons">assignment</i>
-          Fill Out
+          {{ 'survey.actions.fill' | translate }}
         </button>
         
-        <button class="btn btn-sm btn-info" 
-                (click)="testSurvey(survey, $event)"
-                title="Test Survey"
-                *ngIf="survey.status === 'draft'">
-          <i class="material-icons">science</i>
-          Test
+        <button class="btn btn-sm btn-info" (click)="testSurvey(survey, $event)" [title]="'survey.actions.testTitle' | translate" *ngIf="survey.status === 'draft'">
+          <i class="material-icons">access_time</i>
+          {{ 'survey.actions.test' | translate }}
         </button>
         
-        <button class="btn btn-sm btn-icon" 
-                (click)="duplicateSurvey(survey)"
-                title="Duplicate">
+        <button class="btn btn-sm btn-icon" (click)="duplicateSurvey(survey)" [title]="'survey.actions.duplicate' | translate">
           <i class="material-icons">content_copy</i>
         </button>
         
-        <button class="btn btn-sm btn-icon" 
-                (click)="viewAnalytics(survey)"
-                title="Analytics"
-                *ngIf="survey.responseCount && survey.responseCount > 0">
+        <button class="btn btn-sm btn-icon" (click)="viewAnalytics(survey)" [title]="'survey.actions.analytics' | translate" *ngIf="survey.responseCount && survey.responseCount > 0">
           <i class="material-icons">bar_chart</i>
         </button>
         
-        <button class="btn btn-sm btn-icon" 
-                (click)="toggleSurveyStatus(survey)"
-                [title]="survey.status === 'active' ? 'Pause' : 'Activate'"
-                *ngIf="survey.status === 'active' || survey.status === 'paused'">
+        <button class="btn btn-sm btn-icon" (click)="toggleSurveyStatus(survey)" [title]="(survey.status === 'active' ? 'survey.actions.pause' : 'survey.actions.activate') | translate" *ngIf="survey.status === 'active' || survey.status === 'paused'">
           <i class="material-icons">{{ survey.status === 'active' ? 'pause' : 'play_arrow' }}</i>
         </button>
         
-        <button class="btn btn-sm btn-icon btn-danger" 
-                (click)="deleteSurvey(survey)"
-                title="Delete"
-                *ngIf="canDeleteSurveys">
+        <button class="btn btn-sm btn-icon btn-danger" (click)="deleteSurvey(survey)" [title]="'common.delete' | translate" *ngIf="canDeleteSurveys">
           <i class="material-icons">delete</i>
         </button>
       </div>
@@ -168,17 +142,13 @@
     
     <!-- Pagination -->
     <div class="pagination" *ngIf="totalPages > 1">
-      <button class="btn btn-sm" 
-              (click)="previousPage()"
-              [disabled]="currentPage === 1">
+      <button class="btn btn-sm" (click)="previousPage()" [disabled]="currentPage === 1">
         <i class="fas fa-chevron-left"></i>
       </button>
       <span class="page-info">
-        Page {{ currentPage }} of {{ totalPages }}
+        {{ 'survey.pagination.pageInfo' | translate: { current: currentPage, total: totalPages } }}
       </span>
-      <button class="btn btn-sm" 
-              (click)="nextPage()"
-              [disabled]="currentPage === totalPages">
+      <button class="btn btn-sm" (click)="nextPage()" [disabled]="currentPage === totalPages">
         <i class="fas fa-chevron-right"></i>
       </button>
     </div>
@@ -186,28 +156,16 @@
 </div>
 
 <!-- Survey Editor Modal -->
-<app-survey-editor 
-  *ngIf="showEditor"
-  [survey]="editingSurvey"
-  (save)="onSurveySaved($event)"
-  (close)="onEditorClose()">
+<app-survey-editor *ngIf="showEditor" [survey]="editingSurvey" (save)="onSurveySaved($event)" (close)="onEditorClose()">
 </app-survey-editor>
 
 <!-- Survey Preview -->
-<app-survey-popup
-  *ngIf="selectedSurveyForPreview"
-  [survey]="selectedSurveyForPreview"
-  (close)="onPreviewClose()"
-  (complete)="onPreviewComplete($event)">
+<app-survey-popup *ngIf="selectedSurveyForPreview as previewSurvey" [survey]="previewSurvey" (close)="onPreviewClose()" (complete)="onPreviewComplete($event)">
 </app-survey-popup>
 
 <!-- Survey Response Modal -->
 <div class="modal-backdrop" *ngIf="showResponseForm" (click)="onResponseCancelled()"></div>
 <div class="modal survey-response-modal" *ngIf="showResponseForm">
-  <app-survey-response
-    [survey]="selectedSurveyForResponse!"
-    [isPreview]="false"
-    (responseSubmitted)="onResponseSubmitted($event)"
-    (responseCancelled)="onResponseCancelled()">
+  <app-survey-response [survey]="selectedSurveyForResponse!" [isPreview]="$any(selectedSurveyForResponse)?.isTestMode || false" (responseSubmitted)="onResponseSubmitted($event)" (responseCancelled)="onResponseCancelled()">
   </app-survey-response>
 </div>

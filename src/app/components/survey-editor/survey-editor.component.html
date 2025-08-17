@@ -13,11 +13,7 @@
     
     <!-- Progress Steps -->
     <div class="progress-steps">
-      <div class="step" 
-           *ngFor="let step of [1, 2, 3, 4]; let i = index"
-           [class.active]="currentStep === step"
-           [class.completed]="currentStep > step"
-           (click)="goToStep(step)">
+      <div class="step" *ngFor="let step of [1, 2, 3, 4]; let i = index" [class.active]="currentStep === step" [class.completed]="currentStep > step" (click)="goToStep(step)">
         <div class="step-number">{{ step }}</div>
         <div class="step-label">
           {{ step === 1 ? 'Basic Info' : 
@@ -32,43 +28,37 @@
     <form [formGroup]="surveyForm" class="editor-content">
       <!-- Step 1: Basic Information -->
       <div class="step-content" *ngIf="currentStep === 1">
-        <h3>Basic Information</h3>
+        <h3>{{ 'survey.basic_information' | translate }}</h3>
         
         <div class="form-group">
-          <label>Survey Title <span class="required">*</span></label>
-          <input type="text" 
-                 formControlName="title" 
-                 class="form-control"
-                 placeholder="Enter survey title">
+          <label>{{ 'survey.survey_title' | translate }}<span class="required">*</span></label>
+          <input type="text" formControlName="title" class="form-control" [placeholder]="'survey.enter_survey_title' | translate">
         </div>
         
         <div class="form-group">
-          <label>Description</label>
-          <textarea formControlName="description" 
-                    class="form-control"
-                    rows="3"
-                    placeholder="Describe the purpose of this survey"></textarea>
+          <label>{{ 'common.description' | translate }}</label>
+          <textarea formControlName="description" class="form-control" rows="3" [placeholder]="'survey.describe_the_purpose_of_this_survey' | translate"></textarea>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label>Survey Type <span class="required">*</span></label>
+            <label>{{ 'survey.survey_type' | translate }}<span class="required">*</span></label>
             <select formControlName="type" class="form-control">
-              <option value="feedback">Feedback</option>
-              <option value="satisfaction">Satisfaction</option>
-              <option value="nps">NPS</option>
-              <option value="research">Research</option>
-              <option value="screening">Screening</option>
-              <option value="custom">Custom</option>
+              <option value="feedback">{{ 'survey.feedback' | translate }}</option>
+              <option value="satisfaction">{{ 'survey.satisfaction' | translate }}</option>
+              <option value="nps">{{ 'survey.nps' | translate }}</option>
+              <option value="research">{{ 'survey.research' | translate }}</option>
+              <option value="screening">{{ 'survey.screening' | translate }}</option>
+              <option value="custom">{{ 'survey.custom' | translate }}</option>
             </select>
           </div>
           
           <div class="form-group">
-            <label>Status</label>
+            <label>{{ 'common.status' | translate }}</label>
             <select formControlName="status" class="form-control">
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
+              <option value="draft">{{ 'survey.draft' | translate }}</option>
+              <option value="active">{{ 'survey.active' | translate }}</option>
+              <option value="paused">{{ 'survey.paused' | translate }}</option>
             </select>
           </div>
         </div>
@@ -77,43 +67,31 @@
       <!-- Step 2: Questions -->
       <div class="step-content" *ngIf="currentStep === 2">
         <div class="step-header">
-          <h3>Survey Questions</h3>
+          <h3>{{ 'survey.survey_questions' | translate }}</h3>
           <button type="button" class="btn btn-primary" (click)="addQuestion()">
-            <i class="fas fa-plus"></i>
-            Add Question
-          </button>
+            <i class="fas fa-plus"></i>{{ 'survey.add_question' | translate }}</button>
         </div>
         
         <div class="questions-list" formArrayName="questions">
-          <div class="question-card" 
-               *ngFor="let question of questions.controls; let i = index"
-               [formGroupName]="i">
+          <div class="question-card" *ngFor="let question of questions.controls; let i = index" [formGroupName]="i">
             
             <div class="question-header">
               <div class="question-number">Q{{ i + 1 }}</div>
               <div class="question-actions">
-                <button type="button" 
-                        class="btn-icon"
-                        (click)="moveQuestion(i, 'up')"
-                        [disabled]="i === 0">
+                <button type="button" class="btn-icon" (click)="moveQuestion(i, 'up')" [disabled]="i === 0">
                   <i class="fas fa-arrow-up"></i>
                 </button>
-                <button type="button" 
-                        class="btn-icon"
-                        (click)="moveQuestion(i, 'down')"
-                        [disabled]="i === questions.length - 1">
+                <button type="button" class="btn-icon" (click)="moveQuestion(i, 'down')" [disabled]="i === questions.length - 1">
                   <i class="fas fa-arrow-down"></i>
                 </button>
-                <button type="button" 
-                        class="btn-icon btn-danger"
-                        (click)="removeQuestion(i)">
+                <button type="button" class="btn-icon btn-danger" (click)="removeQuestion(i)">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
             
             <div class="form-group">
-              <label>Question Type</label>
+              <label>{{ 'survey.question_type' | translate }}</label>
               <select formControlName="type" class="form-control">
                 <option *ngFor="let type of questionTypes" [value]="type.value">
                   {{ type.label }}
@@ -122,98 +100,61 @@
             </div>
             
             <div class="form-group">
-              <label>Question Text <span class="required">*</span></label>
-              <input type="text" 
-                     formControlName="text" 
-                     class="form-control"
-                     placeholder="Enter your question">
+              <label>{{ 'survey.question_text' | translate }}<span class="required">*</span></label>
+              <input type="text" formControlName="text" class="form-control" [placeholder]="'survey.enter_your_question' | translate">
             </div>
             
             <div class="form-group">
-              <label>Description (optional)</label>
-              <input type="text" 
-                     formControlName="description" 
-                     class="form-control"
-                     placeholder="Add helpful context">
+              <label>{{ 'survey.description_optional' | translate }}</label>
+              <input type="text" formControlName="description" class="form-control" [placeholder]="'survey.add_helpful_context' | translate">
             </div>
             
             <div class="form-group">
               <label class="checkbox-label">
-                <input type="checkbox" formControlName="required">
-                Required question
-              </label>
+                <input type="checkbox" formControlName="required">{{ 'survey.required_question' | translate }}</label>
             </div>
             
             <!-- Options for choice questions -->
             <div class="options-section" *ngIf="needsOptions(question.get('type')!.value)">
-              <label>Answer Options</label>
+              <label>{{ 'survey.answer_options' | translate }}</label>
               <div class="options-list">
-                <div class="option-item" 
-                     *ngFor="let option of question.get('options')!.value; let j = index">
-                  <input type="text" 
-                         class="form-control"
-                         [value]="option.text"
-                         (input)="updateOption(i, j, 'text', $any($event.target).value)"
-                         placeholder="Option text">
-                  <button type="button" 
-                          class="btn-icon btn-danger"
-                          (click)="removeOption(i, j)">
+                <div class="option-item" *ngFor="let option of question.get('options')!.value; let j = index">
+                  <input type="text" class="form-control" [value]="option.text" (input)="updateOption(i, j, 'text', $any($event.target).value)" [placeholder]="'survey.option_text' | translate">
+                  <button type="button" class="btn-icon btn-danger" (click)="removeOption(i, j)">
                     <i class="fas fa-times"></i>
                   </button>
                 </div>
               </div>
-              <button type="button" 
-                      class="btn btn-sm btn-secondary"
-                      (click)="addOption(i)">
-                <i class="fas fa-plus"></i>
-                Add Option
-              </button>
+              <button type="button" class="btn btn-sm btn-secondary" (click)="addOption(i)">
+                <i class="fas fa-plus"></i>{{ 'survey.add_option' | translate }}</button>
             </div>
             
             <!-- Rating settings -->
-            <div class="form-group" 
-                 *ngIf="needsRatingSettings(question.get('type')!.value)"
-                 formGroupName="settings">
-              <label>Maximum Rating</label>
-              <input type="number" 
-                     formControlName="ratingMax" 
-                     class="form-control"
-                     min="3" 
-                     max="10">
+            <div class="form-group" *ngIf="needsRatingSettings(question.get('type')!.value)" formGroupName="settings">
+              <label>{{ 'survey.maximum_rating' | translate }}</label>
+              <input type="number" formControlName="ratingMax" class="form-control" min="3" max="10">
             </div>
             
             <!-- Scale settings -->
-            <div class="scale-settings" 
-                 *ngIf="needsScaleSettings(question.get('type')!.value)"
-                 formGroupName="settings">
+            <div class="scale-settings" *ngIf="needsScaleSettings(question.get('type')!.value)" formGroupName="settings">
               <div class="form-row">
                 <div class="form-group">
-                  <label>Scale Min</label>
-                  <input type="number" 
-                         formControlName="scaleMin" 
-                         class="form-control">
+                  <label>{{ 'survey.scale_min' | translate }}</label>
+                  <input type="number" formControlName="scaleMin" class="form-control">
                 </div>
                 <div class="form-group">
-                  <label>Scale Max</label>
-                  <input type="number" 
-                         formControlName="scaleMax" 
-                         class="form-control">
+                  <label>{{ 'survey.scale_max' | translate }}</label>
+                  <input type="number" formControlName="scaleMax" class="form-control">
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
-                  <label>Min Label</label>
-                  <input type="text" 
-                         formControlName="scaleMinLabel" 
-                         class="form-control"
-                         placeholder="e.g., Strongly Disagree">
+                  <label>{{ 'survey.min_label' | translate }}</label>
+                  <input type="text" formControlName="scaleMinLabel" class="form-control" [placeholder]="'survey.eg_strongly_disagree' | translate">
                 </div>
                 <div class="form-group">
-                  <label>Max Label</label>
-                  <input type="text" 
-                         formControlName="scaleMaxLabel" 
-                         class="form-control"
-                         placeholder="e.g., Strongly Agree">
+                  <label>{{ 'survey.max_label' | translate }}</label>
+                  <input type="text" formControlName="scaleMaxLabel" class="form-control" [placeholder]="'survey.eg_strongly_agree' | translate">
                 </div>
               </div>
             </div>
@@ -222,94 +163,75 @@
         
         <div class="empty-state" *ngIf="questions.length === 0">
           <i class="fas fa-question-circle"></i>
-          <p>No questions added yet</p>
-          <button type="button" class="btn btn-primary" (click)="addQuestion()">
-            Add First Question
-          </button>
+          <p>{{ 'survey.no_questions_added_yet' | translate }}</p>
+          <button type="button" class="btn btn-primary" (click)="addQuestion()">{{ 'survey.add_first_question' | translate }}</button>
         </div>
       </div>
       
       <!-- Step 3: Settings -->
       <div class="step-content" *ngIf="currentStep === 3">
-        <h3>Survey Settings</h3>
+        <h3>{{ 'survey.survey_settings' | translate }}</h3>
         
         <!-- Response Settings -->
         <div class="settings-section">
-          <h4>Response Settings</h4>
+          <h4>{{ 'survey.response_settings' | translate }}</h4>
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" formControlName="isAnonymous">
-              Allow anonymous responses
-            </label>
+              <input type="checkbox" formControlName="isAnonymous">{{ 'survey.allow_anonymous_responses' | translate }}</label>
           </div>
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" formControlName="requiresAuth">
-              Require authentication
-            </label>
+              <input type="checkbox" formControlName="requiresAuth">{{ 'survey.require_authentication' | translate }}</label>
           </div>
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" formControlName="allowMultipleResponses">
-              Allow multiple responses per user
-            </label>
+              <input type="checkbox" formControlName="allowMultipleResponses">{{ 'survey.allow_multiple_responses_per_user' | translate }}</label>
           </div>
           <div class="form-group" *ngIf="surveyForm.get('allowMultipleResponses')!.value">
-            <label>Max responses per user</label>
-            <input type="number" 
-                   formControlName="maxResponsesPerUser" 
-                   class="form-control"
-                   min="1">
+            <label>{{ 'survey.max_responses_per_user' | translate }}</label>
+            <input type="number" formControlName="maxResponsesPerUser" class="form-control" min="1">
           </div>
         </div>
         
         <!-- Display Settings -->
         <div class="settings-section">
-          <h4>Display Settings</h4>
+          <h4>{{ 'survey.display_settings' | translate }}</h4>
           <div class="form-group">
-            <label>Display Mode</label>
+            <label>{{ 'survey.display_mode' | translate }}</label>
             <select formControlName="displayMode" class="form-control">
-              <option value="popup">Popup</option>
-              <option value="embedded">Embedded</option>
-              <option value="fullscreen">Fullscreen</option>
-              <option value="slide_in">Slide In</option>
+              <option value="popup">{{ 'survey.popup' | translate }}</option>
+              <option value="embedded">{{ 'survey.embedded' | translate }}</option>
+              <option value="fullscreen">{{ 'survey.fullscreen' | translate }}</option>
+              <option value="slide-in">{{ 'survey.slide_in' | translate }}</option>
             </select>
           </div>
           
           <div formGroupName="welcomeScreen">
             <label class="checkbox-label">
-              <input type="checkbox" formControlName="enabled">
-              Show welcome screen
-            </label>
+              <input type="checkbox" formControlName="enabled">{{ 'survey.show_welcome_screen' | translate }}</label>
             <div class="nested-fields" *ngIf="surveyForm.get('welcomeScreen.enabled')!.value">
               <div class="form-group">
-                <label>Welcome Title</label>
+                <label>{{ 'survey.welcome_title' | translate }}</label>
                 <input type="text" formControlName="title" class="form-control">
               </div>
               <div class="form-group">
-                <label>Welcome Message</label>
-                <textarea formControlName="message" 
-                          class="form-control"
-                          rows="3"></textarea>
+                <label>{{ 'survey.welcome_message' | translate }}</label>
+                <textarea formControlName="message" class="form-control" rows="3"></textarea>
               </div>
             </div>
           </div>
           
           <div formGroupName="thankYouScreen">
             <label class="checkbox-label">
-              <input type="checkbox" formControlName="enabled">
-              Show thank you screen
-            </label>
+              <input type="checkbox" formControlName="enabled">{{ 'survey.show_thank_you_screen' | translate }}</label>
             <div class="nested-fields" *ngIf="surveyForm.get('thankYouScreen.enabled')!.value">
               <div class="form-group">
-                <label>Thank You Title</label>
+                <label>{{ 'survey.thank_you_title' | translate }}</label>
                 <input type="text" formControlName="title" class="form-control">
               </div>
               <div class="form-group">
-                <label>Thank You Message</label>
-                <textarea formControlName="message" 
-                          class="form-control"
-                          rows="3"></textarea>
+                <label>{{ 'survey.thank_you_message' | translate }}</label>
+                <textarea formControlName="message" class="form-control" rows="3"></textarea>
               </div>
             </div>
           </div>
@@ -317,86 +239,64 @@
         
         <!-- Scheduling -->
         <div class="settings-section">
-          <h4>Scheduling</h4>
+          <h4>{{ 'survey.scheduling' | translate }}</h4>
           <div class="form-row">
             <div class="form-group">
-              <label>Start Date</label>
-              <input type="datetime-local" 
-                     formControlName="scheduledStartDate" 
-                     class="form-control">
+              <label>{{ 'survey.start_date' | translate }}</label>
+              <input type="datetime-local" formControlName="scheduledStartDate" class="form-control">
             </div>
             <div class="form-group">
-              <label>End Date</label>
-              <input type="datetime-local" 
-                     formControlName="scheduledEndDate" 
-                     class="form-control">
+              <label>{{ 'survey.end_date' | translate }}</label>
+              <input type="datetime-local" formControlName="scheduledEndDate" class="form-control">
             </div>
           </div>
         </div>
         
         <!-- Triggers -->
         <div class="settings-section">
-          <h4>Triggers</h4>
+          <h4>{{ 'survey.triggers' | translate }}</h4>
           <div formArrayName="triggers">
-            <div class="trigger-item" 
-                 *ngFor="let trigger of triggers.controls; let i = index"
-                 [formGroupName]="i">
+            <div class="trigger-item" *ngFor="let trigger of triggers.controls; let i = index" [formGroupName]="i">
               <select formControlName="type" class="form-control">
-                <option value="page_view">Page View</option>
-                <option value="time_on_page">Time on Page</option>
-                <option value="scroll_percentage">Scroll Percentage</option>
-                <option value="exit_intent">Exit Intent</option>
-                <option value="custom_event">Custom Event</option>
+                <option value="page_view">{{ 'survey.page_view' | translate }}</option>
+                <option value="time_on_page">{{ 'survey.time_on_page' | translate }}</option>
+                <option value="scroll_percentage">{{ 'survey.scroll_percentage' | translate }}</option>
+                <option value="exit_intent">{{ 'survey.exit_intent' | translate }}</option>
+                <option value="custom_event">{{ 'survey.custom_event' | translate }}</option>
               </select>
-              <input type="text" 
-                     formControlName="value" 
-                     class="form-control"
-                     placeholder="Trigger value">
-              <input type="number" 
-                     formControlName="delay" 
-                     class="form-control"
-                     placeholder="Delay (seconds)"
-                     min="0">
-              <button type="button" 
-                      class="btn-icon btn-danger"
-                      (click)="removeTrigger(i)">
+              <input type="text" formControlName="value" class="form-control" [placeholder]="'survey.trigger_value' | translate">
+              <input type="number" formControlName="delay" class="form-control" min="0" [placeholder]="'survey.delay_seconds' | translate">
+              <button type="button" class="btn-icon btn-danger" (click)="removeTrigger(i)">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
           </div>
-          <button type="button" 
-                  class="btn btn-sm btn-secondary"
-                  (click)="addTrigger()">
-            <i class="fas fa-plus"></i>
-            Add Trigger
-          </button>
+          <button type="button" class="btn btn-sm btn-secondary" (click)="addTrigger()">
+            <i class="fas fa-plus"></i>{{ 'survey.add_trigger' | translate }}</button>
         </div>
       </div>
       
       <!-- Step 4: Review -->
       <div class="step-content" *ngIf="currentStep === 4">
-        <h3>Review Survey</h3>
+        <h3>{{ 'survey.review_survey' | translate }}</h3>
         
         <div class="review-section">
-          <h4>Basic Information</h4>
+          <h4>{{ 'survey.basic_information' | translate }}</h4>
           <div class="review-item">
-            <span class="label">Title:</span>
+            <span class="label">{{ 'survey.title' | translate }}</span>
             <span class="value">{{ surveyForm.get('title')!.value }}</span>
           </div>
           <div class="review-item" *ngIf="surveyForm.get('description')!.value">
-            <span class="label">Description:</span>
+            <span class="label">{{ 'survey.description' | translate }}</span>
             <span class="value">{{ surveyForm.get('description')!.value }}</span>
           </div>
           <div class="review-item">
-            <span class="label">Type:</span>
+            <span class="label">{{ 'survey.type' | translate }}</span>
             <span class="value">{{ getSurveyTypeLabel(surveyForm.get('type')!.value) }}</span>
           </div>
           <div class="review-item">
-            <span class="label">Status:</span>
-            <span class="value badge" 
-                  [class.badge-success]="surveyForm.get('status')!.value === 'active'"
-                  [class.badge-warning]="surveyForm.get('status')!.value === 'paused'"
-                  [class.badge-secondary]="surveyForm.get('status')!.value === 'draft'">
+            <span class="label">{{ 'survey.status' | translate }}</span>
+            <span class="value badge" [class.badge-success]="surveyForm.get('status')!.value === 'active'" [class.badge-warning]="surveyForm.get('status')!.value === 'paused'" [class.badge-secondary]="surveyForm.get('status')!.value === 'draft'">
               {{ surveyForm.get('status')!.value }}
             </span>
           </div>
@@ -410,14 +310,14 @@
                 <span class="q-number">Q{{ i + 1 }}.</span>
                 <span class="q-text">{{ question.get('text')!.value }}</span>
                 <span class="q-type">({{ question.get('type')!.value }})</span>
-                <span class="required-badge" *ngIf="question.get('required')!.value">Required</span>
+                <span class="required-badge" *ngIf="question.get('required')!.value">{{ 'survey.required' | translate }}</span>
               </div>
             </div>
           </div>
         </div>
         
         <div class="review-section">
-          <h4>Settings Summary</h4>
+          <h4>{{ 'survey.settings_summary' | translate }}</h4>
           <div class="settings-summary">
             <div class="summary-item">
               <i class="fas fa-user-secret"></i>
@@ -442,35 +342,17 @@
     
     <!-- Footer -->
     <div class="editor-footer">
-      <button type="button" 
-              class="btn btn-secondary"
-              (click)="previousStep()"
-              *ngIf="currentStep > 1">
-        <i class="fas fa-arrow-left"></i>
-        Previous
-      </button>
+      <button type="button" class="btn btn-secondary" (click)="previousStep()" *ngIf="currentStep > 1">
+        <i class="fas fa-arrow-left"></i>{{ 'common.previous' | translate }}</button>
       
       <div class="spacer"></div>
       
-      <button type="button" 
-              class="btn btn-secondary"
-              (click)="onCancel()">
-        Cancel
+      <button type="button" class="btn btn-secondary" (click)="onCancel()">{{ 'common.cancel' | translate }}</button>
+      
+      <button type="button" class="btn btn-primary" (click)="nextStep()" *ngIf="currentStep < totalSteps">{{ 'common.next' | translate }}<i class="fas fa-arrow-right"></i>
       </button>
       
-      <button type="button" 
-              class="btn btn-primary"
-              (click)="nextStep()"
-              *ngIf="currentStep < totalSteps">
-        Next
-        <i class="fas fa-arrow-right"></i>
-      </button>
-      
-      <button type="button" 
-              class="btn btn-primary"
-              (click)="saveSurvey()"
-              [disabled]="!surveyForm.valid || isSaving"
-              *ngIf="currentStep === totalSteps">
+      <button type="button" class="btn btn-primary" (click)="saveSurvey()" [disabled]="!surveyForm.valid || isSaving" *ngIf="currentStep === totalSteps">
         <i class="fas fa-save"></i>
         {{ isSaving ? 'Saving...' : (survey ? 'Update Survey' : 'Create Survey') }}
       </button>
