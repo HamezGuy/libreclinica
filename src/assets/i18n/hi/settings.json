@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "account": "Account",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "security": "Security",
+    "language": "Language",
+    "theme": "Theme",
+    "lightTheme": "Light",
+    "darkTheme": "Dark",
+    "autoTheme": "Auto",
+    "changePassword": "Change Password",
+    "twoFactorAuth": "Two-Factor Authentication",
+    "emailNotifications": "Email Notifications",
+    "smsNotifications": "SMS Notifications",
+    "dataRetention": "Data Retention",
+    "auditLog": "Audit Log"
+  }
+}

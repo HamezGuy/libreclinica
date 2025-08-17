@@ -1,0 +1,31 @@
+{
+  "report": {
+    "title": "レポート",
+    "reports": "レポート",
+    "auditLogs": "監査ログ",
+    "generateReport": "レポートを生成",
+    "reportType": "レポートタイプ",
+    "dateRange": "期間",
+    "fromDate": "開始日",
+    "toDate": "終了日",
+    "exportFormat": "エクスポート形式",
+    "format": "形式",
+    "pdf": "PDF",
+    "excel": "Excel",
+    "csv": "CSV",
+    "download": "ダウンロード",
+    "schedule": "スケジュール",
+    "frequency": "頻度",
+    "daily": "毎日",
+    "weekly": "毎週",
+    "monthly": "毎月",
+    "summary": "サマリー",
+    "detailed": "詳細",
+    "compliance": "コンプライアンス",
+    "audit": "監査",
+    "dataQuality": "データ品質",
+    "enrollment": "登録",
+    "safety": "安全性",
+    "efficacy": "有効性"
+  }
+}

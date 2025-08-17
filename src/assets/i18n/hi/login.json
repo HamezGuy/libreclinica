@@ -1,0 +1,24 @@
+{
+  "login": {
+    "electronic_data_capture": "Electronic Data Capture",
+    "secure_compliant_clinical_data_management_for_indi": "Secure, Compliant Clinical Data Management for India",
+    "hipaa_compliant": "HIPAA Compliant",
+    "21_cfr_part_11": "21 CFR Part 11",
+    "gdpr_ready": "GDPR Ready",
+    "india_data_protection": "India Data Protection",
+    "sign_in": "Sign In",
+    "email_address": "Email Address",
+    "eg_userexamplecom": "e.g., user@example.com",
+    "email_is_required": "Email is required.",
+    "please_enter_a_valid_email_address": "Please enter a valid email address.",
+    "password": "Password",
+    "enter_your_password": "Enter your password",
+    "password_is_required": "Password is required.",
+    "signing_in": "Signing In...",
+    "or": "or",
+    "sign_in_with_google": "Sign in with Google",
+    "dont_have_an_account": "Don't have an account?",
+    "register_here": "Register here",
+    "_2025_edc_india_all_rights_reserved": "© 2025 EDC India. All rights reserved."
+  }
+}

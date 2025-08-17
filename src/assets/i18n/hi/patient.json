@@ -1,0 +1,25 @@
+{
+  "patient": {
+    "title": "रोगी",
+    "patients": "रोगी",
+    "addPatient": "रोगी जोड़ें",
+    "editPatient": "रोगी संपादित करें",
+    "patientId": "रोगी आईडी",
+    "firstName": "पहला नाम",
+    "lastName": "अंतिम नाम",
+    "dateOfBirth": "जन्म तिथि",
+    "gender": "लिंग",
+    "male": "पुरुष",
+    "female": "महिला",
+    "other": "अन्य",
+    "contactInfo": "संपर्क जानकारी",
+    "phone": "फोन",
+    "address": "पता",
+    "city": "शहर",
+    "state": "राज्य",
+    "zipCode": "पिन कोड",
+    "country": "देश",
+    "enrollmentDate": "नामांकन तिथि",
+    "consentStatus": "सहमति स्थिति"
+  }
+}

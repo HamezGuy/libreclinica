@@ -1,0 +1,18 @@
+{
+  "validation": {
+    "required": "この項目は必須です",
+    "email": "有効なメールアドレスを入力してください",
+    "minLength": "最小文字数は{{min}}です",
+    "maxLength": "最大文字数は{{max}}です",
+    "pattern": "指定された形式に一致してください",
+    "passwordMatch": "パスワードが一致しません",
+    "invalidDate": "有効な日付を入力してください",
+    "futureDate": "未来の日付は選択できません",
+    "pastDate": "過去の日付は選択できません",
+    "numberRange": "値は{{min}}から{{max}}の間でなければなりません",
+    "fileSize": "ファイルサイズは{{size}}未満である必要があります",
+    "fileType": "無効なファイル形式です。許可されている形式: {{types}}",
+    "minlength": "最低{{requiredLength}}文字が必要です",
+    "maxlength": "最大{{requiredLength}}文字まで"
+  }
+}

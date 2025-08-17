@@ -1,0 +1,29 @@
+{
+  "patient": {
+    "title": "Patient",
+    "patients": "Patients",
+    "addPatient": "Add Patient",
+    "editPatient": "Edit Patient",
+    "patientId": "Patient ID",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "dateOfBirth": "Date of Birth",
+    "gender": "Gender",
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "contactInfo": "Contact Information",
+    "phone": "Phone",
+    "address": "Address",
+    "city": "City",
+    "state": "State",
+    "zipCode": "ZIP Code",
+    "country": "Country",
+    "enrollmentDate": "Enrollment Date",
+    "consentStatus": "Consent Status",
+    "lastVisit": "Last Visit",
+    "noPatientsFound": "No patients found",
+    "details": "Patient Details",
+    "clinicalInformation": "Clinical Information"
+  }
+}

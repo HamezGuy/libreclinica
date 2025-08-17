@@ -1,0 +1,33 @@
+{
+  "study-phase": {
+    "manage_study_phases": "Manage Study Phases",
+    "quick_start_templates": "Quick Start Templates",
+    "move_up": "Move up",
+    "move_down": "Move down",
+    "remove_phase": "Remove phase",
+    "phase_name": "Phase Name",
+    "eg_screening_baseline": "e.g., Screening, Baseline",
+    "phase_name_is_required": "Phase name is required",
+    "phase_code": "Phase Code",
+    "eg_scr_bsl": "e.g., SCR, BSL",
+    "phase_code_is_required": "Phase code is required",
+    "brief_description_of_this_phase": "Brief description of this phase",
+    "duration_days": "Duration (days)",
+    "eg_30": "e.g., 30",
+    "window_start_days": "Window Start (days)",
+    "eg_3": "e.g., -3",
+    "window_end_days": "Window End (days)",
+    "active": "Active",
+    "allow_skip": "Allow Skip",
+    "allow_parallel": "Allow Parallel",
+    "assigned_templates": "Assigned Templates",
+    "select_a_template": "Select a template...",
+    "required": "Required",
+    "due_in_days": "Due in days",
+    "remove_template": "Remove template",
+    "add_template": "Add Template",
+    "add_phase": "Add Phase",
+    "save_phases": "Save Phases",
+    "saving": "Saving..."
+  }
+}

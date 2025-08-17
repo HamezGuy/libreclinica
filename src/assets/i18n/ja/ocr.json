@@ -1,0 +1,21 @@
+{
+  "ocr": {
+    "title": "OCR 処理",
+    "uploadDocument": "ドキュメントをアップロード",
+    "processDocument": "ドキュメントを処理",
+    "extractedData": "抽出データ",
+    "confidence": "信頼度",
+    "review": "レビュー",
+    "approve": "承認",
+    "reject": "却下",
+    "reprocess": "再処理",
+    "boundingBoxes": "バウンディングボックス",
+    "showConfidence": "信頼度スコアを表示",
+    "selectFile": "ファイルを選択",
+    "dragDrop": "ここにファイルをドラッグ＆ドロップ",
+    "processing": "処理中...",
+    "extractingText": "ドキュメントからテキストを抽出しています",
+    "analyzingLayout": "ドキュメントのレイアウトを分析しています",
+    "identifyingFields": "フォームフィールドを特定しています"
+  }
+}

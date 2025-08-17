@@ -143,6 +143,33 @@ export class TemplateManagementComponent implements OnInit {
     return iconMap[fieldType] || 'help_outline';
   }
   
+  getFieldTranslationKey(fieldType: string): string {
+    const translationMap: { [key: string]: string } = {
+      'text': 'text_input',
+      'textarea': 'text_area',
+      'number': 'number',
+      'email': 'email',
+      'phone': 'phone',
+      'date': 'date',
+      'time': 'time',
+      'datetime': 'date_time',
+      'select': 'dropdown',
+      'multiselect': 'multi_select',
+      'radio': 'radio_buttons',
+      'checkbox': 'checkboxes',
+      'yesno': 'yes_no',
+      'file': 'file_upload',
+      'signature': 'e_signature',
+      'height': 'height',
+      'weight': 'weight',
+      'blood_pressure': 'blood_pressure',
+      'temperature': 'temperature',
+      'medication': 'medication_field',
+      'diagnosis': 'diagnosis_field'
+    };
+    return translationMap[fieldType] || fieldType;
+  }
+  
   trackTemplate(index: number, template: FormTemplate): string {
     return template.id || index.toString();
   }

@@ -1,0 +1,24 @@
+{
+  "messages": {
+    "saveSuccess": "सफलतापूर्वक सहेजा गया",
+    "deleteSuccess": "सफलतापूर्वक हटाया गया",
+    "updateSuccess": "सफलतापूर्वक अपडेट किया गया",
+    "createSuccess": "सफलतापूर्वक बनाया गया",
+    "submitSuccess": "सफलतापूर्वक जमा किया गया",
+    "importSuccess": "सफलतापूर्वक आयात किया गया",
+    "exportSuccess": "सफलतापूर्वक निर्यात किया गया",
+    "operationFailed": "ऑपरेशन विफल",
+    "confirmDelete": "क्या आप वाकई हटाना चाहते हैं?",
+    "confirmSubmit": "क्या आप वाकई जमा करना चाहते हैं?",
+    "unsavedChanges": "असहेजे गए परिवर्तन हैं",
+    "sessionExpired": "सत्र समाप्त हो गया है",
+    "accessDenied": "पहुंच अस्वीकृत",
+    "permissionDenied": "पहुंच अस्वीकृत",
+    "notFound": "नहीं मिला",
+    "serverError": "सर्वर त्रुटि हुई",
+    "networkError": "नेटवर्क त्रुटि हुई",
+    "loginSuccess": "Successfully logged in",
+    "logoutSuccess": "Successfully logged out",
+    "uploadSuccess": "Successfully uploaded"
+  }
+}

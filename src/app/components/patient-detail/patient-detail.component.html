@@ -1,0 +1,164 @@
+<html><head></head><body><div class="patient-detail-container" *ngIf="!loading">
+  <!-- Header -->
+  <div class="detail-header">
+    <button class="back-button" (click)="goBack()">
+      <i class="material-icons">arrow_back</i>{{ 'patient-detail.back_to_dashboard' | translate }}</button>
+    <h1>{{ 'patient-detail.patient_details' | translate }}</h1>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-state" *ngIf="error">
+    <i class="material-icons">error_outline</i>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Patient Information -->
+  <div class="patient-info-section" *ngIf="patient && !error">
+    <div class="info-card">
+      <h2>
+        <i class="material-icons">person</i>{{ 'patient-detail.patient_information' | translate }}</h2>
+      
+      <div class="info-grid">
+        <div class="info-item">
+          <label>{{ 'patient-detail.patient_number' | translate }}</label>
+          <span>{{ patient.patientNumber }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>{{ 'patient-detail.study' | translate }}</label>
+          <span>{{ study?.title || 'Not enrolled' }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>{{ 'patient-detail.enrollment_date' | translate }}</label>
+          <span>{{ patient.enrollmentDate | date:'mediumDate' }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>{{ 'common.status' | translate }}</label>
+          <span [ngClass]="['status-badge', patient.enrollmentStatus]">
+            {{ patient.enrollmentStatus }}
+          </span>
+        </div>
+        
+        <div class="info-item" *ngIf="patient.demographics?.firstName">
+          <label>{{ 'common.name' | translate }}</label>
+          <span>{{ patient.demographics.firstName }} {{ patient.demographics.lastName }}</span>
+        </div>
+        
+        <div class="info-item" *ngIf="patient.demographics?.dateOfBirth">
+          <label>{{ 'patient-detail.date_of_birth' | translate }}</label>
+          <span>{{ patient.demographics.dateOfBirth | date:'mediumDate' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Study Phases Section -->
+  <div class="study-phases-section" *ngIf="patient && patient.visitSubcomponents && patient.visitSubcomponents.length > 0">
+    <h2>
+      <i class="material-icons">assignment</i>{{ 'patient-detail.study_phases_templates' | translate }}</h2>
+    
+    <div class="phases-container">
+      <!-- Phase Cards -->
+      <div class="phase-card" *ngFor="let phase of patient.visitSubcomponents">
+        <div class="phase-header" (click)="togglePhase(phase.id)">
+          <div class="phase-info">
+            <h3>{{ phase.name }}</h3>
+            <p class="phase-description">{{ phase.description }}</p>
+            <div class="phase-meta">
+              <span class="phase-type">{{ phase.type }}</span>
+              <span [ngClass]="['phase-status', phase.status]">{{ phase.status }}</span>
+              <span class="phase-progress">{{ phase.completionPercentage }}% Complete</span>
+            </div>
+          </div>
+          
+          <button class="expand-button">
+            <i class="material-icons">
+              {{ isPhaseExpanded(phase.id) ? 'expand_less' : 'expand_more' }}
+            </i>
+          </button>
+        </div>
+        
+        <!-- Phase Templates (Expanded) -->
+        <div class="phase-templates" *ngIf="isPhaseExpanded(phase.id)">
+          <div class="templates-header">
+            <h4>{{ 'patient-detail.form_templates' | translate }}</h4>
+            <span class="template-count">
+              {{ phase.formTemplates?.length || 0 }} templates
+            </span>
+          </div>
+          
+          <!-- Template List -->
+          <div class="template-list" *ngIf="phase.formTemplates && phase.formTemplates.length > 0">
+            <div class="template-item" *ngFor="let template of phase.formTemplates">
+              <div class="template-info">
+                <div class="template-name">
+                  <i class="material-icons">description</i>
+                  {{ template.templateName }}
+                </div>
+                <div class="template-meta">
+                  <span class="template-version">v{{ template.templateVersion }}</span>
+                  <span class="template-required" *ngIf="isTemplateRequired(template.templateId, phase)">{{ 'patient-detail.required' | translate }}</span>
+                  <span class="template-optional" *ngIf="!isTemplateRequired(template.templateId, phase)">{{ 'patient-detail.optional' | translate }}</span>
+                </div>
+              </div>
+              
+              <div class="template-status">
+                <span [ngClass]="['status-indicator', getTemplateStatus(template.templateId, phase)]">
+                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'completed'">check_circle</i>
+                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'in-progress'">pending</i>
+                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'pending'">radio_button_unchecked</i>
+                  {{ getTemplateStatus(template.templateId, phase) }}
+                </span>
+              </div>
+              
+              <button class="open-template-btn" (click)="openTemplate(template, phase)">
+                <i class="material-icons">open_in_new</i>{{ 'patient-detail.open' | translate }}</button>
+            </div>
+          </div>
+          
+          <!-- Empty State -->
+          <div class="empty-templates" *ngIf="!phase.formTemplates || phase.formTemplates.length === 0">
+            <i class="material-icons">inbox</i>
+            <p>{{ 'patient-detail.no_templates_assigned_to_this_phase' | translate }}</p>
+          </div>
+          
+          <!-- Phase Schedule Info -->
+          <div class="phase-schedule" *ngIf="phase.scheduledDate || phase.windowStartDate">
+            <h5>{{ 'patient-detail.schedule_information' | translate }}</h5>
+            <div class="schedule-info">
+              <div class="schedule-item" *ngIf="phase.scheduledDate">
+                <label>{{ 'patient-detail.scheduled_date' | translate }}</label>
+                <span>{{ phase.scheduledDate | date:'mediumDate' }}</span>
+              </div>
+              <div class="schedule-item" *ngIf="phase.windowStartDate && phase.windowEndDate">
+                <label>{{ 'patient-detail.visit_window' | translate }}</label>
+                <span>{{ phase.windowStartDate | date:'mediumDate' }} - {{ phase.windowEndDate | date:'mediumDate' }}</span>
+              </div>
+              <div class="schedule-item" *ngIf="phase.actualDate">
+                <label>{{ 'patient-detail.actual_date' | translate }}</label>
+                <span>{{ phase.actualDate | date:'mediumDate' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Phases State -->
+  <div class="no-phases-state" *ngIf="patient && (!patient.visitSubcomponents || patient.visitSubcomponents.length === 0)">
+    <i class="material-icons">assignment_late</i>
+    <h3>{{ 'patient-detail.no_study_phases_assigned' | translate }}</h3>
+    <p>{{ 'patient-detail.this_patient_has_not_been_assigned_any_study_phase' | translate }}</p>
+  </div>
+
+</div>
+
+<!-- Loading State -->
+<div class="loading-state" *ngIf="loading">
+  <div class="spinner"></div>
+  <p>{{ 'patient-detail.loading_patient_details' | translate }}</p>
+</div>
+</body></html>

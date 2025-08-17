@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "title": "プロフィール",
+    "editProfile": "プロフィールを編集",
+    "displayName": "表示名",
+    "username": "ユーザー名",
+    "organization": "組織",
+    "department": "部署",
+    "role": "役割",
+    "language": "言語",
+    "timezone": "タイムゾーン",
+    "notifications": "通知",
+    "emailNotifications": "メール通知",
+    "pushNotifications": "プッシュ通知",
+    "changePassword": "パスワードを変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmNewPassword": "新しいパスワードの確認"
+  }
+}

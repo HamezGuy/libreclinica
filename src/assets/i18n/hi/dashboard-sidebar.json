@@ -1,0 +1,27 @@
+{
+  "dashboard-sidebar": {
+    "medicalservices": "medical_services",
+    "edc_system": "ईडीसी सिस्टम",
+    "search": "खोजें...",
+    "science": "science",
+    "studies": "अध्ययन",
+    "loading_folders": "फ़ोल्डर लोड हो रहे हैं...",
+    "visibility": "visibility",
+    "view_forms": "फॉर्म देखें",
+    "history": "history",
+    "view_history": "इतिहास देखें",
+    "remove_from_study": "अध्ययन से हटाएं",
+    "create_study": "अध्ययन बनाएं",
+    "accountcircle": "account_circle",
+    "patients": "रोगी",
+    "click_to": "क्लिक करें",
+    "collapse": "संकुचित करें",
+    "expand": "विस्तार करें",
+    "patient_options": "रोगी विकल्प",
+    "required": "आवश्यक",
+    "optional": "वैकल्पिक",
+    "ready_to_progress": "आगे बढ़ने के लिए तैयार",
+    "complete_required_forms": "आवश्यक फॉर्म पूरे करें",
+    "user": "उपयोगकर्ता"
+  }
+}

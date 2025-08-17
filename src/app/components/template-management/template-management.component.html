@@ -59,10 +59,10 @@
               
               <div class="template-actions-quick" (click)="$event.stopPropagation()">
                 <button class="btn-icon" (click)="onEditTemplate(template)" [disabled]="!permissions.canEdit || template.status === 'archived'" [title]="template.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
-                  <i class="material-icons">{{ 'common.edit' | translate }}</i>
+                  <i class="material-icons">edit</i>
                 </button>
                 <button class="btn-icon danger" (click)="onDeleteTemplate(template)" [disabled]="!permissions.canDelete || template.status === 'archived'" [title]="template.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
-                  <i class="material-icons">{{ 'common.delete' | translate }}</i>
+                  <i class="material-icons">delete</i>
                 </button>
               </div>
             </div>
@@ -101,17 +101,17 @@
             
             <div class="template-actions">
               <button class="btn btn-sm btn-primary" (click)="onEditTemplate(selectedTemplate)" [disabled]="!permissions.canEdit || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
-                <i class="material-icons">{{ 'common.edit' | translate }}</i>{{ 'template.edit_template' | translate }}</button>
+                <i class="material-icons">edit</i>{{ 'template.edit_template' | translate }}</button>
               <button class="btn btn-sm btn-success" (click)="onPublishTemplate(selectedTemplate)" [disabled]="!permissions.canPublish || selectedTemplate.status === 'published' || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be published' : 'Publish Template'">
-                <i class="material-icons">{{ 'template.publish' | translate }}</i>{{ 'template.publish' | translate }}</button>
+                <i class="material-icons">publish</i>{{ 'template.publish' | translate }}</button>
               <button class="btn btn-sm btn-info" (click)="onFillTemplate(selectedTemplate)" [title]="'Fill out this template for testing'">
-                <i class="material-icons">{{ 'template.assignment' | translate }}</i>{{ 'template.fill_template' | translate }}</button>
+                <i class="material-icons">assignment</i>{{ 'template.fill_template' | translate }}</button>
               <button class="btn btn-sm btn-secondary" (click)="onDuplicateTemplate(selectedTemplate)" [disabled]="!permissions.canCreate">
-                <i class="material-icons">{{ 'template.contentcopy' | translate }}</i>{{ 'template.duplicate' | translate }}</button>
+                <i class="material-icons">content_copy</i>{{ 'template.duplicate' | translate }}</button>
               <button class="btn btn-sm btn-secondary" (click)="onExportTemplate(selectedTemplate)">
-                <i class="material-icons">{{ 'common.download' | translate }}</i>{{ 'common.export' | translate }}</button>
+                <i class="material-icons">download</i>{{ 'common.export' | translate }}</button>
               <button class="btn btn-sm btn-danger" (click)="onDeleteTemplate(selectedTemplate)" [disabled]="!permissions.canDelete || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
-                <i class="material-icons">{{ 'common.delete' | translate }}</i>{{ 'common.delete' | translate }}</button>
+                <i class="material-icons">delete</i>{{ 'common.delete' | translate }}</button>
             </div>
           </div>
         </div>
@@ -131,13 +131,13 @@
             </div>
             
             <div class="preview-fields">
-              <h4>Form Fields ({{ selectedTemplate.fields.length }})</h4>
+              <h4>{{ 'template.form_fields' | translate }} ({{ selectedTemplate.fields.length }})</h4>
               <div class="field-list">
                 <div *ngFor="let field of selectedTemplate.fields; trackBy: trackField" class="field-item">
                   <div class="field-header">
                     <i class="material-icons">{{ getFieldIcon(field.type) }}</i>
                     <span class="field-name">{{ field.label }}</span>
-                    <span class="field-type">{{ field.type }}</span>
+                    <span class="field-type">{{ 'form-builder.' + getFieldTranslationKey(field.type) | translate }}</span>
                   </div>
                   <div class="field-details">
                     <span *ngIf="field.required" class="required-badge">{{ 'template.required' | translate }}</span>

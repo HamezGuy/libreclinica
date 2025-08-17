@@ -1,0 +1,23 @@
+{
+  "study": {
+    "title": "Study",
+    "studies": "Studies",
+    "createStudy": "Create Study",
+    "editStudy": "Edit Study",
+    "studyName": "Study Name",
+    "studyCode": "Study Code",
+    "protocol": "Protocol",
+    "sponsor": "Sponsor",
+    "status": "Status",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "description": "Description",
+    "participants": "Participants",
+    "sites": "Sites",
+    "enrollment": "Enrollment",
+    "active": "Active",
+    "completed": "Completed",
+    "pending": "Pending",
+    "suspended": "Suspended"
+  }
+}

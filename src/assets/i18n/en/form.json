@@ -1,0 +1,130 @@
+{
+  "form": {
+    "title": "Form",
+    "forms": "Forms",
+    "surveys": "Surveys",
+    "createForm": "Create Form",
+    "formBuilder": "Form Builder",
+    "formName": "Form Name",
+    "formType": "Form Type",
+    "category": "Category",
+    "version": "Version",
+    "fields": "Fields",
+    "addField": "Add Field",
+    "fieldType": "Field Type",
+    "fieldLabel": "Field Label",
+    "required": "Required",
+    "optional": "Optional",
+    "validation": "Validation",
+    "placeholder": "Placeholder",
+    "defaultValue": "Default Value",
+    "options": "Options",
+    "minLength": "Min Length",
+    "maxLength": "Max Length",
+    "pattern": "Pattern",
+    "textField": "Text Field",
+    "numberField": "Number Field",
+    "dateField": "Date Field",
+    "selectField": "Select Field",
+    "dropdown": "Dropdown",
+    "checkbox": "Checkbox",
+    "checkboxField": "Checkbox",
+    "radioButton": "Radio Button",
+    "radioField": "Radio Button",
+    "textarea": "Text Area",
+    "textareaField": "Text Area",
+    "fileUpload": "File Upload",
+    "signature": "Signature",
+    "saveDraft": "Save Draft",
+    "saving": "Saving...",
+    "submitForm": "Submit Form",
+    "submitting": "Submitting...",
+    "noFieldsTitle": "No Fields Available",
+    "noFieldsDescription": "This template doesn't have any fields to preview.",
+    "selectOption": "Select an option",
+    "enterEmail": "Enter email address",
+    "enterPhone": "Enter phone number",
+    "chooseFiles": "Choose file(s)",
+    "switchUnits": "Switch units",
+    "phi": "Personal Health Information",
+    "height": "Height",
+    "weight": "Weight",
+    "temperature": "Temperature",
+    "bloodPressure": "Blood Pressure",
+    "systolic": "Systolic",
+    "diastolic": "Diastolic",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "onsetDate": "Onset Date",
+    "signed": "Signed",
+    "units": {
+      "height": {
+        "cm": "cm",
+        "ft_in": "ft/in"
+      },
+      "weight": {
+        "kg": "kg",
+        "lbs": "lbs"
+      },
+      "temperature": {
+        "celsius": "°C",
+        "fahrenheit": "°F"
+      },
+      "bp": {
+        "mmhg": "mmHg"
+      }
+    },
+    "placeholders": {
+      "height": {
+        "metric": "Height in cm",
+        "imperial": "Height in feet/inches"
+      },
+      "weight": {
+        "metric": "Weight in kg",
+        "imperial": "Weight in pounds"
+      },
+      "temperature": {
+        "metric": "Temperature in °C",
+        "imperial": "Temperature in °F"
+      }
+    },
+    "medication": {
+      "title": "Medication",
+      "namePlaceholder": "Medication name",
+      "dosagePlaceholder": "Dosage (e.g., 50mg)",
+      "selectFrequency": "Select frequency",
+      "selectRoute": "Select route",
+      "frequency": {
+        "onceDaily": "Once daily",
+        "twiceDaily": "Twice daily",
+        "threeTimesDaily": "Three times daily",
+        "fourTimesDaily": "Four times daily",
+        "asNeeded": "As needed",
+        "other": "Other"
+      },
+      "route": {
+        "oral": "Oral",
+        "injection": "Injection",
+        "topical": "Topical",
+        "inhalation": "Inhalation",
+        "other": "Other"
+      }
+    },
+    "diagnosis": {
+      "icdCodePlaceholder": "ICD-10 Code",
+      "system": {
+        "icd10": "ICD-10",
+        "icd9": "ICD-9",
+        "snomed": "SNOMED-CT"
+      },
+      "descriptionPlaceholder": "Diagnosis description",
+      "selectSeverity": "Select severity"
+    },
+    "severity": {
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "severe": "Severe",
+      "critical": "Critical"
+    }
+  }
+}

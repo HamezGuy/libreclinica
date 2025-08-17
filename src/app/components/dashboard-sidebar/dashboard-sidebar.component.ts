@@ -92,7 +92,7 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
     this.sidebarItems = [
       {
         id: 'studies',
-        label: 'Studies',
+        label: 'dashboard-sidebar.studies',
         icon: 'science',
         count: this.studies.length,
         active: this.activeSidebarItem === 'studies'

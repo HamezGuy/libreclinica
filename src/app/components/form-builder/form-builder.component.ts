@@ -16,6 +16,7 @@ import { FormPreviewComponent } from '../form-preview/form-preview.component';
 interface FieldTypeOption {
   type: FieldType;
   label: string;
+  translationKey: string;
   icon: string;
   description: string;
   category: 'basic' | 'advanced' | 'clinical';
@@ -89,45 +90,45 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   // Field types available in the toolbox
   fieldTypes: FieldTypeOption[] = [
     // Basic Fields
-    { type: 'text', label: 'Text Input', icon: 'text_fields', description: 'Single line text input', category: 'basic' },
-    { type: 'textarea', label: 'Text Area', icon: 'notes', description: 'Multi-line text input', category: 'basic' },
-    { type: 'number', label: 'Number', icon: 'pin', description: 'Numeric input field', category: 'basic' },
-    { type: 'email', label: 'Email', icon: 'email', description: 'Email address input', category: 'basic' },
-    { type: 'phone', label: 'Phone', icon: 'phone', description: 'Phone number input', category: 'basic' },
-    { type: 'date', label: 'Date', icon: 'calendar_today', description: 'Date picker field', category: 'basic' },
-    { type: 'time', label: 'Time', icon: 'access_time', description: 'Time picker with AM/PM', category: 'basic' },
-    { type: 'datetime', label: 'Date & Time', icon: 'event_available', description: 'Date and time picker', category: 'basic' },
+    { type: 'text', label: 'Text Input', translationKey: 'text_input', icon: 'text_fields', description: 'Single line text input', category: 'basic' },
+    { type: 'textarea', label: 'Text Area', translationKey: 'text_area', icon: 'notes', description: 'Multi-line text input', category: 'basic' },
+    { type: 'number', label: 'Number', translationKey: 'number', icon: 'pin', description: 'Numeric input field', category: 'basic' },
+    { type: 'email', label: 'Email', translationKey: 'email', icon: 'email', description: 'Email address input', category: 'basic' },
+    { type: 'phone', label: 'Phone', translationKey: 'phone', icon: 'phone', description: 'Phone number input', category: 'basic' },
+    { type: 'date', label: 'Date', translationKey: 'date', icon: 'calendar_today', description: 'Date picker field', category: 'basic' },
+    { type: 'time', label: 'Time', translationKey: 'time', icon: 'access_time', description: 'Time picker with AM/PM', category: 'basic' },
+    { type: 'datetime', label: 'Date & Time', translationKey: 'date_time', icon: 'event_available', description: 'Date and time picker', category: 'basic' },
     
     // Advanced Fields
-    { type: 'select', label: 'Dropdown', icon: 'arrow_drop_down', description: 'Single selection dropdown', category: 'advanced' },
-    { type: 'multiselect', label: 'Multi-Select', icon: 'checklist', description: 'Multiple selection dropdown', category: 'advanced' },
-    { type: 'radio', label: 'Radio Buttons', icon: 'radio_button_checked', description: 'Single choice from options', category: 'advanced' },
-    { type: 'checkbox', label: 'Checkboxes', icon: 'check_box', description: 'Multiple choice from options', category: 'advanced' },
-    { type: 'boolean', label: 'Yes/No', icon: 'toggle_on', description: 'Boolean toggle switch', category: 'advanced' },
-    { type: 'file', label: 'File Upload', icon: 'upload_file', description: 'File attachment field', category: 'advanced' },
-    { type: 'signature', label: 'E-Signature', icon: 'draw', description: 'Electronic signature capture', category: 'advanced' },
+    { type: 'select', label: 'Dropdown', translationKey: 'dropdown', icon: 'arrow_drop_down', description: 'Single selection dropdown', category: 'advanced' },
+    { type: 'multiselect', label: 'Multi-Select', translationKey: 'multi_select', icon: 'checklist', description: 'Multiple selection dropdown', category: 'advanced' },
+    { type: 'radio', label: 'Radio Buttons', translationKey: 'radio_buttons', icon: 'radio_button_checked', description: 'Single choice from options', category: 'advanced' },
+    { type: 'checkbox', label: 'Checkboxes', translationKey: 'checkboxes', icon: 'check_box', description: 'Multiple choice from options', category: 'advanced' },
+    { type: 'boolean', label: 'Yes/No', translationKey: 'yes_no', icon: 'toggle_on', description: 'Boolean toggle switch', category: 'advanced' },
+    { type: 'file', label: 'File Upload', translationKey: 'file_upload', icon: 'upload_file', description: 'File attachment field', category: 'advanced' },
+    { type: 'signature', label: 'E-Signature', translationKey: 'e_signature', icon: 'draw', description: 'Electronic signature capture', category: 'advanced' },
     
     // Clinical Fields
-    { type: 'height', label: 'Height', icon: 'height', description: 'Height measurement with units', category: 'clinical' },
-    { type: 'weight', label: 'Weight', icon: 'monitor_weight', description: 'Weight measurement with units', category: 'clinical' },
-    { type: 'blood_pressure', label: 'Blood Pressure', icon: 'favorite', description: 'Systolic/Diastolic BP', category: 'clinical' },
-    { type: 'temperature', label: 'Temperature', icon: 'thermostat', description: 'Body temperature with units', category: 'clinical' },
-    { type: 'medication', label: 'Medication', icon: 'medication', description: 'Medication details form', category: 'clinical' },
-    { type: 'diagnosis', label: 'Diagnosis', icon: 'local_hospital', description: 'Medical diagnosis with ICD codes', category: 'clinical' }
+    { type: 'height', label: 'Height', translationKey: 'height', icon: 'height', description: 'Height measurement with units', category: 'clinical' },
+    { type: 'weight', label: 'Weight', translationKey: 'weight', icon: 'monitor_weight', description: 'Weight measurement with units', category: 'clinical' },
+    { type: 'blood_pressure', label: 'Blood Pressure', translationKey: 'blood_pressure', icon: 'favorite', description: 'Systolic/Diastolic BP', category: 'clinical' },
+    { type: 'temperature', label: 'Temperature', translationKey: 'temperature', icon: 'thermostat', description: 'Body temperature with units', category: 'clinical' },
+    { type: 'medication', label: 'Medication', translationKey: 'medication_field', icon: 'medication', description: 'Medication details form', category: 'clinical' },
+    { type: 'diagnosis', label: 'Diagnosis', translationKey: 'diagnosis_field', icon: 'local_hospital', description: 'Medical diagnosis with ICD codes', category: 'clinical' }
   ];
 
   // Validation rules available
   validationRules: ValidationRuleOption[] = [
-    { type: 'required', label: 'Required', description: 'Field must be filled', hasValue: false, valueType: 'boolean' },
-    { type: 'minLength', label: 'Minimum Length', description: 'Minimum character count', hasValue: true, valueType: 'number' },
-    { type: 'maxLength', label: 'Maximum Length', description: 'Maximum character count', hasValue: true, valueType: 'number' },
-    { type: 'min', label: 'Minimum Value', description: 'Minimum numeric value', hasValue: true, valueType: 'number' },
-    { type: 'max', label: 'Maximum Value', description: 'Maximum numeric value', hasValue: true, valueType: 'number' },
-    { type: 'pattern', label: 'Pattern', description: 'Regular expression pattern', hasValue: true, valueType: 'string' },
-    { type: 'email', label: 'Email Format', description: 'Valid email address format', hasValue: false, valueType: 'boolean' },
-    { type: 'phone', label: 'Phone Format', description: 'Valid phone number format', hasValue: false, valueType: 'boolean' },
-    { type: 'date', label: 'Date Format', description: 'Valid date format', hasValue: false, valueType: 'boolean' },
-    { type: 'custom', label: 'Custom Rule', description: 'Custom validation function', hasValue: true, valueType: 'string' }
+    { type: 'required', label: 'validation_required', description: 'Field must be filled', hasValue: false, valueType: 'boolean' },
+    { type: 'minLength', label: 'validation_minlength', description: 'Minimum character count', hasValue: true, valueType: 'number' },
+    { type: 'maxLength', label: 'validation_maxlength', description: 'Maximum character count', hasValue: true, valueType: 'number' },
+    { type: 'min', label: 'validation_min', description: 'Minimum numeric value', hasValue: true, valueType: 'number' },
+    { type: 'max', label: 'validation_max', description: 'Maximum numeric value', hasValue: true, valueType: 'number' },
+    { type: 'pattern', label: 'validation_pattern', description: 'Regular expression pattern', hasValue: true, valueType: 'string' },
+    { type: 'email', label: 'validation_email', description: 'Valid email address', hasValue: false, valueType: 'boolean' },
+    { type: 'phone', label: 'validation_phone', description: 'Valid phone number', hasValue: false, valueType: 'boolean' },
+    { type: 'dateRange', label: 'validation_date_range', description: 'Date within range', hasValue: true, valueType: 'string' },
+    { type: 'custom', label: 'validation_custom', description: 'Custom validation logic', hasValue: true, valueType: 'string' }
   ];
 
   constructor(

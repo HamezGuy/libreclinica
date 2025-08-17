@@ -1,0 +1,25 @@
+{
+  "patient": {
+    "title": "患者",
+    "patients": "患者",
+    "addPatient": "患者を追加",
+    "editPatient": "患者を編集",
+    "patientId": "患者ID",
+    "firstName": "名",
+    "lastName": "姓",
+    "dateOfBirth": "生年月日",
+    "gender": "性別",
+    "male": "男性",
+    "female": "女性",
+    "other": "その他",
+    "contactInfo": "連絡先情報",
+    "phone": "電話",
+    "address": "住所",
+    "city": "市区町村",
+    "state": "都道府県",
+    "zipCode": "郵便番号",
+    "country": "国",
+    "enrollmentDate": "登録日",
+    "consentStatus": "同意状況"
+  }
+}

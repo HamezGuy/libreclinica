@@ -1,0 +1,20 @@
+{
+  "patient-form-modal": {
+    "personadd": "person_add",
+    "create_new_patient": "Create New Patient",
+    "add_a_patient_to_a_study_with_the_appropriate_form": "Add a patient to a study with the appropriate form template",
+    "select_study": "Select Study",
+    "required": "Required",
+    "choose_the_study_this_patient_will_be_enrolled_in": "Choose the study this patient will be enrolled in",
+    "select_a_study": "Select a study...",
+    "please_select_a_study": "Please select a study",
+    "patient_information": "Patient Information",
+    "helpoutline": "help_outline",
+    "calendartoday": "calendar_today",
+    "erroroutline": "error_outline",
+    "please_select_a_study_first_to_continue_with_patie": "Please select a study first to continue with patient information",
+    "check": "check",
+    "create_patient": "Create Patient",
+    "creating": "Creating..."
+  }
+}

@@ -14,11 +14,11 @@
     <div class="header-left">
       <h2>
         <span class="material-icons">build</span>
-        {{ currentTemplate?.name || 'New Form Template' }}
+        {{ currentTemplate?.name || ('form-builder.new_form_template' | translate) }}
       </h2>
       <div class="template-status">
         <span class="status-badge" [ngClass]="currentTemplate?.status">
-          {{ currentTemplate?.status || 'draft' }}
+          {{ currentTemplate?.status || ('form-builder.draft' | translate) }}
         </span>
         <span class="version-badge">v{{ builderForm.get('version')?.value }}</span>
       </div>
@@ -42,7 +42,7 @@
         
         <button type="button" class="btn btn-primary btn-sm" (click)="saveTemplate()" [disabled]="!canSave || isSaving">
           <span class="material-icons">{{ isSaving ? 'sync' : 'save' }}</span>
-          {{ isSaving ? 'Saving...' : 'Save' }}
+          {{ isSaving ? ('form-builder.saving' | translate) : ('form-builder.save' | translate) }}
         </button>
         
         <button type="button" class="btn btn-success btn-sm" (click)="publishTemplate()" [disabled]="!canPublish" *ngIf="currentTemplate?.status === 'draft'">
@@ -201,7 +201,7 @@
             <div class="field-type-list" cdkDropList id="basic-fields" cdkDropListSortingDisabled="true" [cdkDropListData]="basicFields" [cdkDropListConnectedTo]="['form-canvas']">
               <div *ngFor="let fieldType of basicFields" class="field-type-item" cdkDrag [cdkDragData]="fieldType.type" [title]="fieldType.description" (click)="addFieldToCanvas(fieldType.type)">
                 <span class="material-icons">{{ fieldType.icon }}</span>
-                <span class="field-label">{{ fieldType.label }}</span>
+                <span class="field-label">{{ 'form-builder.' + fieldType.translationKey | translate }}</span>
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@
             <div class="field-type-list" cdkDropList id="advanced-fields" cdkDropListSortingDisabled="true" [cdkDropListData]="advancedFields" [cdkDropListConnectedTo]="['form-canvas']">
               <div *ngFor="let fieldType of advancedFields" class="field-type-item" cdkDrag [cdkDragData]="fieldType.type" [title]="fieldType.description" (click)="addFieldToCanvas(fieldType.type)">
                 <span class="material-icons">{{ fieldType.icon }}</span>
-                <span class="field-label">{{ fieldType.label }}</span>
+                <span class="field-label">{{ 'form-builder.' + fieldType.translationKey | translate }}</span>
               </div>
             </div>
           </div>
@@ -225,7 +225,7 @@
             <div class="field-type-list" cdkDropList id="clinical-fields" cdkDropListSortingDisabled="true" [cdkDropListData]="clinicalFields" [cdkDropListConnectedTo]="['form-canvas']">
               <div *ngFor="let fieldType of clinicalFields" class="field-type-item" cdkDrag [cdkDragData]="fieldType.type" [title]="fieldType.description" (click)="addFieldToCanvas(fieldType.type)">
                 <span class="material-icons">{{ fieldType.icon }}</span>
-                <span class="field-label">{{ fieldType.label }}</span>
+                <span class="field-label">{{ 'form-builder.' + fieldType.translationKey | translate }}</span>
               </div>
             </div>
           </div>
@@ -615,7 +615,7 @@
                         <select class="form-control" formControlName="type">
                           <option value="">{{ 'form-builder.select_rule_type' | translate }}</option>
                           <option *ngFor="let rule of validationRules" [value]="rule.type">
-                            {{ rule.label }}
+                            {{ 'form-builder.' + rule.label | translate }}
                           </option>
                         </select>
                       </div>

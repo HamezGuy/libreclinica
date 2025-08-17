@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "title": "設定",
+    "profile": "プロフィール",
+    "account": "アカウント",
+    "notifications": "通知",
+    "privacy": "プライバシー",
+    "security": "セキュリティ",
+    "language": "言語",
+    "theme": "テーマ",
+    "lightTheme": "ライト",
+    "darkTheme": "ダーク",
+    "autoTheme": "自動",
+    "changePassword": "パスワードを変更",
+    "twoFactorAuth": "二要素認証",
+    "emailNotifications": "メール通知",
+    "smsNotifications": "SMS通知",
+    "dataRetention": "データ保持",
+    "auditLog": "監査ログ"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "report": {
+    "title": "रिपोर्ट",
+    "reports": "रिपोर्ट",
+    "auditLogs": "ऑडिट लॉग",
+    "generateReport": "रिपोर्ट जनरेट करें",
+    "reportType": "रिपोर्ट प्रकार",
+    "dateRange": "तिथि सीमा",
+    "fromDate": "से तिथि",
+    "toDate": "तक तिथि",
+    "format": "प्रारूप",
+    "pdf": "पीडीएफ",
+    "excel": "एक्सेल",
+    "csv": "सीएसवी",
+    "download": "डाउनलोड",
+    "schedule": "शेड्यूल",
+    "frequency": "आवृत्ति",
+    "daily": "दैनिक",
+    "weekly": "साप्ताहिक",
+    "monthly": "मासिक",
+    "exportFormat": "Export Format",
+    "summary": "Summary",
+    "detailed": "Detailed",
+    "compliance": "Compliance",
+    "audit": "Audit",
+    "dataQuality": "Data Quality",
+    "enrollment": "Enrollment",
+    "safety": "Safety",
+    "efficacy": "Efficacy"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "dashboard-sidebar": {
+    "medicalservices": "medical_services",
+    "edc_system": "EDC System",
+    "search": "Search...",
+    "science": "science",
+    "studies": "Studies",
+    "loading_folders": "Loading folders...",
+    "visibility": "visibility",
+    "view_forms": "View Forms",
+    "history": "history",
+    "view_history": "View History",
+    "remove_from_study": "Remove from Study",
+    "create_study": "Create Study",
+    "accountcircle": "account_circle",
+    "patients": "patients",
+    "click_to": "Click to",
+    "collapse": "collapse",
+    "expand": "expand",
+    "patient_options": "patient options",
+    "required": "required",
+    "optional": "optional",
+    "ready_to_progress": "Ready to progress",
+    "complete_required_forms": "Complete required forms",
+    "user": "User"
+  }
+}

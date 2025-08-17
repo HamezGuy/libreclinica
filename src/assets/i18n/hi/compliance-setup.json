@@ -1,0 +1,19 @@
+{
+  "compliance-setup": {
+    "compliance_setup": "Compliance Setup",
+    "complete_the_following_requirements_to_access_the_": "Complete the following requirements to access the EDC system",
+    "terms_privacy": "Terms & Privacy",
+    "training": "Training",
+    "terms_of_service_privacy_policy": "Terms of Service & Privacy Policy",
+    "please_review_and_accept_our_terms_of_service_and_": "Please review and accept our terms of service and privacy policy to proceed.",
+    "i_have_read_and_accept_the_terms_of_service": "I have read and accept the Terms of Service",
+    "i_have_read_and_accept_the_privacy_policy": "I have read and accept the Privacy Policy",
+    "required_training_modules": "Required Training Modules",
+    "complete_all_training_modules_to_ensure_compliance": "Complete all training modules to ensure compliance with regulatory requirements.",
+    "start_module": "Start Module",
+    "_completed": "✓ Completed",
+    "in_a_production_environment_each_module_would_cont": "In a production environment, each module would contain \n        interactive training content, quizzes, and assessments. For this demo, click \n        \"Start Module\" to mark as completed.",
+    "note": "Note:",
+    "loading_compliance_requirements": "Loading compliance requirements..."
+  }
+}

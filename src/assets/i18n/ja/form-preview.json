@@ -1,0 +1,11 @@
+{
+  "form-preview": {
+    "phi": "PHI",
+    "cloudupload": "cloud_upload",
+    "insertdrivefile": "insert_drive_file",
+    "checkcircle": "check_circle",
+    "lock": "lock",
+    "swaphoriz": "swap_horiz",
+    "send": "send"
+  }
+}
