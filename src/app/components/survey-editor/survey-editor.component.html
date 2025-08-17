@@ -4,7 +4,7 @@
     <div class="editor-header">
       <h2>
         <i class="fas fa-poll"></i>
-        {{ survey ? 'Edit Survey' : 'Create Survey' }}
+        {{ survey ? ('survey.edit_survey' | translate) : ('survey.create_survey' | translate) }}
       </h2>
       <button class="close-btn" (click)="onCancel()">
         <i class="fas fa-times"></i>
@@ -16,10 +16,10 @@
       <div class="step" *ngFor="let step of [1, 2, 3, 4]; let i = index" [class.active]="currentStep === step" [class.completed]="currentStep > step" (click)="goToStep(step)">
         <div class="step-number">{{ step }}</div>
         <div class="step-label">
-          {{ step === 1 ? 'Basic Info' : 
-             step === 2 ? 'Questions' : 
-             step === 3 ? 'Settings' : 
-             'Review' }}
+          {{ step === 1 ? ('survey.basic_info' | translate) : 
+             step === 2 ? ('survey.questions' | translate) : 
+             step === 3 ? ('survey.settings' | translate) : 
+             ('survey.review' | translate) }}
         </div>
       </div>
     </div>
@@ -292,18 +292,18 @@
           </div>
           <div class="review-item">
             <span class="label">{{ 'survey.type' | translate }}</span>
-            <span class="value">{{ getSurveyTypeLabel(surveyForm.get('type')!.value) }}</span>
+            <span class="value">{{ getSurveyTypeLabel(surveyForm.get('type')!.value) | translate }}</span>
           </div>
           <div class="review-item">
             <span class="label">{{ 'survey.status' | translate }}</span>
             <span class="value badge" [class.badge-success]="surveyForm.get('status')!.value === 'active'" [class.badge-warning]="surveyForm.get('status')!.value === 'paused'" [class.badge-secondary]="surveyForm.get('status')!.value === 'draft'">
-              {{ surveyForm.get('status')!.value }}
+              {{ 'survey.' + surveyForm.get('status')!.value | translate }}
             </span>
           </div>
         </div>
         
         <div class="review-section">
-          <h4>Questions ({{ questions.length }})</h4>
+          <h4>{{ 'survey.questions' | translate }} ({{ questions.length }})</h4>
           <div class="review-questions">
             <div class="review-question" *ngFor="let question of questions.controls; let i = index">
               <div class="question-preview">
@@ -321,19 +321,19 @@
           <div class="settings-summary">
             <div class="summary-item">
               <i class="fas fa-user-secret"></i>
-              {{ surveyForm.get('isAnonymous')!.value ? 'Anonymous' : 'Identified' }} responses
+              {{ surveyForm.get('isAnonymous')!.value ? ('survey.anonymous_responses' | translate) : ('survey.identified_responses' | translate) }}
             </div>
             <div class="summary-item">
               <i class="fas fa-lock"></i>
-              {{ surveyForm.get('requiresAuth')!.value ? 'Authentication required' : 'No authentication' }}
+              {{ surveyForm.get('requiresAuth')!.value ? ('survey.authentication_required' | translate) : ('survey.no_authentication' | translate) }}
             </div>
             <div class="summary-item">
               <i class="fas fa-redo"></i>
-              {{ surveyForm.get('allowMultipleResponses')!.value ? 'Multiple responses allowed' : 'Single response only' }}
+              {{ surveyForm.get('allowMultipleResponses')!.value ? ('survey.multiple_responses_allowed' | translate) : ('survey.single_response_only' | translate) }}
             </div>
             <div class="summary-item">
               <i class="fas fa-desktop"></i>
-              {{ getDisplayModeLabel(surveyForm.get('displayMode')!.value) }} display
+              {{ 'survey.' + surveyForm.get('displayMode')!.value + '_display' | translate }}
             </div>
           </div>
         </div>
@@ -354,7 +354,7 @@
       
       <button type="button" class="btn btn-primary" (click)="saveSurvey()" [disabled]="!surveyForm.valid || isSaving" *ngIf="currentStep === totalSteps">
         <i class="fas fa-save"></i>
-        {{ isSaving ? 'Saving...' : (survey ? 'Update Survey' : 'Create Survey') }}
+        {{ isSaving ? ('survey.saving' | translate) : (survey ? ('survey.update_survey' | translate) : ('survey.create_survey' | translate)) }}
       </button>
     </div>
   </div>

@@ -21,7 +21,7 @@ export class FormBuilderModalComponent {
 
   onClose(): void {
     // Check if form has unsaved changes
-    if (this.formBuilder?.hasUnsavedChanges()) {
+    if (this.formBuilder?.hasUnsavedChanges) {
       const confirmClose = confirm('You have unsaved changes. Are you sure you want to close without saving?');
       if (!confirmClose) {
         return;

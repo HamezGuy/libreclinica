@@ -25,7 +25,7 @@
       },
       "searchPlaceholder": "アンケートを検索..."
     },
-    "status": {
+    "statusFilter": {
       "all": "すべてのステータス",
       "draft": "下書き",
       "active": "アクティブ",
@@ -33,7 +33,7 @@
       "completed": "完了",
       "archived": "アーカイブ済み"
     },
-    "type": {
+    "typeFilter": {
       "all": "すべてのタイプ",
       "feedback": "フィードバック",
       "satisfaction": "満足度",
@@ -156,6 +156,26 @@
     "title": "タイトル：",
     "description": "説明：",
     "required": "必須",
-    "settings_summary": "設定の概要"
+    "settings_summary": "設定の概要",
+  "edit_survey": "アンケートを編集",
+  "create_survey": "アンケートを作成",
+  "basic_info": "基本情報",
+  "questions": "質問",
+  "settings": "設定",
+  "review": "確認",
+  "type": "タイプ",
+  "status": "ステータス",
+  "anonymous_responses": "匿名回答",
+  "identified_responses": "識別された回答",
+  "authentication_required": "認証が必要",
+  "no_authentication": "認証不要",
+  "multiple_responses_allowed": "複数回答可能",
+  "single_response_only": "単一回答のみ",
+  "popup_display": "ポップアップ表示",
+  "embedded_display": "埋め込み表示",
+  "fullscreen_display": "フルスクリーン表示",
+  "slide_in_display": "スライドイン表示",
+  "saving": "保存中...",
+  "update_survey": "アンケートを更新"
   }
 }

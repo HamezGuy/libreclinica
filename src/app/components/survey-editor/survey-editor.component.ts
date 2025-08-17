@@ -500,15 +500,9 @@ export class SurveyEditorComponent implements OnInit {
   }
   
   getSurveyTypeLabel(type: SurveyType): string {
-    const labels: Record<SurveyType, string> = {
-      feedback: 'Feedback',
-      satisfaction: 'Satisfaction',
-      nps: 'NPS',
-      research: 'Research',
-      screening: 'Screening',
-      custom: 'Custom'
-    };
-    return labels[type] || type;
+    // Return the translation key for the survey type
+    // The template will handle the actual translation
+    return `survey.${type}`;
   }
   
   getTriggerTypeLabel(type: SurveyTriggerType): string {
@@ -524,13 +518,9 @@ export class SurveyEditorComponent implements OnInit {
   }
   
   getDisplayModeLabel(mode: SurveyDisplayMode): string {
-    const labels: Record<SurveyDisplayMode, string> = {
-      popup: 'Popup',
-      embedded: 'Embedded',
-      fullscreen: 'Fullscreen',
-      'slide-in': 'Slide In'
-    };
-    return labels[mode] || mode;
+    // Return the translation key for the display mode
+    // The template will handle the actual translation
+    return `survey.${mode}_display`;
   }
   
   // Question type helpers

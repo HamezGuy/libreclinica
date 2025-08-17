@@ -426,11 +426,11 @@
       <!-- Other sections (Reports, Audit) -->
       <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms' && activeSidebarItem !== 'studies' && activeSidebarItem !== 'surveys'">
         <div class="section-header">
-          <h2>{{ activeSidebarItem | titlecase }}</h2>
+          <h2>{{ ('dashboard.' + activeSidebarItem) | translate }}</h2>
         </div>
         <div class="coming-soon">
           <i class="material-icons">construction</i>
-          <p>{{ activeSidebarItem | titlecase }} section coming soon...</p>
+          <p>{{ ('dashboard.' + activeSidebarItem + '_coming_soon') | translate }}</p>
         </div>
       </div>
       

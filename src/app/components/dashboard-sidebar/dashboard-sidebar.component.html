@@ -11,7 +11,7 @@
   <div class="sidebar-search">
     <div class="search-container">
       <i class="material-icons search-icon">{{ 'common.search' | translate }}</i>
-      <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" class="search-input" :placeholder="'dashboard-sidebar.search' | translate">
+      <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" class="search-input" [placeholder]="'dashboard-sidebar.search' | translate">
     </div>
   </div>
   

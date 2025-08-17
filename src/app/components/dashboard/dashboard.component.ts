@@ -1412,6 +1412,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             reviewRequired: template.reviewRequired || false,
             daysToComplete: template.daysToComplete
           })),
+          entryRequirements: [], // Initialize as empty array instead of undefined
+          exitRequirements: [], // Initialize as empty array instead of undefined
           isActive: true,
           allowSkip: section.isOptional || false,
           allowParallel: false
@@ -1598,100 +1600,329 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   private async createDemoPatientForStudy(studyId: string): Promise<string | null> {
     try {
-      const patientNumber = `P${Date.now().toString().slice(-6)}`; // Generate unique patient number
-      const uniquePatientId = `patient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Generate unique patient ID
-      
-      // Create patient data that matches Patient model - only include defined values
-      const currentUser = await firstValueFrom(this.authService.user$);
-      const userId = currentUser?.uid || 'system';
+      const userProfile = await this.authService.getCurrentUserProfile();
+      const userId = userProfile?.uid || 'system';
       const now = new Date();
+      const patientNumber = `P${Date.now().toString(36).toUpperCase()}`;
+      const uniquePatientId = `patient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Template-based patient creation - build minimal required structure
-      // In production, this would be based on patient enrollment form templates
+      // Get the study to copy its phases and templates
+      const study = this.studies.find(s => s.id === studyId);
+      if (!study) {
+        console.error('Study not found:', studyId);
+        return null;
+      }
+      
+      // Create visit subcomponents from study phases
+      const visitSubcomponents = this.createVisitSubcomponentsFromStudyPhases(study, uniquePatientId);
+      
       const patientData = {
-        // Required unique ID field (needed before Firestore document creation)
         id: uniquePatientId,
-        
-        // Core required fields from Patient model
         studyId: studyId,
         patientNumber: patientNumber,
-        
-        // Minimal identifiers array with only defined values
-        identifiers: [{
-          type: 'study_id',
-          value: patientNumber,
-          system: 'EDC_SYSTEM'
-        }],
-        
-        // Minimal demographics with only required fields
+        identifiers: [
+          {
+            type: 'study_id',
+            value: patientNumber,
+            system: 'EDC_SYSTEM'
+          }
+        ],
         demographics: {
           firstName: 'Demo',
           lastName: `Patient ${patientNumber}`,
-          dateOfBirth: new Date(1990, 0, 1), // Use fixed date to avoid random issues
-          gender: 'unknown' // Use valid enum value
+          dateOfBirth: new Date(1990, 0, 1),
+          gender: 'unknown' as 'male' | 'female' | 'other' | 'unknown'
         },
-        
-        // Required enrollment fields
         enrollmentDate: now,
-        enrollmentStatus: 'screening',
-        
-        // Required arrays (empty but defined)
+        enrollmentStatus: 'screening' as 'screening' | 'enrolled' | 'completed' | 'withdrawn' | 'failed_screening',
         consents: [],
-        visitSubcomponents: [],
+        visitSubcomponents: visitSubcomponents,
         activeAlerts: [],
         protocolDeviations: [],
         changeHistory: [],
-        
-        // Required boolean
         hasValidConsent: true,
-        
-        // Required progress object
         studyProgress: {
-          totalVisits: 0,
+          totalVisits: visitSubcomponents.length,
           completedVisits: 0,
           missedVisits: 0,
-          upcomingVisits: 0,
+          upcomingVisits: visitSubcomponents.length,
           overallCompletionPercentage: 0
         },
-        
-        // Required audit fields
         createdBy: userId,
         createdAt: now,
         lastModifiedBy: userId,
         lastModifiedAt: now
       };
-      
-      console.log('Creating patient with minimal template-based data:', patientData);
-      
-      // Validate that required fields are present
-      if (!patientData.identifiers || patientData.identifiers.length === 0) {
-        console.error('ERROR: Patient identifiers array is empty or missing!');
-        console.log('Original identifiers before cleaning:', {
-          type: 'study_id',
-          value: patientNumber,
-          system: 'EDC_SYSTEM'
-        });
-      }
 
-      // Use PatientService to create the patient (assuming it exists)
-      // If PatientService doesn't have createPatient method, we'll create it via Firestore directly
-      const patient = await this.createPatientDirectly(patientData);
-      return patient.id;
+      // Create the patient in Firestore
+      const result = await this.createPatientDirectly(patientData);
+      
+      if (result && result.id) {
+        console.log('Patient created successfully with ID:', result.id);
+        return result.id;
+      }
+      
+      return null;
     } catch (error) {
-      console.error('Error creating demo patient - Full error details:');
-      console.error('Error message:', error);
-      console.error('Error stack:', (error as any)?.stack);
-      console.error('Error code:', (error as any)?.code);
-      console.error('Error name:', (error as any)?.name);
+      console.error('Error creating demo patient:', error);
       return null;
     }
   }
-
-  /**
-   * Clean object data to remove undefined values (Firestore doesn't allow undefined)
-   */
+  
+  // Create visit subcomponents from study phases
+  private createVisitSubcomponentsFromStudyPhases(study: Study, patientId: string): any[] {
+    const visitSubcomponents: any[] = [];
+    const now = new Date();
+    const userId = 'system'; // Will be set by the calling method
+    
+    // If study has phases, create visit subcomponents from them
+    if (study.phases && Array.isArray(study.phases)) {
+      study.phases.forEach((phase, index) => {
+        const subcomponentId = `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Get templates for this phase from study sections
+        const phaseTemplates: any[] = [];
+        const requiredTemplateIds: string[] = [];
+        const optionalTemplateIds: string[] = [];
+        
+        // Find sections that belong to this phase
+        if (study.sections && Array.isArray(study.sections)) {
+          const phaseSections = study.sections.filter(section => 
+            (section as any).phaseId === phase.id || section.name === phase.phaseName
+          );
+          
+          phaseSections.forEach(section => {
+            if (section.formTemplates && Array.isArray(section.formTemplates)) {
+              section.formTemplates.forEach(template => {
+                const templateId = template.id || `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                const templateName = (template as any).name || template.templateName || 'Unnamed Template';
+                
+                phaseTemplates.push({
+                  id: templateId,
+                  name: templateName,
+                  description: (template as any).description,
+                  isRequired: template.isRequired !== false,
+                  category: (template as any).category,
+                  order: template.order || 0
+                });
+                
+                if (template.isRequired !== false) {
+                  requiredTemplateIds.push(templateId);
+                } else {
+                  optionalTemplateIds.push(templateId);
+                }
+              });
+            }
+          });
+        }
+        
+        // If phase has template assignments, use those
+        if (phase.templateAssignments && Array.isArray(phase.templateAssignments)) {
+          phase.templateAssignments.forEach(assignment => {
+            const existingTemplate = phaseTemplates.find(t => t.id === assignment.templateId);
+            if (!existingTemplate) {
+              phaseTemplates.push({
+                id: assignment.templateId,
+                name: assignment.templateName,
+                description: assignment.description,
+                isRequired: assignment.isRequired,
+                category: assignment.category,
+                order: assignment.order || 0
+              });
+              
+              if (assignment.isRequired) {
+                if (!requiredTemplateIds.includes(assignment.templateId)) {
+                  requiredTemplateIds.push(assignment.templateId);
+                }
+              } else {
+                if (!optionalTemplateIds.includes(assignment.templateId)) {
+                  optionalTemplateIds.push(assignment.templateId);
+                }
+              }
+            }
+          });
+        }
+        
+        const visitSubcomponent = {
+          id: subcomponentId,
+          patientId: patientId,
+          studyId: study.id,
+          name: phase.phaseName || `Phase ${index + 1}`,
+          description: phase.description,
+          type: this.getPhaseType(phase.phaseCode || phase.phaseName),
+          order: phase.order || (index + 1),
+          phaseId: phase.id,
+          isPhaseFolder: true,
+          status: 'scheduled',
+          completionPercentage: 0,
+          
+          // Templates
+          templateIds: phaseTemplates.map(t => t.id),
+          requiredTemplateIds: requiredTemplateIds,
+          optionalTemplateIds: optionalTemplateIds,
+          formTemplates: phaseTemplates,
+          completedTemplates: [],
+          inProgressTemplates: [],
+          
+          // Phase progression
+          canProgressToNextPhase: false,
+          blockingTemplates: requiredTemplateIds,
+          
+          // Timing
+          scheduledDate: phase.plannedDurationDays ? 
+            new Date(now.getTime() + (phase.plannedDurationDays * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowStartDate: phase.windowStartDays !== undefined ? 
+            new Date(now.getTime() + (phase.windowStartDays * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowEndDate: phase.windowEndDays !== undefined ? 
+            new Date(now.getTime() + (phase.windowEndDays * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          
+          // Metadata
+          createdBy: 'system',
+          createdAt: now,
+          lastModifiedBy: 'system',
+          lastModifiedAt: now
+        };
+        
+        visitSubcomponents.push(visitSubcomponent);
+      });
+    } else if (study.sections && Array.isArray(study.sections)) {
+      // Fallback: create visit subcomponents from sections if no phases defined
+      study.sections.forEach((section, index) => {
+        const subcomponentId = `section_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const phaseTemplates: any[] = [];
+        const requiredTemplateIds: string[] = [];
+        const optionalTemplateIds: string[] = [];
+        
+        if (section.formTemplates && Array.isArray(section.formTemplates)) {
+          section.formTemplates.forEach(template => {
+            const templateId = template.id || `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const templateName = (template as any).name || template.templateName || 'Unnamed Template';
+            
+            phaseTemplates.push({
+              id: templateId,
+              name: templateName,
+              description: (template as any).description,
+              isRequired: template.isRequired !== false,
+              category: (template as any).category,
+              order: template.order || 0
+            });
+            
+            if (template.isRequired !== false) {
+              requiredTemplateIds.push(templateId);
+            } else {
+              optionalTemplateIds.push(templateId);
+            }
+          });
+        }
+        
+        const visitSubcomponent = {
+          id: subcomponentId,
+          patientId: patientId,
+          studyId: study.id,
+          name: section.name || `Section ${index + 1}`,
+          description: section.description,
+          type: section.type || 'treatment',
+          order: section.order || (index + 1),
+          phaseId: section.id,
+          isPhaseFolder: true,
+          status: 'scheduled',
+          completionPercentage: 0,
+          
+          // Templates
+          templateIds: phaseTemplates.map(t => t.id),
+          requiredTemplateIds: requiredTemplateIds,
+          optionalTemplateIds: optionalTemplateIds,
+          formTemplates: phaseTemplates,
+          completedTemplates: [],
+          inProgressTemplates: [],
+          
+          // Phase progression
+          canProgressToNextPhase: false,
+          blockingTemplates: requiredTemplateIds,
+          
+          // Timing
+          scheduledDate: section.scheduledDay ? 
+            new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowStartDate: section.windowStart !== undefined ? 
+            new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          windowEndDate: section.windowEnd !== undefined ? 
+            new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
+            undefined,
+          
+          // Metadata
+          createdBy: 'system',
+          createdAt: now,
+          lastModifiedBy: 'system',
+          lastModifiedAt: now
+        };
+        
+        visitSubcomponents.push(visitSubcomponent);
+      });
+    } else {
+      // Create default phases if no phases or sections defined
+      const defaultPhases = [
+        { name: 'Screening', type: 'screening', order: 1 },
+        { name: 'Baseline', type: 'baseline', order: 2 },
+        { name: 'Treatment Phase 1', type: 'treatment', order: 3 },
+        { name: 'Follow-up 1', type: 'follow_up', order: 4 },
+        { name: 'Treatment Phase 2', type: 'treatment', order: 5 },
+        { name: 'Final Visit', type: 'follow_up', order: 6 }
+      ];
+      
+      defaultPhases.forEach(phase => {
+        const subcomponentId = `default_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const visitSubcomponent = {
+          id: subcomponentId,
+          patientId: patientId,
+          studyId: study.id,
+          name: phase.name,
+          type: phase.type,
+          order: phase.order,
+          isPhaseFolder: true,
+          status: 'scheduled',
+          completionPercentage: 0,
+          templateIds: [],
+          requiredTemplateIds: [],
+          optionalTemplateIds: [],
+          formTemplates: [],
+          completedTemplates: [],
+          inProgressTemplates: [],
+          canProgressToNextPhase: true,
+          blockingTemplates: [],
+          createdBy: 'system',
+          createdAt: now,
+          lastModifiedBy: 'system',
+          lastModifiedAt: now
+        };
+        
+        visitSubcomponents.push(visitSubcomponent);
+      });
+    }
+    
+    return visitSubcomponents;
+  }
+  
+  // Helper method to determine phase type from phase code or name
+  private getPhaseType(phaseCodeOrName: string): string {
+    const code = phaseCodeOrName.toLowerCase();
+    if (code.includes('screen') || code === 'scr') return 'screening';
+    if (code.includes('baseline') || code === 'bsl' || code === 'base') return 'baseline';
+    if (code.includes('treatment') || code === 'trt' || code.includes('dose')) return 'treatment';
+    if (code.includes('follow') || code === 'fu' || code.includes('visit')) return 'follow_up';
+    if (code.includes('end') || code === 'eot' || code === 'eos') return 'end_of_study';
+    return 'treatment'; // default
+  }
+  
+  // Helper method to clean undefined values from objects
   private cleanUndefinedValues(obj: any): any {
-    // Handle null - keep it as is
+    // Handle null - should be kept
     if (obj === null) {
       return null;
     }

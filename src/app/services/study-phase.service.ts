@@ -559,7 +559,10 @@ export class StudyPhaseService {
     const prepared = { ...data };
     
     Object.keys(prepared).forEach(key => {
-      if (prepared[key] instanceof Date) {
+      // Remove undefined fields - Firestore doesn't support undefined values
+      if (prepared[key] === undefined) {
+        delete prepared[key];
+      } else if (prepared[key] instanceof Date) {
         prepared[key] = Timestamp.fromDate(prepared[key]);
       } else if (Array.isArray(prepared[key])) {
         prepared[key] = prepared[key].map((item: any) => 

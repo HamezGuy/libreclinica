@@ -63,11 +63,11 @@ export class StudyCreationModalComponent implements OnInit {
       
       // Study Status and Timeline
       status: ['planning', Validators.required],
-      plannedStartDate: ['', Validators.required],
-      plannedEndDate: [''],
+      plannedStartDate: [null, Validators.required],
+      plannedEndDate: [null, Validators.required],
       
       // Enrollment
-      plannedEnrollment: [0, [Validators.required, Validators.min(1)]],
+      plannedEnrollment: [null, [Validators.required, Validators.min(1)]],
       actualEnrollment: [0],
       enrollmentStatus: ['not_started'],
       
@@ -143,6 +143,8 @@ export class StudyCreationModalComponent implements OnInit {
       
       // Status and Timeline
       status: formValue.status || 'planning',
+      plannedStartDate: formValue.plannedStartDate ? new Date(formValue.plannedStartDate) : new Date(),
+      plannedEndDate: formValue.plannedEndDate ? new Date(formValue.plannedEndDate) : new Date(),
       
       // Enrollment (all required)
       plannedEnrollment: formValue.plannedEnrollment || 0,
@@ -203,14 +205,6 @@ export class StudyCreationModalComponent implements OnInit {
     }
     if (formValue.dataManager) {
       newStudy.dataManager = formValue.dataManager;
-    }
-    
-    // Add date fields only if they have values
-    if (formValue.plannedStartDate) {
-      newStudy.plannedStartDate = new Date(formValue.plannedStartDate);
-    }
-    if (formValue.plannedEndDate) {
-      newStudy.plannedEndDate = new Date(formValue.plannedEndDate);
     }
     
     // Log the final study object for debugging
@@ -520,7 +514,7 @@ export class StudyCreationModalComponent implements OnInit {
       description: [''],
       type: ['visit', Validators.required],
       order: [this.sectionsArray.length + 1],
-      scheduledDay: [null],
+      scheduledDay: [null, [Validators.required, Validators.min(0)]],
       windowStart: [null],
       windowEnd: [null],
       isOptional: [false],
@@ -689,9 +683,37 @@ export class StudyCreationModalComponent implements OnInit {
 
   // Navigate between steps
   nextStep(): void {
+    // Mark all controls as touched to trigger validation display
+    if (this.currentStep === 1) {
+      // Mark basic info fields as touched
+      const requiredFields = ['title', 'protocolNumber', 'description', 'version', 'phase', 
+                            'studyType', 'therapeuticArea', 'indication', 'status', 'plannedEnrollment'];
+      requiredFields.forEach(field => {
+        const control = this.studyCreationForm.get(field);
+        if (control) {
+          control.markAsTouched();
+          control.updateValueAndValidity();
+        }
+      });
+    } else if (this.currentStep === 2) {
+      // Mark all section controls as touched
+      this.sectionsArray.controls.forEach(section => {
+        section.get('name')?.markAsTouched();
+        section.get('type')?.markAsTouched();
+        section.get('name')?.updateValueAndValidity();
+        section.get('type')?.updateValueAndValidity();
+      });
+    }
+    
     if (!this.isStepValid(this.currentStep)) {
       console.log('[StudyCreationModal] Cannot proceed - step invalid');
       this.debugValidation();
+      // Show validation message to user
+      const message = this.getStepValidationMessage();
+      if (message) {
+        alert(message);
+      }
+      return;
     }
     
     if (this.isStepValid(this.currentStep) && this.currentStep < 3) {
@@ -709,14 +731,16 @@ export class StudyCreationModalComponent implements OnInit {
   isStepValid(step: number): boolean {
     switch (step) {
       case 1:
-        // Basic info validation - only check required fields
-        const requiredControls = ['title', 'protocolNumber', 'description', 'version', 'phase', 
-                                'studyType', 'therapeuticArea', 'indication', 'status', 'plannedEnrollment'];
-        const allValid = requiredControls.every(controlName => {
-          const control = this.studyCreationForm.get(controlName);
-          const isValid = control?.valid ?? false;
+        // Check all required fields for basic information
+        const requiredFields = ['title', 'protocolNumber', 'description', 'version', 
+                              'phase', 'studyType', 'therapeuticArea', 'indication', 
+                              'status', 'plannedEnrollment', 'plannedStartDate', 'plannedEndDate'];
+        
+        const allValid = requiredFields.every(field => {
+          const control = this.studyCreationForm.get(field);
+          const isValid = control?.valid || false;
           if (!isValid) {
-            console.log(`[StudyCreationModal] Field '${controlName}' is invalid:`, {
+            console.log(`[StudyCreationModal] Field '${field}' is invalid:`, {
               value: control?.value,
               errors: control?.errors,
               touched: control?.touched
@@ -739,17 +763,24 @@ export class StudyCreationModalComponent implements OnInit {
           const templatesArray = section.get('formTemplates') as FormArray;
           const hasTemplates = templatesArray && templatesArray.length > 0;
           
-          const hasRequiredFields = !!name && !!type && hasTemplates;
+          // Additional validation for phase configuration
+          const scheduledDay = section.get('scheduledDay')?.value;
+          const hasScheduling = scheduledDay !== null && scheduledDay !== undefined && scheduledDay >= 0;
+          
+          const hasRequiredFields = !!name && !!type && hasTemplates && hasScheduling;
           
           // Log validation details
           if (!hasRequiredFields) {
-            console.log(`[StudyCreationModal] Section ${index + 1} validation failed:`, {
+            console.log(`[StudyCreationModal] Phase ${index + 1} validation failed:`, {
               name: name || 'MISSING',
               type: type || 'MISSING',
               nameValid: section.get('name')?.valid,
               typeValid: section.get('type')?.valid,
+              scheduledDay: scheduledDay || 'MISSING',
+              hasScheduling: hasScheduling,
               formTemplates: templatesArray?.length || 0,
-              hasTemplates: hasTemplates
+              hasTemplates: hasTemplates,
+              details: 'Each phase requires: name, type, scheduled day, and at least one template'
             });
           }
           
@@ -773,47 +804,127 @@ export class StudyCreationModalComponent implements OnInit {
     
     switch (this.currentStep) {
       case 1:
+        // List specific missing fields
+        const requiredFields = ['title', 'protocolNumber', 'description', 'version', 'phase', 
+                              'studyType', 'therapeuticArea', 'indication', 'status', 'plannedEnrollment',
+                              'plannedStartDate', 'plannedEndDate'];
+        const missingFields = requiredFields.filter(field => {
+          const control = this.studyCreationForm.get(field);
+          return !control?.valid;
+        });
+        
+        if (missingFields.length > 0) {
+          const fieldLabels = missingFields.map(field => this.getFieldLabel(field));
+          return `Please fill in the following required fields: ${fieldLabels.join(', ')}`;
+        }
         return 'Please fill in all required fields before proceeding.';
+        
       case 2:
         if (this.sectionsArray.length === 0) {
-          return 'Please add at least one phase/section to continue.';
+          return '⚠️ No phases configured. Please add at least one phase to define your study structure.\n\n' +
+                 'Each phase should include:\n' +
+                 '• A descriptive name (e.g., "Screening Visit", "Baseline")\n' +
+                 '• Phase type (Visit, Screening, Treatment, etc.)\n' +
+                 '• Scheduled day (when this phase occurs)\n' +
+                 '• At least one form template';
         }
         
         // Check each section for specific validation errors
         const invalidSections: string[] = [];
+        let hasTemplateIssues = false;
+        let hasSchedulingIssues = false;
+        
         this.sectionsArray.controls.forEach((section, index) => {
           const errors: string[] = [];
+          const warnings: string[] = [];
           
           // Check for missing required fields
           if (!section.get('name')?.value) {
-            errors.push('name');
+            errors.push('Phase name');
           }
           if (!section.get('type')?.value) {
-            errors.push('type');
+            errors.push('Phase type');
+          }
+          
+          // Check for scheduling
+          const scheduledDay = section.get('scheduledDay')?.value;
+          if (scheduledDay === null || scheduledDay === undefined || scheduledDay < 0) {
+            errors.push('Scheduled day');
+            hasSchedulingIssues = true;
           }
           
           // Check for templates
           const templatesArray = section.get('formTemplates') as FormArray;
           if (!templatesArray || templatesArray.length === 0) {
-            errors.push('at least one template');
+            errors.push('At least one form template');
+            hasTemplateIssues = true;
+          } else {
+            // Check if templates have proper configuration
+            let hasRequiredTemplate = false;
+            templatesArray.controls.forEach(template => {
+              if (template.get('isRequired')?.value) {
+                hasRequiredTemplate = true;
+              }
+            });
+            if (!hasRequiredTemplate) {
+              warnings.push('Consider marking at least one template as required');
+            }
           }
           
           if (errors.length > 0) {
-            invalidSections.push(`Phase ${index + 1}: Missing ${errors.join(' and ')}`);
+            invalidSections.push(`📋 Phase ${index + 1} needs: ${errors.join(', ')}`);
+          } else if (warnings.length > 0) {
+            invalidSections.push(`💡 Phase ${index + 1}: ${warnings.join(', ')}`);
           }
         });
         
         if (invalidSections.length > 0) {
-          return 'Please complete all required fields: ' + invalidSections.join('. ');
+          let message = '⚠️ Please complete the following before proceeding:\n\n';
+          message += invalidSections.join('\n');
+          
+          if (hasTemplateIssues) {
+            message += '\n\n📝 Template Assignment Required:\n';
+            message += 'Each phase must have at least one form template assigned.\n';
+            message += 'Use the template gallery below each phase to select forms.';
+          }
+          
+          if (hasSchedulingIssues) {
+            message += '\n\n📅 Scheduling Required:\n';
+            message += 'Specify when each phase occurs (Day 0 = Study start).\n';
+            message += 'You can also set visit windows for flexibility.';
+          }
+          
+          return message;
         }
-        return 'Please complete all phase details.';
-      default:
+        return 'Please complete all phases before proceeding.';
+      case 3:
         return '';
+      default:
+        return 'Please complete the current step before proceeding.';
     }
+  }
+  
+  // Helper method to get user-friendly field labels
+  private getFieldLabel(field: string): string {
+    const labels: { [key: string]: string } = {
+      'title': 'Study Title',
+      'protocolNumber': 'Protocol Number',
+      'description': 'Description',
+      'version': 'Version',
+      'phase': 'Study Phase',
+      'studyType': 'Study Type',
+      'therapeuticArea': 'Therapeutic Area',
+      'indication': 'Indication',
+      'status': 'Status',
+      'plannedEnrollment': 'Planned Enrollment',
+      'plannedStartDate': 'Planned Start Date',
+      'plannedEndDate': 'Planned End Date'
+    };
+    return labels[field] || field;
   }
 
   // Process sections from form to match EnhancedStudySection interface
-  private processSections(sectionsFormValue: any[]): EnhancedStudySection[] {
+  processSections(sectionsFormValue: any[]): EnhancedStudySection[] {
     if (!sectionsFormValue || !Array.isArray(sectionsFormValue)) {
       return [];
     }
@@ -850,7 +961,7 @@ export class StudyCreationModalComponent implements OnInit {
   }
   
   // Extract template IDs from form templates array
-  private extractTemplateIds(templates: any[]): string[] {
+  extractTemplateIds(templates: any[]): string[] {
     if (!templates || !Array.isArray(templates)) {
       return [];
     }
@@ -861,7 +972,7 @@ export class StudyCreationModalComponent implements OnInit {
   }
   
   // Process form templates to ensure no undefined values
-  private processFormTemplates(templates: any[]): StudySectionFormTemplate[] {
+  processFormTemplates(templates: any[]): StudySectionFormTemplate[] {
     if (!templates || !Array.isArray(templates)) {
       return [];
     }

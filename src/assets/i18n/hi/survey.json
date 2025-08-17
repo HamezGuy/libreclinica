@@ -25,7 +25,7 @@
       },
       "searchPlaceholder": "सर्वेक्षण खोजें..."
     },
-    "status": {
+    "statusFilter": {
       "all": "सभी स्थितियां",
       "draft": "ड्राफ्ट",
       "active": "सक्रिय",
@@ -33,7 +33,7 @@
       "completed": "पूर्ण",
       "archived": "संग्रहीत"
     },
-    "type": {
+    "typeFilter": {
       "all": "सभी प्रकार",
       "feedback": "फीडबैक",
       "satisfaction": "संतुष्टि",
@@ -156,6 +156,26 @@
     "title": "शीर्षक:",
     "description": "विवरण:",
     "required": "आवश्यक",
-    "settings_summary": "सेटिंग्स सारांश"
+    "settings_summary": "सेटिंग्स सारांश",
+  "edit_survey": "सर्वेक्षण संपादित करें",
+  "create_survey": "सर्वेक्षण बनाएं",
+  "basic_info": "बुनियादी जानकारी",
+  "questions": "प्रश्न",
+  "settings": "सेटिंग्स",
+  "review": "समीक्षा",
+  "type": "प्रकार",
+  "status": "स्थिति",
+  "anonymous_responses": "गुमनाम प्रतिक्रियाएं",
+  "identified_responses": "पहचानी गई प्रतिक्रियाएं",
+  "authentication_required": "प्रमाणीकरण आवश्यक",
+  "no_authentication": "कोई प्रमाणीकरण नहीं",
+  "multiple_responses_allowed": "कई प्रतिक्रियाएं अनुमत",
+  "single_response_only": "केवल एक प्रतिक्रिया",
+  "popup_display": "पॉपअप प्रदर्शन",
+  "embedded_display": "एम्बेडेड प्रदर्शन",
+  "fullscreen_display": "पूर्ण स्क्रीन प्रदर्शन",
+  "slide_in_display": "स्लाइड-इन प्रदर्शन",
+  "saving": "सहेजा जा रहा है...",
+  "update_survey": "सर्वेक्षण अपडेट करें"
   }
 }

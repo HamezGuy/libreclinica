@@ -25,7 +25,7 @@
       },
       "searchPlaceholder": "Search surveys..."
     },
-    "status": {
+    "statusFilter": {
       "all": "All Statuses",
       "draft": "Draft",
       "active": "Active",
@@ -33,7 +33,7 @@
       "completed": "Completed",
       "archived": "Archived"
     },
-    "type": {
+    "typeFilter": {
       "all": "All Types",
       "feedback": "Feedback",
       "satisfaction": "Satisfaction",
@@ -156,6 +156,24 @@
     "title": "Title:",
     "description": "Description:",
     "required": "Required",
-    "settings_summary": "Settings Summary"
+    "settings_summary": "Settings Summary",
+  "edit_survey": "Edit Survey",
+  "create_survey": "Create Survey",
+  "basic_info": "Basic Info",
+  "questions": "Questions",
+  "settings": "Settings",
+  "review": "Review",
+  "anonymous_responses": "Anonymous responses",
+  "identified_responses": "Identified responses",
+  "authentication_required": "Authentication required",
+  "no_authentication": "No authentication",
+  "multiple_responses_allowed": "Multiple responses allowed",
+  "single_response_only": "Single response only",
+  "popup_display": "Popup display",
+  "embedded_display": "Embedded display",
+  "fullscreen_display": "Fullscreen display",
+  "slide_in_display": "Slide-in display",
+  "saving": "Saving...",
+  "update_survey": "Update Survey"
   }
 }

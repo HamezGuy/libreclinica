@@ -1297,7 +1297,7 @@ export class StudyService implements IStudyService {
                   showConditions: template.showConditions,
                   requiredConditions: template.requiredConditions,
                   applicableGroups: template.applicableGroups,
-                  customAttributes: template.customAttributes
+                  customAttributes: template.customAttributes || {}
                 };
                 
                 formTemplates.push(patientTemplate);
