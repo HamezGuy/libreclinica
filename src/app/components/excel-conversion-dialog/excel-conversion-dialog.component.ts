@@ -1,4 +1,5 @@
 import { Component, Inject, OnInit } from '@angular/core';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -42,6 +43,7 @@ interface FieldMapping {
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
+    TranslatePipe,
     MatDialogModule,
     MatButtonModule,
     MatFormFieldModule,
