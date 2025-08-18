@@ -68,6 +68,7 @@ export interface OcrProcessingConfig {
   detectHandwriting?: boolean;
   languages?: string[];
   enhanceImage?: boolean;
+  extractTables?: boolean;
   pageNumbers?: number[]; // Specific pages to process
 }
 
@@ -75,7 +76,7 @@ export interface OcrProcessingConfig {
 export interface IOcrService {
   // Process a document and extract form structure
   processDocument(
-    file: File | Blob,
+    file: File | Blob | string,  // Allow base64 string as well
     config?: OcrProcessingConfig
   ): Observable<OcrProcessingResult>;
 
@@ -96,6 +97,16 @@ export interface IOcrService {
 
   // Get maximum file size in bytes
   getMaxFileSize(): number;
+
+  // Get provider capabilities
+  getCapabilities(): {
+    supportsTables: boolean;
+    supportsHandwriting: boolean;
+    supportsMultipleLanguages: boolean;
+    supportsFormExtraction: boolean;
+    maxPages?: number;
+    supportedLanguages?: string[];
+  };
 }
 
 // Template builder from OCR results

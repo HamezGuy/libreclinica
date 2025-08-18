@@ -66,7 +66,7 @@
               <label for="accessLevel">{{ 'profile-edit.access_level_' | translate }}</label>
               <select id="accessLevel" [(ngModel)]="profileForm.accessLevel" name="accessLevel" required [disabled]="isLoading" class="form-control">
                 <option *ngFor="let level of accessLevelOptions" [value]="level">
-                  {{ getAccessLevelDisplayName(level) }}
+                  {{ getAccessLevelDisplayName(level) | translate }}
                 </option>
               </select>
               <small class="help-text">
@@ -78,7 +78,7 @@
               <label for="status">{{ 'profile-edit.account_status_' | translate }}</label>
               <select id="status" [(ngModel)]="profileForm.status" name="status" required [disabled]="isLoading" class="form-control">
                 <option *ngFor="let status of userStatusOptions" [value]="status">
-                  {{ getUserStatusDisplayName(status) }}
+                  {{ getUserStatusDisplayName(status) | translate }}
                 </option>
               </select>
             </div>
@@ -89,7 +89,7 @@
               <label for="complianceRegion">{{ 'profile-edit.compliance_region' | translate }}</label>
               <select id="complianceRegion" [(ngModel)]="profileForm.complianceRegion" name="complianceRegion" [disabled]="isLoading" class="form-control">
                 <option *ngFor="let region of complianceRegionOptions" [value]="region">
-                  {{ getComplianceRegionDisplayName(region) }}
+                  {{ getComplianceRegionDisplayName(region) | translate }}
                 </option>
               </select>
               <small class="help-text">{{ 'profile-edit.determines_which_data_privacy_regulations_apply_to' | translate }}</small>

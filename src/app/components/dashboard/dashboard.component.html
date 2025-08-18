@@ -36,6 +36,11 @@
           <i class="material-icons">{{ 'dashboard.documentscanner' | translate }}</i>
           {{ 'dashboard.ocrTemplate' | translate }}
         </button>
+
+        <button class="btn btn-warning" (click)="openExcelConversionDialog()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? 'Import/Export Excel Templates' : 'Insufficient permissions to manage templates'">
+          <i class="material-icons">table_chart</i>
+          Excel Import/Export
+        </button>
       </div>
       
       <!-- User Profile -->
@@ -147,6 +152,12 @@
               {{ 'dashboard.fix_template_ids' | translate }}
             </button>
             
+            <!-- Excel Import Button -->
+            <button class="btn btn-secondary" (click)="openExcelImport()" [disabled]="!permissions.canCreate" [title]="'Import template from Excel'">
+              <i class="material-icons">upload_file</i>
+              Import Excel
+            </button>
+            
             <button class="btn btn-primary" (click)="createNewTemplate()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? ('dashboard.create_new_template' | translate) : ('dashboard.insufficient_permissions_to_create_templates' | translate)">
               <i class="material-icons">add</i>
               {{ 'dashboard.create_template' | translate }}
@@ -178,6 +189,10 @@
                 
                 <button class="btn btn-sm btn-secondary" (click)="editTemplate(template)" *ngIf="permissions.canEdit" :title="'dashboard.edit_template' | translate">
                   <i class="material-icons">edit</i>
+                </button>
+                
+                <button class="btn btn-sm btn-primary" (click)="exportTemplateToExcel(template)" :title="'Export to Excel'">
+                  <i class="material-icons">download</i>
                 </button>
                 
                 <button class="btn btn-sm btn-success" (click)="publishTemplate(template)" *ngIf="permissions.canPublish && template.status === 'draft'" :title="'dashboard.publish_template' | translate">

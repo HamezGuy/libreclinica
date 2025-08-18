@@ -84,12 +84,19 @@ export class TranslatePipe implements PipeTransform {
       const fallback = fallbackRoot ? this.getNestedProperty(fallbackRoot, key) : null;
       if (fallback) {
         translation = fallback;
-        console.warn(`Missing translation for key: ${key} in '${this.currentLang}'. Falling back to English.`);
+        // Only warn if the current language is one of the enabled languages
+        // Don't warn for English fallbacks when using non-English languages
+        if (this.currentLang !== 'en' && ['hi', 'ja'].includes(this.currentLang)) {
+          console.warn(`Missing translation for key: ${key} in '${this.currentLang}'. Falling back to English.`);
+        }
       } else {
         if (params && typeof params === 'object' && params.default !== undefined) {
           return params.default;
         }
-        console.warn(`Translation missing for key: ${key}`);
+        // Only warn about completely missing translations if we're using an enabled language
+        if (['en', 'hi', 'ja'].includes(this.currentLang)) {
+          console.warn(`Translation missing for key: ${key}`);
+        }
         return key;
       }
     }
@@ -101,6 +108,13 @@ export class TranslatePipe implements PipeTransform {
   }
 
   private loadTranslations(lang: string): void {
+    // Only load translations for enabled languages
+    const enabledLanguages = ['en', 'hi', 'ja'];
+    if (!enabledLanguages.includes(lang)) {
+      // Silently fall back to English for disabled languages
+      lang = 'en';
+    }
+
     // If cached, use it
     if (translations[lang]) {
       this.loadedTranslations = translations[lang];

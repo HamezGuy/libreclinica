@@ -42,6 +42,26 @@
     "logout": "लॉग आउट",
     "help": "मदद",
     "login": "लॉग इन",
-    "register": "रजिस्टर"
+    "register": "रजिस्टर",
+    "access_levels": {
+      "super_admin": "सुपर एडमिन",
+      "admin": "एडमिन",
+      "investigator": "अन्वेषक",
+      "study_coordinator": "अध्ययन समन्वयक",
+      "clinical_research_associate": "क्लिनिकल रिसर्च एसोसिएट",
+      "monitor": "मॉनिटर",
+      "data_entry": "डेटा एंट्री",
+      "viewer": "दर्शक"
+    },
+    "user_status": {
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय",
+      "suspended": "निलंबित",
+      "pending_approval": "अनुमोदन लंबित"
+    },
+    "compliance_regions": {
+      "india": "भारत",
+      "global": "वैश्विक"
+    }
   }
 }

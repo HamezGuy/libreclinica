@@ -1,0 +1,409 @@
+<div class="excel-conversion-dialog">
+  <h2 mat-dialog-title>
+    {{ isImportMode ? 'Import Template from Excel' : 'Export Template to Excel' }}
+  </h2>
+
+  <mat-dialog-content>
+    <!-- Import Mode -->
+    <div *ngIf="isImportMode">
+      <!-- Step 1: Upload -->
+      <div *ngIf="currentStep === 'upload'" class="step-content">
+        <div class="upload-section">
+          <div class="upload-instructions">
+            <mat-icon>info</mat-icon>
+            <div>
+              <h3>Excel File Requirements:</h3>
+              <ul>
+                <li>Field names must be unique (no duplicates)</li>
+                <li>Data can be organized in rows or columns</li>
+                <li>Field types will be automatically inferred from data</li>
+                <li>First row/column should contain field names</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="file-upload">
+            <input 
+              type="file" 
+              #fileInput
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+              style="display: none">
+            
+            <button 
+              mat-raised-button 
+              color="primary"
+              (click)="fileInput.click()">
+              <mat-icon>upload_file</mat-icon>
+              Choose Excel File
+            </button>
+
+            <div *ngIf="selectedFile" class="file-info">
+              <mat-icon>description</mat-icon>
+              <span>{{ selectedFile.name }}</span>
+              <mat-icon 
+                class="remove-file" 
+                (click)="selectedFile = null; excelData = null">
+                close
+              </mat-icon>
+            </div>
+          </div>
+
+          <mat-progress-spinner 
+            *ngIf="isProcessing"
+            mode="indeterminate"
+            diameter="40">
+          </mat-progress-spinner>
+        </div>
+      </div>
+
+      <!-- Step 2: Configure -->
+      <div *ngIf="currentStep === 'configure'" class="step-content">
+        <form [formGroup]="form">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Template Name</mat-label>
+            <input matInput formControlName="templateName" required>
+            <mat-error *ngIf="form.get('templateName')?.hasError('required')">
+              Template name is required
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Template Description</mat-label>
+            <textarea matInput formControlName="templateDescription" rows="3"></textarea>
+          </mat-form-field>
+
+          <mat-divider></mat-divider>
+
+          <h3>Data Orientation</h3>
+          <mat-radio-group formControlName="orientation" (change)="onOrientationChange()">
+            <mat-radio-button value="auto">
+              Auto-detect (Recommended)
+            </mat-radio-button>
+            <mat-radio-button value="row">
+              Row-oriented (Headers in first row)
+            </mat-radio-button>
+            <mat-radio-button value="column">
+              Column-oriented (Headers in first column)
+            </mat-radio-button>
+          </mat-radio-group>
+
+          <div class="parse-options" *ngIf="form.get('orientation')?.value !== 'auto'">
+            <h4>Advanced Options</h4>
+            <div class="options-grid">
+              <mat-form-field appearance="outline" *ngIf="form.get('orientation')?.value === 'row'">
+                <mat-label>Header Row</mat-label>
+                <input matInput type="number" formControlName="headerRow" (change)="onParseOptionsChange()">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" *ngIf="form.get('orientation')?.value === 'column'">
+                <mat-label>Header Column</mat-label>
+                <input matInput type="number" formControlName="headerColumn" (change)="onParseOptionsChange()">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Data Start Row</mat-label>
+                <input matInput type="number" formControlName="dataStartRow" (change)="onParseOptionsChange()">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Data Start Column</mat-label>
+                <input matInput type="number" formControlName="dataStartColumn" (change)="onParseOptionsChange()">
+              </mat-form-field>
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <h3>Match with Existing Template (Optional)</h3>
+          <mat-form-field appearance="outline" class="full-width" *ngIf="data.templates">
+            <mat-label>Select Template to Update</mat-label>
+            <mat-select formControlName="selectedTemplate">
+              <mat-option [value]="null">Create New Template</mat-option>
+              <mat-option *ngFor="let template of data.templates" [value]="template.id">
+                {{ template.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Data Preview -->
+          <mat-expansion-panel *ngIf="excelData">
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                Data Preview
+              </mat-panel-title>
+              <mat-panel-description>
+                {{ excelData.fieldNames?.length || 0 }} fields detected
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="preview-section">
+              <div class="detected-info">
+                <mat-chip-set>
+                  <mat-chip>
+                    <mat-icon>table_chart</mat-icon>
+                    Orientation: {{ excelData.orientation }}
+                  </mat-chip>
+                  <mat-chip>
+                    <mat-icon>view_column</mat-icon>
+                    Fields: {{ excelData.fieldNames?.length || 0 }}
+                  </mat-chip>
+                  <mat-chip>
+                    <mat-icon>table_rows</mat-icon>
+                    Rows: {{ excelData.rows.length }}
+                  </mat-chip>
+                </mat-chip-set>
+              </div>
+
+              <div class="table-container">
+                <table mat-table [dataSource]="previewRows" class="preview-table">
+                  <ng-container *ngFor="let header of previewHeaders; let i = index" [matColumnDef]="'col' + i">
+                    <th mat-header-cell *matHeaderCellDef>{{ header }}</th>
+                    <td mat-cell *matCellDef="let row">{{ row[i] }}</td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="getColumnHeaders()"></tr>
+                  <tr mat-row *matRowDef="let row; columns: getColumnHeaders()"></tr>
+                </table>
+              </div>
+            </div>
+          </mat-expansion-panel>
+        </form>
+      </div>
+
+      <!-- Unique Names Validation Warning -->
+      <div class="validation-warning" *ngIf="!hasUniqueNames && excelData">
+        <mat-icon color="warn">warning</mat-icon>
+        <div class="warning-content">
+          <strong>Duplicate Field Names Detected</strong>
+          <p>The following field names are duplicated: {{ duplicateNames.join(', ') }}</p>
+          <p>Please ensure all field names are unique before proceeding.</p>
+        </div>
+      </div>
+
+      <!-- Template Matching Section -->
+      <div class="template-matching" *ngIf="excelData && hasUniqueNames && currentStep === 'configure'">
+        <div class="match-info" *ngIf="matchedTemplate">
+          <mat-icon [color]="templateMatchScore === 100 ? 'primary' : templateMatchScore > 70 ? 'accent' : 'warn'">
+            {{ templateMatchScore === 100 ? 'check_circle' : templateMatchScore > 70 ? 'info' : 'warning' }}
+          </mat-icon>
+          <span *ngIf="templateMatchScore === 100">Perfect match found: <strong>{{ matchedTemplate.name }}</strong></span>
+          <span *ngIf="templateMatchScore > 70 && templateMatchScore < 100">Good match: <strong>{{ matchedTemplate.name }}</strong> ({{ templateMatchScore | number:'1.0-0' }}%)</span>
+          <span *ngIf="templateMatchScore <= 70">Partial match: <strong>{{ matchedTemplate.name }}</strong> ({{ templateMatchScore | number:'1.0-0' }}%)</span>
+        </div>
+        
+        <div class="template-actions">
+          <button mat-stroked-button (click)="toggleTemplateSelector()" type="button">
+            <mat-icon>{{ showTemplateSelector ? 'expand_less' : 'expand_more' }}</mat-icon>
+            {{ showTemplateSelector ? 'Hide' : 'Show' }} Template Options
+          </button>
+          
+          <button mat-stroked-button color="primary" (click)="createNewTemplateFromExcel()" type="button" *ngIf="!selectedTemplate">
+            <mat-icon>add</mat-icon>
+            Create New Template
+          </button>
+        </div>
+        
+        <!-- Template Selector Panel -->
+        <div class="template-selector" *ngIf="showTemplateSelector">
+          <h4>Select Template for Mapping</h4>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Choose Template</mat-label>
+            <mat-select formControlName="selectedTemplate" (selectionChange)="selectTemplateForMapping($event.value)">
+              <mat-option [value]="null">Create New Template</mat-option>
+              <mat-option *ngFor="let template of data.templates" [value]="template.id">
+                {{ template.name }} ({{ template.fields.length || 0 }} fields)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          
+          <div class="field-mapping-preview" *ngIf="selectedTemplate && fieldMappings.length > 0">
+            <h5>Field Mappings</h5>
+            <div class="mapping-list">
+              <div *ngFor="let mapping of fieldMappings" class="mapping-item" [class.matched]="mapping.matched">
+                <span class="excel-field">{{ mapping.excelField }}</span>
+                <mat-icon [color]="mapping.matched ? 'primary' : 'warn'">
+                  {{ mapping.matched ? 'link' : 'link_off' }}
+                </mat-icon>
+                <span class="template-field">{{ mapping.matched ? mapping.templateField : 'No match' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="preview-section" *ngIf="excelData && currentStep === 'preview'">
+        <div class="validation-results">
+          <mat-card *ngIf="hasErrors" class="error-card">
+            <mat-card-header>
+              <mat-icon color="warn">error</mat-icon>
+              <mat-card-title>Errors Found</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <ul>
+                <li *ngFor="let error of conversionResult?.errors">{{ error }}</li>
+              </ul>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card *ngIf="hasWarnings" class="warning-card">
+            <mat-card-header>
+              <mat-icon color="accent">warning</mat-icon>
+              <mat-card-title>Warnings</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <ul>
+                <li *ngFor="let warning of conversionResult?.warnings">{{ warning }}</li>
+              </ul>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <div class="field-mappings" *ngIf="!hasErrors">
+          <h3>Field Mappings</h3>
+          <div class="mapping-stats">
+            <mat-chip-set>
+              <mat-chip color="primary">
+                <mat-icon>check_circle</mat-icon>
+                <p>{{ getMatchedFieldsCount() }} of {{ fieldMappings.length }} fields matched</p>
+              </mat-chip>
+              <mat-chip color="warn" *ngIf="unmatchedFieldsCount > 0">
+                <mat-icon>warning</mat-icon>
+                Unmatched: {{ unmatchedFieldsCount }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          <table mat-table [dataSource]="fieldMappings" class="mapping-table">
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let mapping">
+                <mat-icon *ngIf="mapping.matched" color="primary">check_circle</mat-icon>
+                <mat-icon *ngIf="!mapping.matched" color="warn">warning</mat-icon>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="excelField">
+              <th mat-header-cell *matHeaderCellDef>Excel Field</th>
+              <td mat-cell *matCellDef="let mapping">
+                {{ mapping.excelField || '(Not in Excel)' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="templateField">
+              <th mat-header-cell *matHeaderCellDef>Template Field</th>
+              <td mat-cell *matCellDef="let mapping">
+                {{ mapping.templateField || '(New Field)' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="fieldType">
+              <th mat-header-cell *matHeaderCellDef>Type</th>
+              <td mat-cell *matCellDef="let mapping">
+                <mat-chip>{{ mapping.fieldType }}</mat-chip>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="['status', 'excelField', 'templateField', 'fieldType']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['status', 'excelField', 'templateField', 'fieldType']"></tr>
+          </table>
+
+          <div class="template-preview" *ngIf="conversionResult?.template">
+            <h3>Template Preview</h3>
+            <mat-card>
+              <mat-card-header>
+                <mat-card-title>{{ data.template?.name || 'Template' }}</mat-card-title>
+                <mat-card-subtitle>Version {{ data.template?.version || '1.0' }}</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="template-stats">
+                  <p><strong>Fields:</strong> {{ data.template?.fields?.length || 0 }}</p>
+                  <span><strong>PHI Fields:</strong> {{ conversionResult?.template?.phiDataFields?.length || 0 }}</span>
+                  <p><strong>Status:</strong> {{ data.template?.status || 'draft' }}</p>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Mode -->
+    <div *ngIf="isExportMode" class="export-options">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Template</mat-label>
+        <input matInput [value]="data.template?.name" readonly>
+      </mat-form-field>
+
+      <h3>Export Options</h3>
+      
+      <mat-radio-group [(ngModel)]="exportOrientation">
+        <mat-radio-button value="row">
+          Row-oriented (Headers in first row)
+        </mat-radio-button>
+        <mat-radio-button value="column">
+          Column-oriented (Headers in first column)
+        </mat-radio-button>
+      </mat-radio-group>
+
+      <mat-checkbox [(ngModel)]="includeData" disabled>
+        Include sample data (Coming soon)
+      </mat-checkbox>
+
+      <div class="export-info">
+        <mat-icon>info</mat-icon>
+        <div>
+          <p>The Excel file will contain:</p>
+          <ul>
+            <li>All field names from the template</li>
+            <li>Field types and descriptions</li>
+            <li>Required/optional indicators</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <mat-progress-spinner 
+      *ngIf="isProcessing"
+      mode="indeterminate"
+      diameter="40">
+    </mat-progress-spinner>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">Cancel</button>
+    
+    <!-- Import Actions -->
+    <ng-container *ngIf="isImportMode">
+      <button 
+        mat-raised-button 
+        color="primary"
+        *ngIf="currentStep === 'configure'"
+        [disabled]="!canProceed || isProcessing"
+        (click)="convertExcelToTemplate()">
+        Validate & Preview
+      </button>
+      
+      <button 
+        mat-raised-button 
+        color="primary"
+        *ngIf="currentStep === 'preview' && !hasErrors"
+        [disabled]="!canProceed || isProcessing"
+        (click)="saveTemplate()">
+        Create Template
+      </button>
+    </ng-container>
+
+    <!-- Export Actions -->
+    <button 
+      mat-raised-button 
+      color="primary"
+      *ngIf="isExportMode"
+      [disabled]="isProcessing"
+      (click)="exportToExcel()">
+      <mat-icon>download</mat-icon>
+      Export to Excel
+    </button>
+  </mat-dialog-actions>
+</div>

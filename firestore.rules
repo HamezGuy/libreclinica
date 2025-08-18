@@ -39,6 +39,11 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // More permissive helper for initial testing/development
+    function canAccessHealthcareData() {
+      return isAuthenticated() && isActive();
+    }
+    
     // Users collection (main user data)
     match /users/{userId} {
       // Users can read their own profile, admins can read any
@@ -221,7 +226,63 @@ service cloud.firestore {
                        resource.data.createdBy == request.auth.uid);
     }
     
-    // Patients collection (FHIR Patient resources)
+    // Study Phases collection - CRITICAL FOR PHASE FORMS
+    match /studyPhases/{phaseId} {
+      // Read access for authenticated and active users
+      allow read: if isAuthenticated() && isActive();
+      
+      // Create access for admin and investigator roles
+      allow create: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
+      
+      // Update access for admin and investigator roles
+      allow update: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
+      
+      // Delete access for admins only
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      
+      // Phase progress subcollection
+      match /progress/{progressId} {
+        allow read: if isAuthenticated() && isActive();
+        allow write: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+      }
+    }
+    
+    // PHI Data collection - Protected Health Information
+    match /phi/{phiId} {
+      // Read access for healthcare roles only
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']);
+      
+      // Write access for authorized roles
+      allow write: if isAuthenticated() && 
+                     isActive() && 
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
+      
+      // No deletions for compliance
+      allow delete: if false;
+    }
+    
+    // Patient Folders collection
+    match /patientFolders/{folderId} {
+      // Read access for healthcare roles
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+      
+      // Write access for data management roles
+      allow write: if isAuthenticated() && 
+                     isActive() && 
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+    }
+    
+    // PATIENTS COLLECTION - Main patient records
     match /patients/{patientId} {
       // Read access for healthcare roles
       allow read: if isAuthenticated() && 
@@ -240,6 +301,132 @@ service cloud.firestore {
       
       // Delete access restricted to admin only
       allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      
+      // Visits subcollection
+      match /visits/{visitId} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+        
+        allow create: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow update: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+        
+        // Visit subcomponents (forms within visits)
+        match /subcomponents/{subcomponentId} {
+          allow read: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+          
+          allow create: if isAuthenticated() && 
+                          isActive() && 
+                          hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+          
+          allow update: if isAuthenticated() && 
+                          isActive() && 
+                          hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+          
+          allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+        }
+      }
+      
+      // Documents subcollection
+      match /documents/{documentId} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+        
+        allow create: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow update: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      }
+      
+      // Audit trail subcollection
+      match /auditTrail/{auditId} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR']);
+        
+        allow create: if isAuthenticated() && 
+                        isActive();
+        
+        allow update: if false; // Audit trails are immutable
+        allow delete: if false; // Audit trails cannot be deleted
+      }
+      
+      // Visit Subcomponents subcollection (patient folders)
+      match /visitSubcomponents/{subcomponentId} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+        
+        allow create: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow update: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      }
+      
+      // Patient Phase Progress collection
+      match /patientPhaseProgress/{progressId} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+        
+        allow create: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow update: if isAuthenticated() && 
+                        isActive() && 
+                        hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+        
+        allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      }
+      
+      // Any other subcollections under patients
+      match /{subcollection=**} {
+        allow read: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']);
+        
+        allow write: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+      }
+    }
+    
+    // Patient Phase Progress collection (top-level)
+    match /patientPhaseProgress/{progressId} {
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+      
+      allow create: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+      
+      allow update: if isAuthenticated() && 
+                      isActive() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+      
+      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Form Instances collection
@@ -247,7 +434,7 @@ service cloud.firestore {
       // Read access for healthcare roles
       allow read: if isAuthenticated() && 
                     isActive() && 
-                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']);
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
       
       // Create access for data entry roles
       allow create: if isAuthenticated() && 
@@ -261,7 +448,9 @@ service cloud.firestore {
                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
       
       // Delete access restricted to admin only
-      allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      allow delete: if isAuthenticated() && 
+                       isActive() && 
+                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
     }
     
     // Surveys collection
@@ -315,31 +504,37 @@ service cloud.firestore {
       }
     }
     
-    // Patients collection
-    match /patients/{patientId} {
-      // Read access for authenticated and active users with appropriate roles
+    
+    // Healthcare API collections
+    match /healthcareData/{dataId} {
+      // Read access for healthcare roles
       allow read: if isAuthenticated() && 
+                    isActive() && 
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY']);
+      
+      // Write access for data management roles
+      allow write: if isAuthenticated() && 
                      isActive() && 
-                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+    }
+    
+    // Visit Subcomponents collection (standalone)
+    match /visitSubcomponents/{subcomponentId} {
+      allow read: if isAuthenticated() && 
+                    isActive() && 
+                    hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'MONITOR', 'DATA_ENTRY', 'VIEWER']);
       
-      // Create access for users with data entry permissions
-      allow create: if isAuthenticated() && 
-                       isActive() && 
-                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) &&
-                       request.resource.data.createdBy == request.auth.uid &&
-                       request.resource.data.createdAt is timestamp;
-      
-      // Update access for users with appropriate permissions
-      allow update: if isAuthenticated() && 
-                       isActive() && 
-                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']) &&
-                       request.resource.data.lastModifiedBy == request.auth.uid &&
-                       request.resource.data.lastModifiedAt is timestamp;
-      
-      // Delete access restricted to admins only
-      allow delete: if isAuthenticated() && 
-                       isActive() && 
-                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
+      allow write: if isAuthenticated() && 
+                     isActive() && 
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
+    }
+    
+    // Phase Progress collection (standalone)
+    match /phaseProgress/{progressId} {
+      allow read: if isAuthenticated() && isActive();
+      allow write: if isAuthenticated() && 
+                     isActive() && 
+                     hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR', 'DATA_ENTRY']);
     }
     
     // Default deny all

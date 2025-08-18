@@ -472,21 +472,21 @@ export class PatientService {
 
   // Get patient visit subcomponents
   getPatientVisitSubcomponents(patientId: string): Observable<PatientVisitSubcomponent[]> {
-    const subcomponentsRef = collection(
-      this.firestore, 
-      this.COLLECTION_NAME, 
-      patientId, 
-      this.VISIT_SUBCOMPONENTS_COLLECTION
-    );
-    
-    const q = query(subcomponentsRef, orderBy('order', 'asc'));
+    // Query the visitSubcomponents subcollection under the patient document
+    const subcomponentsRef = collection(this.firestore, this.COLLECTION_NAME, patientId, this.VISIT_SUBCOMPONENTS_COLLECTION);
+    const q = query(subcomponentsRef);
     
     return from(runInInjectionContext(this.injector, async () => await getDocs(q))).pipe(
       map(snapshot => {
-        return snapshot.docs.map(doc => {
-          const data = doc.data();
-          return this.convertFromFirestore(data) as PatientVisitSubcomponent;
+        const subcomponents: PatientVisitSubcomponent[] = [];
+        snapshot.forEach(doc => {
+          subcomponents.push({ id: doc.id, ...doc.data() } as PatientVisitSubcomponent);
         });
+        
+        console.log(`Found ${subcomponents.length} visitSubcomponents for patient ${patientId}`);
+        
+        // Sort by order if present
+        return subcomponents.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
       })
     );
   }
@@ -514,6 +514,7 @@ export class PatientService {
       lastModifiedAt: now
     };
 
+    // Update or create the document in the visitSubcomponents subcollection
     const subcomponentRef = doc(
       this.firestore, 
       this.COLLECTION_NAME, 
@@ -522,9 +523,18 @@ export class PatientService {
       subcomponentId
     );
     
-    await runInInjectionContext(this.injector, async () => {
-      await setDoc(subcomponentRef, this.prepareForFirestore(updatedSubcomponent), { merge: true });
-    });
+    await runInInjectionContext(this.injector, async () => 
+      await setDoc(subcomponentRef, updatedSubcomponent, { merge: true })
+    );
+    
+    // Also update the patient's lastModified fields
+    const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
+    await runInInjectionContext(this.injector, async () => 
+      await updateDoc(patientRef, { 
+        lastModifiedBy: currentUser.uid,
+        lastModifiedAt: now
+      })
+    );
   }
 
   // Assign templates to a visit subcomponent

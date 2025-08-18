@@ -172,31 +172,36 @@ export class ProfileEditPopupComponent implements OnInit {
 
   // Helper method to get display name for enum values
   getAccessLevelDisplayName(level: AccessLevel): string {
+    // Return translation key that will be handled by the translate pipe
     switch (level) {
-      case AccessLevel.SUPER_ADMIN: return 'Super Admin';
-      case AccessLevel.ADMIN: return 'Admin';
-      case AccessLevel.INVESTIGATOR: return 'Investigator';
-      case AccessLevel.MONITOR: return 'Monitor';
-      case AccessLevel.DATA_ENTRY: return 'Data Entry';
-      case AccessLevel.VIEWER: return 'Viewer';
+      case AccessLevel.SUPER_ADMIN: return 'common.access_levels.super_admin';
+      case AccessLevel.ADMIN: return 'common.access_levels.admin';
+      case AccessLevel.INVESTIGATOR: return 'common.access_levels.investigator';
+      case AccessLevel.STUDY_COORDINATOR: return 'common.access_levels.study_coordinator';
+      case AccessLevel.CLINICAL_RESEARCH_ASSOCIATE: return 'common.access_levels.clinical_research_associate';
+      case AccessLevel.MONITOR: return 'common.access_levels.monitor';
+      case AccessLevel.DATA_ENTRY: return 'common.access_levels.data_entry';
+      case AccessLevel.VIEWER: return 'common.access_levels.viewer';
       default: return level;
     }
   }
 
   getUserStatusDisplayName(status: UserStatus): string {
+    // Return translation key that will be handled by the translate pipe
     switch (status) {
-      case UserStatus.ACTIVE: return 'Active';
-      case UserStatus.INACTIVE: return 'Inactive';
-      case UserStatus.SUSPENDED: return 'Suspended';
-      case UserStatus.PENDING_APPROVAL: return 'Pending Approval';
+      case UserStatus.ACTIVE: return 'common.user_status.active';
+      case UserStatus.INACTIVE: return 'common.user_status.inactive';
+      case UserStatus.SUSPENDED: return 'common.user_status.suspended';
+      case UserStatus.PENDING_APPROVAL: return 'common.user_status.pending_approval';
       default: return status;
     }
   }
 
   getComplianceRegionDisplayName(region: ComplianceRegion): string {
+    // Return translation key that will be handled by the translate pipe
     switch (region) {
-      case ComplianceRegion.INDIA: return 'India';
-      case ComplianceRegion.GLOBAL: return 'Global';
+      case ComplianceRegion.INDIA: return 'common.compliance_regions.india';
+      case ComplianceRegion.GLOBAL: return 'common.compliance_regions.global';
       default: return region;
     }
   }

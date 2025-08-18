@@ -2,6 +2,13 @@
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome to EDC System",
+    "export_data": "Export Data",
+    "import_data": "Import Data",
+    "settings": "Settings",
+    "help": "Help",
+    "logout": "Logout",
+    "add_new_patient": "Add New Patient",
+    "view_details": "View Details",
     "studies": "Studies",
     "patients": "Patients",
     "templates": "Templates",

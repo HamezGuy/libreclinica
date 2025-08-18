@@ -40,6 +40,26 @@
     "actions": "Actions",
     "help": "ヘルプ",
     "login": "ログイン",
-    "register": "登録"
+    "register": "登録",
+    "access_levels": {
+      "super_admin": "スーパー管理者",
+      "admin": "管理者",
+      "investigator": "研究者",
+      "study_coordinator": "研究コーディネーター",
+      "clinical_research_associate": "臨床研究アソシエイト",
+      "monitor": "モニター",
+      "data_entry": "データ入力",
+      "viewer": "閲覧者"
+    },
+    "user_status": {
+      "active": "アクティブ",
+      "inactive": "非アクティブ",
+      "suspended": "停止中",
+      "pending_approval": "承認待ち"
+    },
+    "compliance_regions": {
+      "india": "インド",
+      "global": "グローバル"
+    }
   }
 }

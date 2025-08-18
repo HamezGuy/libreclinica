@@ -20,6 +20,7 @@ import { MatMenuModule } from '@angular/material/menu';
 
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { StudyPhaseService } from '../../services/study-phase.service';
+import { LanguageService } from '../../services/language.service';
 import { ToastService } from '../../services/toast.service';
 import { FormTemplateService } from '../../services/form-template.service';
 import { FormInstanceService } from '../../services/form-instance.service';
@@ -33,6 +34,7 @@ import { FormPreviewComponent } from '../form-preview/form-preview.component';
 import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-popup.component';
 import { TemplateManagementComponent } from '../template-management/template-management.component';
 import { OcrTemplateBuilderComponent } from '../ocr-template-builder/ocr-template-builder.component';
+import { ExcelConversionDialogComponent } from '../excel-conversion-dialog/excel-conversion-dialog.component';
 import { LanguageSelectorComponent } from '../language-selector/language-selector.component';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { PatientDetailComponent } from '../patient-detail/patient-detail.component';
@@ -147,6 +149,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private eventBus = inject(EventBusService);
   private fb = inject(FormBuilder);
+  private languageService = inject(LanguageService);
   private phiEncryptionService = inject(PhiEncryptionService);
   private patientService = inject(PatientService);
   private toastService = inject(ToastService);
@@ -842,6 +845,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.currentUserProfile = updatedProfile;
     // The userProfile$ observable will automatically update through the auth service
     console.log('Profile updated successfully:', updatedProfile);
+    
+    // Ensure language is synchronized with the dashboard
+    const currentLang = this.languageService.getCurrentLanguage();
+    if (currentLang) {
+      // Force a refresh of translations if needed
+      this.languageService.setLanguage(currentLang.code);
+    }
   }
 
   async signOut() {
@@ -1615,6 +1625,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       
       // Create visit subcomponents from study phases
       const visitSubcomponents = this.createVisitSubcomponentsFromStudyPhases(study, uniquePatientId);
+      console.log('Created visitSubcomponents:', visitSubcomponents);
+      console.log('Number of visitSubcomponents:', visitSubcomponents.length);
       
       const patientData = {
         id: uniquePatientId,
@@ -1674,6 +1686,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const visitSubcomponents: any[] = [];
     const now = new Date();
     const userId = 'system'; // Will be set by the calling method
+    
+    console.log('Study data:', study);
+    console.log('Study has phases:', study.phases);
+    console.log('Study has sections:', study.sections);
     
     // If study has phases, create visit subcomponents from them
     if (study.phases && Array.isArray(study.phases)) {
@@ -1972,6 +1988,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
     
     console.log('Creating patient with cleaned data:', cleanedData);
+    console.log('visitSubcomponents in cleaned data:', cleanedData.visitSubcomponents);
+    console.log('visitSubcomponents length:', cleanedData.visitSubcomponents?.length);
     
     const docRef = await runInInjectionContext(this.injector, async () => {
       const { collection, addDoc, getFirestore } = await import('@angular/fire/firestore');
@@ -2518,21 +2536,79 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   openOcrTemplateBuilder(): void {
     const dialogRef = this.dialog.open(OcrTemplateBuilderComponent, {
-      width: '95vw',
-      height: '95vh',
-      maxWidth: '95vw',
-      maxHeight: '95vh',
-      panelClass: 'ocr-dialog-panel',
+      width: '90%',
+      height: '90%',
+      maxWidth: '1400px',
+      maxHeight: '900px',
       data: {
-        templateName: 'OCR Generated Template'
+        study: this.studies[0] // Pass the first study or selected study
       }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        console.log('OCR Template created:', result);
-        this.toastService.success('Template created successfully from OCR scan');
-        // Templates will automatically refresh via the templates$ observable
+      if (result && result.success) {
+        // Template was created/updated, refresh the templates list
+        this.refreshTemplates();
+        this.toastService.success('Template imported successfully from Excel');
+      }
+    });
+  }
+
+  /**
+   * Open Excel Conversion Dialog for import/export
+   */
+  openExcelConversionDialog(): void {
+    const dialogRef = this.dialog.open(ExcelConversionDialogComponent, {
+      width: '90%',
+      height: '90%',
+      maxWidth: '1200px',
+      maxHeight: '800px',
+      data: {
+        mode: 'import',
+        templates: this.allTemplates
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && result.success) {
+        // Template was created/updated, refresh the templates list
+        this.refreshTemplates();
+        this.toastService.success('Excel conversion completed successfully');
+      }
+    });
+  }
+
+  openExcelImport(): void {
+    const dialogRef = this.dialog.open(ExcelConversionDialogComponent, {
+      width: '80%',
+      maxWidth: '900px',
+      data: {
+        mode: 'import',
+        templates: this.allTemplates
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && result.success) {
+        // Template was created/updated, refresh the templates list
+        this.refreshTemplates();
+        this.toastService.success('Template imported successfully from Excel');
+      }
+    });
+  }
+
+  exportTemplateToExcel(template: FormTemplate): void {
+    const dialogRef = this.dialog.open(ExcelConversionDialogComponent, {
+      width: '600px',
+      data: {
+        mode: 'export',
+        template: template
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && result.success) {
+        this.toastService.success('Template exported to Excel successfully');
       }
     });
   }
@@ -2544,4 +2620,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // No longer needed as dialog handles its own closing
   }
 
+  refreshTemplates(): void {
+    // Trigger a refresh of the templates observable
+    this.templates$ = this.templateService.templates$;
+    this.templates$.pipe(takeUntil(this.destroy$)).subscribe(templates => {
+      this.allTemplates = templates;
+      this.filterTemplates();
+    });
+  }
+
+  loadTemplates(): void {
+    this.refreshTemplates();
+  }
 }

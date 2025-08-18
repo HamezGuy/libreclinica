@@ -1,6 +1,5 @@
-import { Injectable, Inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, of, from, throwError } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { Observable, from, throwError, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { 
@@ -29,9 +28,8 @@ export class TextractOcrService implements IOcrService {
   };
 
   constructor(
-    private http: HttpClient,
-    private templateBuilder: OcrTemplateBuilderService,
-    private awsConfigService: AwsConfigService
+    private awsConfigService: AwsConfigService,
+    private templateBuilder: OcrTemplateBuilderService
   ) {
     // Initialize with environment configuration
     this.API_ENDPOINT = environment.aws?.textract?.endpoint || 'https://textract.us-east-1.amazonaws.com';
@@ -48,16 +46,52 @@ export class TextractOcrService implements IOcrService {
   }
 
   processDocument(
-    file: File | Blob,
+    file: File | Blob | string,
     config?: OcrProcessingConfig
   ): Observable<OcrProcessingResult> {
-    return from(this.convertToBase64(file)).pipe(
+    // Handle both file and base64 string inputs
+    const base64Promise = typeof file === 'string' 
+      ? Promise.resolve(file)
+      : this.convertToBase64(file);
+    
+    return from(base64Promise).pipe(
       switchMap(base64 => from(this.callTextractAPI(base64, config))),
       catchError(error => {
         console.error('Textract processing error:', error);
         return throwError(() => new Error('Failed to process document with Textract'));
       })
     );
+  }
+
+  getCapabilities(): {
+    supportsTables: boolean;
+    supportsHandwriting: boolean;
+    supportsMultipleLanguages: boolean;
+    supportsFormExtraction: boolean;
+    maxPages?: number;
+    supportedLanguages?: string[];
+  } {
+    return {
+      supportsTables: true,
+      supportsHandwriting: true,
+      supportsMultipleLanguages: false,
+      supportsFormExtraction: true,
+      maxPages: 100,
+      supportedLanguages: ['en']
+    };
+  }
+
+  isAvailable(): Observable<boolean> {
+    // Check if AWS credentials are configured
+    return of(!!this.config && !!this.config.accessKeyId);
+  }
+
+  getSupportedFileTypes(): string[] {
+    return ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.bmp'];
+  }
+
+  getMaxFileSize(): number {
+    return 5 * 1024 * 1024; // 5MB limit for Textract
   }
 
   private async convertToBase64(file: File | Blob): Promise<string> {
@@ -228,18 +262,7 @@ export class TextractOcrService implements IOcrService {
     return 'Amazon Textract';
   }
 
-  isAvailable(): Observable<boolean> {
-    // Check if Textract service is available
-    return from(Promise.resolve(true));
-  }
-
-  getSupportedFileTypes(): string[] {
-    return ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.bmp'];
-  }
-
-  getMaxFileSize(): number {
-    return 5 * 1024 * 1024; // 5MB
-  }
+  // Removed duplicate methods - already defined above
 
   // Mock response for development
   private getMockTextractResponse(): any {

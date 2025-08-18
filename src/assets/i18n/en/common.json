@@ -42,6 +42,26 @@
     "logout": "logout",
     "help": "help",
     "login": "login",
-    "register": "Register"
+    "register": "Register",
+    "access_levels": {
+      "super_admin": "Super Admin",
+      "admin": "Admin",
+      "investigator": "Investigator",
+      "study_coordinator": "Study Coordinator",
+      "clinical_research_associate": "Clinical Research Associate",
+      "monitor": "Monitor",
+      "data_entry": "Data Entry",
+      "viewer": "Viewer"
+    },
+    "user_status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "suspended": "Suspended",
+      "pending_approval": "Pending Approval"
+    },
+    "compliance_regions": {
+      "india": "India",
+      "global": "Global"
+    }
   }
 }

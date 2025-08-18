@@ -81,7 +81,7 @@
     <div class="processing-view" *ngIf="viewMode === 'processing'">
       <div class="processing-content">
         <mat-spinner diameter="60"></mat-spinner>
-        <h3>{{ 'ocr-template-builder.processing_document_with' | translate }} {{ ocrService.getProviderName() }}</h3>
+        <h3>{{ 'ocr-template-builder.processing_document_with' | translate }} {{ ocrService ? ocrService.getProviderName() : 'OCR' }}</h3>
         <p>{{ 'ocr-template-builder.analyzing_form_structure_and_detecting_fields' | translate }}</p>
         <div class="progress-bar">
           <div class="progress-fill" [style.width.%]="processingProgress"></div>
@@ -92,73 +92,197 @@
 
     <!-- Review View -->
     <div class="review-view" *ngIf="viewMode === 'review'">
-      <div class="review-toolbar">
-        <div class="toolbar-left">
-          <button mat-button="" (click)="toggleBoundingBoxes()">
-            <mat-icon>{{ showBoundingBoxes ? 'visibility' : 'visibility_off' }}</mat-icon>{{ 'ocr-template-builder.bounding_boxes' | translate }}</button>
-          <button mat-button="" (click)="toggleConfidenceScores()">
-            <mat-icon>{{ 'ocr-template-builder.percent' | translate }}</mat-icon>{{ 'ocr-template-builder.confidence_scores' | translate }}</button>
+      <!-- Tab Navigation -->
+      <div class="tab-navigation">
+        <button mat-button="" [class.active]="activeTab === 'template'" (click)="switchTab('template')">
+          <mat-icon>dashboard</mat-icon>
+          Template Builder
+        </button>
+        <button mat-button="" [class.active]="activeTab === 'raw'" (click)="switchTab('raw')">
+          <mat-icon>text_fields</mat-icon>
+          Raw OCR Results
+        </button>
+      </div>
+
+      <!-- Template Tab Content -->
+      <div class="tab-content" *ngIf="activeTab === 'template'">
+        <div class="review-toolbar">
+          <div class="toolbar-left">
+            <button mat-button="" (click)="toggleBoundingBoxes()">
+              <mat-icon>{{ showBoundingBoxes ? 'visibility' : 'visibility_off' }}</mat-icon>{{ 'ocr-template-builder.bounding_boxes' | translate }}</button>
+            <button mat-button="" (click)="toggleConfidenceScores()">
+              <mat-icon>{{ 'ocr-template-builder.percent' | translate }}</mat-icon>{{ 'ocr-template-builder.confidence_scores' | translate }}</button>
+          </div>
+          <div class="toolbar-right">
+            <button mat-raised-button="" color="primary" (click)="switchToFieldsView()">
+              <mat-icon>edit</mat-icon>{{ 'ocr-template-builder.configure_fields' | translate }}</button>
+          </div>
         </div>
-        <div class="toolbar-right">
-          <button mat-raised-button="" color="primary" (click)="switchToFieldsView()">
-            <mat-icon>edit</mat-icon>{{ 'ocr-template-builder.configure_fields' | translate }}</button>
+
+        <div class="review-content">
+          <div class="canvas-wrapper">
+            <div class="canvas-container">
+              <canvas #imageCanvas="" (click)="onCanvasClick($event)"></canvas>
+            </div>
+            
+            <!-- Page navigation for multi-page PDFs -->
+            <div class="page-navigation" *ngIf="totalPages > 1">
+              <button mat-icon-button="" (click)="navigateToPage(currentPageIndex - 1)" [disabled]="currentPageIndex === 0">
+                <mat-icon>{{ 'ocr-template-builder.chevronleft' | translate }}</mat-icon>
+              </button>
+              <span class="page-info">{{ 'ocr-template-builder.page' | translate }} {{ currentPageIndex + 1 }} {{ 'ocr-template-builder.of' | translate }} {{ totalPages }}</span>
+              <button mat-icon-button="" (click)="navigateToPage(currentPageIndex + 1)" [disabled]="currentPageIndex === totalPages - 1">
+                <mat-icon>{{ 'ocr-template-builder.chevronright' | translate }}</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="element-details" *ngIf="selectedElement">
+            <h4>{{ 'ocr-template-builder.selected_element' | translate }}</h4>
+            <div class="detail-row">
+              <label>{{ 'ocr-template-builder.type' | translate }}</label>
+              <select [(ngModel)]="selectedElement.type" name="elementType">
+                <option value="label">{{ 'ocr-template-builder.label' | translate }}</option>
+                <option value="input">{{ 'ocr-template-builder.input_field' | translate }}</option>
+                <option value="checkbox">{{ 'ocr-template-builder.checkbox' | translate }}</option>
+                <option value="radio">{{ 'ocr-template-builder.radio_button' | translate }}</option>
+                <option value="select">{{ 'ocr-template-builder.dropdown' | translate }}</option>
+                <option value="text">{{ 'ocr-template-builder.text' | translate }}</option>
+              </select>
+            </div>
+            <div class="detail-row">
+              <label>{{ 'ocr-template-builder.text' | translate }}</label>
+              <input type="text" [(ngModel)]="selectedElement.text" name="elementText">
+            </div>
+            <div class="detail-row">
+              <label>{{ 'ocr-template-builder.confidence' | translate }}</label>
+              <span>{{ selectedElement.confidence.toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ocr-stats">
+          <div class="stat">
+            <mat-icon>{{ 'ocr-template-builder.textfields' | translate }}</mat-icon>
+            <span>{{ detectedElements.length }} {{ 'ocr-template-builder.elements_detected' | translate }}</span>
+          </div>
+          <div class="stat" *ngIf="ocrResult && ocrResult.tables && ocrResult.tables.length > 0">
+            <i class="material-icons">{{ 'ocr-template-builder.tablechart' | translate }}</i>
+            <span>{{ ocrResult.tables.length }} {{ 'ocr-template-builder.tables_found' | translate }}</span>
+          </div>
+          <div class="stat" *ngIf="ocrResult && ocrResult.metadata">
+            <i class="material-icons">{{ 'ocr-template-builder.timer' | translate }}</i>
+            <span>{{ (ocrResult.metadata.processingTime / 1000).toFixed(1) }}s {{ 'ocr-template-builder.processing_time' | translate }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="review-content">
-        <div class="canvas-wrapper">
-          <div class="canvas-container">
-            <canvas #imageCanvas="" (click)="onCanvasClick($event)"></canvas>
+      <!-- Raw OCR Tab Content -->
+      <div class="tab-content raw-ocr-content" *ngIf="activeTab === 'raw'">
+        <div class="raw-ocr-header">
+          <h3>Raw OCR Results - Page {{ currentPageIndex + 1 }} of {{ totalPages }}</h3>
+          <p class="subtitle">Extracted text and bounding box information from the current page</p>
+        </div>
+
+        <!-- Page navigation for multi-page PDFs -->
+        <div class="page-navigation" *ngIf="totalPages > 1">
+          <button mat-icon-button (click)="previousPage()" [disabled]="currentPageIndex === 0">
+            <mat-icon>navigate_before</mat-icon>
+          </button>
+          <span>Page {{ currentPageIndex + 1 }} of {{ totalPages }}</span>
+          <button mat-icon-button (click)="nextPage()" [disabled]="currentPageIndex === totalPages - 1">
+            <mat-icon>navigate_next</mat-icon>
+          </button>
+        </div>
+
+        <!-- Back Button and Controls -->
+        <div class="raw-view-controls">
+          <button mat-raised-button color="primary" (click)="switchTab('template')" class="back-button">
+            <mat-icon>arrow_back</mat-icon>
+            Back to Template Builder
+          </button>
+          <div class="zoom-controls">
+            <button mat-icon-button (click)="zoomOutRaw()" matTooltip="Zoom Out">
+              <mat-icon>zoom_out</mat-icon>
+            </button>
+            <span class="zoom-level">{{ (rawViewZoom * 100).toFixed(0) }}%</span>
+            <button mat-icon-button (click)="zoomInRaw()" matTooltip="Zoom In">
+              <mat-icon>zoom_in</mat-icon>
+            </button>
+            <button mat-button (click)="resetRawView()" matTooltip="Reset View">
+              <mat-icon>refresh</mat-icon>
+              Reset
+            </button>
+            <button mat-button (click)="fitToScreenRaw()" matTooltip="Fit to Screen">
+              <mat-icon>fit_screen</mat-icon>
+              Fit
+            </button>
           </div>
-          
-          <!-- Page navigation for multi-page PDFs -->
-          <div class="page-navigation" *ngIf="totalPages > 1">
-            <button mat-icon-button="" (click)="navigateToPage(currentPageIndex - 1)" [disabled]="currentPageIndex === 0">
-              <mat-icon>{{ 'ocr-template-builder.chevronleft' | translate }}</mat-icon>
-            </button>
-            <span class="page-info">{{ 'ocr-template-builder.page' | translate }} {{ currentPageIndex + 1 }} {{ 'ocr-template-builder.of' | translate }} {{ totalPages }}</span>
-            <button mat-icon-button="" (click)="navigateToPage(currentPageIndex + 1)" [disabled]="currentPageIndex === totalPages - 1">
-              <mat-icon>{{ 'ocr-template-builder.chevronright' | translate }}</mat-icon>
-            </button>
+          <mat-slide-toggle [(ngModel)]="showBoundingBoxes" name="showBoundingBoxes" (change)="updateRawCanvas()">
+            Show Bounding Boxes
+          </mat-slide-toggle>
+          <mat-slide-toggle [(ngModel)]="showConfidenceScores" name="showConfidenceScores" (change)="updateRawCanvas()">
+            Show Confidence Scores
+          </mat-slide-toggle>
+        </div>
+
+        <!-- Raw OCR Canvas -->
+        <div class="raw-canvas-container">
+          <canvas #rawCanvas 
+                  class="raw-ocr-canvas"
+                  (mousedown)="onRawCanvasMouseDown($event)"
+                  (mousemove)="onRawCanvasMouseMove($event)"
+                  (mouseup)="onRawCanvasMouseUp($event)"
+                  (wheel)="onRawCanvasWheel($event)"
+                  style="width: 100%; height: 600px; border: 1px solid #e5e7eb; background: #f9fafb;">
+          </canvas>
+        </div>
+
+        <!-- Raw Text Output -->
+        <div class="raw-text-section">
+          <h4>Extracted Text</h4>
+          <div class="raw-text-content">
+            <pre>{{ getCurrentPageRawText() }}</pre>
           </div>
         </div>
 
-        <div class="element-details" *ngIf="selectedElement">
-          <h4>{{ 'ocr-template-builder.selected_element' | translate }}</h4>
-          <div class="detail-row">
-            <label>{{ 'ocr-template-builder.type' | translate }}</label>
-            <select [(ngModel)]="selectedElement.type" (change)="changeElementType(selectedElement, selectedElement.type)">
-              <option value="label">{{ 'ocr-template-builder.label' | translate }}</option>
-              <option value="input">{{ 'ocr-template-builder.input_field' | translate }}</option>
-              <option value="checkbox">{{ 'ocr-template-builder.checkbox' | translate }}</option>
-              <option value="radio">{{ 'ocr-template-builder.radio_button' | translate }}</option>
-              <option value="select">{{ 'ocr-template-builder.dropdown' | translate }}</option>
-              <option value="text">{{ 'ocr-template-builder.text' | translate }}</option>
-            </select>
+        <!-- Detected Elements Table -->
+        <div class="elements-table-section">
+          <h4>Detected Elements ({{ getCurrentPageElements().length }})</h4>
+          <div class="table-container">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="px-4 py-2 text-left border-b">Text</th>
+                  <th class="px-4 py-2 text-left border-b">Type</th>
+                  <th class="px-4 py-2 text-left border-b">Confidence</th>
+                  <th class="px-4 py-2 text-left border-b">Bounding Box</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let element of getCurrentPageElements()" class="hover:bg-gray-50">
+                  <td class="px-4 py-2 border-b">{{ element.text }}</td>
+                  <td class="px-4 py-2 border-b">
+                    <span class="px-2 py-1 text-xs rounded" [ngClass]="{
+                      'bg-green-100 text-green-800': element.type === 'label',
+                      'bg-blue-100 text-blue-800': element.type === 'input',
+                      'bg-purple-100 text-purple-800': element.type === 'select',
+                      'bg-orange-100 text-orange-800': element.type === 'checkbox' || element.type === 'radio',
+                      'bg-gray-100 text-gray-800': element.type === 'text'
+                    }">{{ element.type }}</span>
+                  </td>
+                  <td class="px-4 py-2 border-b">
+                    <span [class.text-red-600]="element.confidence < 80">
+                      {{ element.confidence }}%
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 border-b text-xs text-gray-600">
+                    L:{{ element.boundingBox.left }}, T:{{ element.boundingBox.top }}, W:{{ element.boundingBox.width }}, H:{{ element.boundingBox.height }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="detail-row">
-            <label>{{ 'ocr-template-builder.text' | translate }}</label>
-            <input type="text" [(ngModel)]="selectedElement.text">
-          </div>
-          <div class="detail-row">
-            <label>{{ 'ocr-template-builder.confidence' | translate }}</label>
-            <span>{{ selectedElement.confidence.toFixed(1) }}%</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="ocr-stats">
-        <div class="stat">
-          <mat-icon>{{ 'ocr-template-builder.textfields' | translate }}</mat-icon>
-          <span>{{ detectedElements.length }} {{ 'ocr-template-builder.elements_detected' | translate }}</span>
-        </div>
-        <div class="stat" *ngIf="ocrResult &amp;&amp; ocrResult.tables &amp;&amp; ocrResult.tables.length > 0">
-          <i class="material-icons">{{ 'ocr-template-builder.tablechart' | translate }}</i>
-          <span>{{ ocrResult.tables.length }} {{ 'ocr-template-builder.tables_found' | translate }}</span>
-        </div>
-        <div class="stat" *ngIf="ocrResult &amp;&amp; ocrResult.metadata">
-          <i class="material-icons">{{ 'ocr-template-builder.timer' | translate }}</i>
-          <span>{{ (ocrResult.metadata.processingTime / 1000).toFixed(1) }}s {{ 'ocr-template-builder.processing_time' | translate }}</span>
         </div>
       </div>
     </div>
@@ -270,7 +394,7 @@
     <button mat-button (click)="cancel()">{{ 'common.cancel' | translate }}</button>
     
     <div class="footer-actions">
-      <button mat-raised-button color="primary" *ngIf="viewMode === 'upload'" [disabled]="!selectedFile || !templateForm.valid" (click)="processDocument()">
+      <button mat-raised-button color="primary" *ngIf="viewMode === 'upload'" [disabled]="!selectedFile || !templateForm.valid" (click)="processWithOcr()">
         <mat-icon>{{ 'ocr-template-builder.scanner' | translate }}</mat-icon>{{ 'ocr-template-builder.process_with_ocr' | translate }}</button>
 
       <button mat-raised-button color="accent" *ngIf="viewMode === 'fields'" [disabled]="generatedFields.length === 0" (click)="saveTemplate()">
