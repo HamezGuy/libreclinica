@@ -399,16 +399,21 @@ export interface PatientStudyEnrollment {
   enrollmentNumber: string; // Sequential study-specific ID
   randomizationId?: string;
   treatmentArm?: string;
+  patientNumber?: string; // Patient identifier number
+  enrollmentStatus?: PatientStudyStatus; // Enrollment status
+  siteId?: string; // Site identifier
   
   // Current Status
   status: PatientStudyStatus;
   currentSection?: string; // Current section ID
+  currentPhase?: string; // Current phase ID
   nextScheduledVisit?: Date;
   
   // Progress Tracking
   completedSections: string[];
   sectionsInProgress: string[];
   overdueSections: string[];
+  phaseProgress?: { [phaseId: string]: { status: string; progress: number } }; // Phase progress tracking
   
   // Care Indicators
   careIndicators: CareIndicator[];

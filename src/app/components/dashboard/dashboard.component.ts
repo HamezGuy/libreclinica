@@ -160,15 +160,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
   templates$: Observable<FormTemplate[]> = this.templateService.templates$;
-  studies$: Observable<Study[]> = this.studyService.getStudies();
-  
+  studies$: Observable<Study[]> = of([]);
+
   // Component state
   patients: PatientListItem[] = [];
   studies: Study[] = [];
   selectedStudy: Study | null = null;
   studyEnrollments: PatientStudyEnrollment[] = [];
   careIndicators: CareIndicator[] = [];
-  
+
   // Enhanced study management state
   substudies: Substudy[] = [];
   studyGroups: StudyGroup[] = [];
@@ -178,6 +178,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedStudyGroup: StudyGroup | null = null;
   selectedSection: EnhancedStudySection | null = null;
   
+  // Study dashboard state
+  studyViewTab: 'phases' | 'patients' | 'sites' | 'queries' = 'phases';
+  expandedPhases: Set<string> = new Set();
+  studyPatients: PatientStudyEnrollment[] = [];
+
   // Study management modals
   showSubstudyModal = false;
   showStudyGroupModal = false;
@@ -427,12 +432,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
         });
       });
 
-      this.patients = snapshot.docs.map(doc => {
+      this.patients = await Promise.all(snapshot.docs.map(async doc => {
         const patient = { id: doc.id, ...doc.data() } as any;
 
         // Build display name from demographics
         const demographics = patient.demographics || {};
         const displayName = `${demographics.firstName || 'Unknown'} ${demographics.lastName || 'Patient'}`.trim();
+
+        // Load visit subcomponents from subcollection
+        let visitSubcomponents: any[] = [];
+        try {
+          const { collection, getDocs, getFirestore } = await import('@angular/fire/firestore');
+          const firestore = getFirestore();
+          const subcomponentsRef = collection(firestore, 'patients', doc.id, 'visitSubcomponents');
+          const subcomponentsSnapshot = await getDocs(subcomponentsRef);
+          visitSubcomponents = subcomponentsSnapshot.docs.map(subDoc => ({
+            id: subDoc.id,
+            ...subDoc.data()
+          }));
+        } catch (error) {
+          console.log(`No visit subcomponents for patient ${doc.id}`);
+        }
 
         return {
           id: patient.id,
@@ -441,11 +461,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
           studyId: patient.studyId,
           enrollmentDate: patient.enrollmentDate ? new Date(patient.enrollmentDate.seconds ? patient.enrollmentDate.seconds * 1000 : patient.enrollmentDate) : undefined,
           lastVisit: patient.lastVisit ? new Date(patient.lastVisit.seconds ? patient.lastVisit.seconds * 1000 : patient.lastVisit) : undefined,
-          formsCount: patient.visitSubcomponents?.length || 0,
+          formsCount: visitSubcomponents.length || patient.forms?.length || 0,
           status: patient.enrollmentStatus || 'active' as const,
-          canViewPhi: this.permissions.canView
+          canViewPhi: this.permissions.canView,
+          visitSubcomponents,
+          phases: patient.phases || visitSubcomponents
         };
-      });
+      }));
 
       console.log(`Loaded ${this.patients.length} patients from Firestore`);
     } catch (error) {
@@ -542,13 +564,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Phase selection handler
   async onPhaseSelected(event: { phase: any, progress: any }) {
     console.log('Phase selected:', event);
-    
+
     // You can add logic here to:
     // 1. Navigate to phase-specific forms
     // 2. Show phase details in a modal
     // 3. Filter forms by phase
     // 4. etc.
-    
+
     // For now, let's filter the patient forms by the selected phase
     if (this.selectedPatient && event.phase.id) {
       // TODO: Implement phase-specific form filtering
@@ -813,143 +835,306 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return field.id || index.toString();
   }
 
-  getFieldIcon(fieldType: string): string {
-    const iconMap: { [key: string]: string } = {
-      'text': 'text_fields',
-      'email': 'email',
-      'number': 'numbers',
-      'textarea': 'notes',
-      'select': 'arrow_drop_down',
-      'radio': 'radio_button_checked',
-      'checkbox': 'check_box',
-      'date': 'calendar_today',
-      'time': 'access_time',
-      'file': 'attach_file',
-      'signature': 'draw'
-    };
+trackSite(index: number, site: any): string {
+return site.siteId || index.toString();
+}
 
-    return iconMap[fieldType] || 'text_fields';
-  }
+trackPatient(index: number, patient: any): string {
+  return patient.id || patient.patientNumber || index.toString();
+}
 
-  // Profile edit methods
-  openProfileEditModal(): void {
-    this.showProfileEditModal = true;
-  }
+getFieldIcon(fieldType: string): string {
+const iconMap: { [key: string]: string } = {
+  'text': 'text_fields',
+  'email': 'email',
+  'number': 'numbers',
+  'textarea': 'notes',
+  'select': 'arrow_drop_down',
+  'radio': 'radio_button_checked',
+  'checkbox': 'check_box',
+  'date': 'calendar_today',
+  'time': 'access_time',
+  'file': 'attach_file',
+  'signature': 'draw'
+};
 
-  closeProfileEditModal(): void {
-    this.showProfileEditModal = false;
-  }
+return iconMap[fieldType] || 'text_fields';
+}
 
-  onProfileUpdated(updatedProfile: UserProfile): void {
-    // Update the current user profile reference
-    this.currentUserProfile = updatedProfile;
-    // The userProfile$ observable will automatically update through the auth service
-    console.log('Profile updated successfully:', updatedProfile);
-    
-    // Ensure language is synchronized with the dashboard
-    const currentLang = this.languageService.getCurrentLanguage();
-    if (currentLang) {
-      // Force a refresh of translations if needed
-      this.languageService.setLanguage(currentLang.code);
-    }
-  }
+// Profile edit methods
+openProfileEditModal(): void {
+this.showProfileEditModal = true;
+}
 
-  async signOut() {
-    try {
-      await this.authService.signOut();
-      this.router.navigate(['/login']);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  }
+closeProfileEditModal(): void {
+this.showProfileEditModal = false;
+}
 
-  // Form preview event handlers
-  onPreviewFormDataChanged(formData: any): void {
-    // Handle form data changes if needed
-    console.log('Preview form data changed:', formData);
-  }
+onProfileUpdated(updatedProfile: UserProfile): void {
+// Update the current user profile reference
+this.currentUserProfile = updatedProfile;
+// The userProfile$ observable will automatically update through the auth service
+console.log('Profile updated successfully:', updatedProfile);
 
-  onPreviewFormSaved(formInstance: TemplateFormInstance): void {
-    // Handle form instance save
-    console.log('Preview form saved:', formInstance);
-    // Could show a success message or refresh data
-  }
+// Ensure language is synchronized with the dashboard
+const currentLang = this.languageService.getCurrentLanguage();
+if (currentLang) {
+  // Force a refresh of translations if needed
+  this.languageService.setLanguage(currentLang.code);
+}
+}
 
-  onPreviewFormSubmitted(formInstance: TemplateFormInstance): void {
-    // Handle form instance submission
-    console.log('Preview form submitted:', formInstance);
-    // Could show success message or navigate somewhere
-  }
+async signOut() {
+try {
+  await this.authService.signOut();
+  this.router.navigate(['/login']);
+} catch (error) {
+  console.error('Error signing out:', error);
+}
+}
 
-  // Study Management Methods
-  selectStudy(study: Study): void {
-    this.selectedStudy = study;
-    if (study.id) {
-      this.loadStudyEnrollments(study.id);
-    }
-  }
+// Form preview event handlers
+onPreviewFormDataChanged(formData: any): void {
+// Handle form data changes if needed
+console.log('Preview form data changed:', formData);
+}
 
-  async loadStudyEnrollments(studyId: string): Promise<void> {
-    try {
-      // Use the new getStudyPatients method that retrieves patients by their IDs
-      const patients = await this.studyService.getStudyPatients(studyId);
+onPreviewFormSaved(formInstance: TemplateFormInstance): void {
+// Handle form instance save
+console.log('Preview form saved:', formInstance);
+// Could show a success message or refresh data
+}
 
-      // Convert patient data to enrollment format for compatibility
-      this.studyEnrollments = patients.map(patient => ({
-        id: patient.id || '',
+onPreviewFormSubmitted(formInstance: TemplateFormInstance): void {
+// Handle form instance submission
+console.log('Preview form submitted:', formInstance);
+// Could show success message or navigate somewhere
+}
+
+// Study Management Methods
+selectStudy(study: Study): void {
+this.selectedStudy = study;
+if (study.id) {
+  this.loadStudyEnrollments(study.id);
+}
+}
+
+async loadStudyEnrollments(studyId: string): Promise<void> {
+  try {
+    // Use the new getStudyPatients method that retrieves patients by their IDs
+    const patients = await this.studyService.getStudyPatients(studyId);
+
+    // Convert patient data to enrollment format for compatibility
+    this.studyEnrollments = patients.map(patient => ({
+      id: patient.id || '',
+      studyId: studyId,
+      patientId: patient.id || '',
+      enrollmentDate: patient.enrollmentDate || new Date(),
+      enrollmentNumber: patient.patientNumber || '',
+      status: patient.enrollmentStatus || 'enrolled',
+      currentSection: patient.currentVisitId || undefined,
+      completedSections: [],
+      sectionsInProgress: [],
+      overdueSections: [],
+      careIndicators: patient.activeAlerts?.map((alert: any) => ({
+        id: alert.id,
+        type: alert.type as any,
+        severity: alert.severity as any,
+        title: alert.message,
+        description: alert.message,
         studyId: studyId,
-        patientId: patient.id || '',
-        enrollmentDate: patient.enrollmentDate || new Date(),
-        enrollmentNumber: patient.patientNumber || '',
-        status: patient.enrollmentStatus || 'enrolled',
-        currentSection: patient.currentVisitId || undefined,
-        completedSections: [],
-        sectionsInProgress: [],
-        overdueSections: [],
-        careIndicators: patient.activeAlerts?.map((alert: any) => ({
-          id: alert.id,
-          type: alert.type as any,
-          severity: alert.severity as any,
-          title: alert.message,
-          description: alert.message,
-          studyId: studyId,
-          patientId: patient.id,
-          status: alert.resolvedDate ? 'resolved' : 'open',
-          createdAt: alert.createdDate,
-          createdBy: 'system',
-          escalationLevel: alert.severity === 'critical' ? 3 : alert.severity === 'high' ? 2 : 1
-        })) || [],
-        enrolledBy: patient.createdBy || '',
-        lastModifiedBy: patient.lastModifiedBy || '',
-        lastModifiedAt: patient.lastModifiedAt || new Date(),
-        changeHistory: []
-      }));
-    } catch (error) {
-      console.error('Error loading study enrollments:', error);
-    }
+        patientId: patient.id,
+        status: alert.resolvedDate ? 'resolved' : 'open',
+        createdAt: alert.createdDate,
+        createdBy: 'system',
+        escalationLevel: alert.severity === 'critical' ? 3 : alert.severity === 'high' ? 2 : 1
+      })) || [],
+      enrolledBy: patient.createdBy || '',
+      lastModifiedBy: patient.lastModifiedBy || '',
+      lastModifiedAt: patient.lastModifiedAt || new Date(),
+      changeHistory: []
+    }));
+  } catch (error) {
+    console.error('Error loading study enrollments:', error);
+  }
+}
+
+async createNewStudy(): Promise<void> {
+  console.log('createNewStudy called');
+  if (!this.permissions.canCreate) {
+    alert('You do not have permission to create studies');
+    return;
   }
 
-  async createNewStudy(): Promise<void> {
-    console.log('createNewStudy called');
-    if (!this.permissions.canCreate) {
-      alert('You do not have permission to create studies');
-      return;
-    }
+  console.log('Permissions check passed, opening modal');
+  // Open the Create Study widget modal
+  this.showStudyCreationModal = true;
+  console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
+}
 
-    console.log('Permissions check passed, opening modal');
-    // Open the Create Study widget modal
-    this.showStudyCreationModal = true;
-    console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
+async editStudy(study: Study): Promise<void> {
+  if (!this.permissions.canEdit) {
+    alert('You do not have permission to edit studies');
+    return;
   }
 
-  async editStudy(study: Study): Promise<void> {
-    if (!this.permissions.canEdit) {
-      alert('You do not have permission to edit studies');
-      return;
-    }
+  // TODO: Open study edit modal
+  console.log('Edit study modal would open here:', study);
+}
 
-    // TODO: Open study edit modal
-    console.log('Edit study modal would open here:', study);
+// Phase Management Methods
+getStudyPhases(study: Study): any[] {
+  return study.phases || [];
+}
+
+getPhaseStatus(studyId: string, phase: any): string {
+  const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
+  if (patientsInPhase.length === 0) {
+    return 'not_started';
+  }
+  
+  const hasCompleted = patientsInPhase.some(p => p.phaseProgress?.[phase.id]?.status === 'completed');
+  if (hasCompleted) {
+    const allCompleted = patientsInPhase.every(p => p.phaseProgress?.[phase.id]?.status === 'completed');
+    return allCompleted ? 'completed' : 'in_progress';
+  }
+  
+  return 'in_progress';
+}
+
+getPhaseProgress(studyId: string, phase: any): number {
+  const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
+  if (patientsInPhase.length === 0) return 0;
+  
+  const completedCount = patientsInPhase.filter(
+    p => p.phaseProgress?.[phase.id]?.status === 'completed'
+  ).length;
+  
+  return Math.round((completedCount / patientsInPhase.length) * 100);
+}
+
+// Phase UI Helper Methods
+getPhaseStatusIcon(studyId: string, phase: any): string {
+  const status = this.getPhaseStatus(studyId, phase);
+  switch (status) {
+    case 'completed': return 'check_circle';
+    case 'in_progress': return 'pending';
+    case 'not_started': return 'radio_button_unchecked';
+    default: return 'help';
+  }
+}
+
+getPhaseStatusText(studyId: string, phase: any): string {
+  const status = this.getPhaseStatus(studyId, phase);
+  switch (status) {
+    case 'completed': return 'Completed';
+    case 'in_progress': return 'In Progress';
+    case 'not_started': return 'Not Started';
+    default: return 'Unknown';
+  }
+}
+
+getPhaseProgressColor(studyId: string, phase: any): string {
+  const progress = this.getPhaseProgress(studyId, phase);
+  if (progress >= 75) return '#4caf50';
+  if (progress >= 50) return '#2196f3';
+  if (progress >= 25) return '#ff9800';
+  return '#9e9e9e';
+}
+
+getPhaseProgressDasharray(studyId: string, phase: any): string {
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  return `${circumference} ${circumference}`;
+}
+
+getPhaseProgressDashoffset(studyId: string, phase: any): string {
+  const progress = this.getPhaseProgress(studyId, phase);
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (progress / 100) * circumference;
+  return offset.toString();
+}
+
+// Phase Expansion Methods
+togglePhaseExpansion(phaseId: string): void {
+  if (this.expandedPhases.has(phaseId)) {
+    this.expandedPhases.delete(phaseId);
+  } else {
+    this.expandedPhases.add(phaseId);
+  }
+}
+
+isPhaseExpanded(phaseId: string): boolean {
+  return this.expandedPhases.has(phaseId);
+}
+
+// Patient Phase Methods
+getPatientsInPhase(studyId: string, phaseId: string): PatientStudyEnrollment[] {
+  return this.studyEnrollments.filter(enrollment => {
+    return enrollment.studyId === studyId && 
+           (enrollment.currentPhase === phaseId || 
+            enrollment.phaseProgress?.[phaseId]?.status === 'in_progress' ||
+            enrollment.phaseProgress?.[phaseId]?.status === 'completed');
+  });
+}
+
+getCurrentPatientPhase(patient: PatientStudyEnrollment): string {
+  return patient.currentPhase || 'screening';
+}
+
+// Study Patients Methods
+async loadStudyPatients(studyId: string): Promise<void> {
+  try {
+    const patients = await this.studyService.getStudyPatients(studyId);
+    this.studyPatients = patients.map(patient => ({
+      id: patient.id || '',
+      studyId: studyId,
+      patientId: patient.id || '',
+      enrollmentDate: patient.enrollmentDate || new Date(),
+      enrollmentNumber: patient.patientNumber || '',
+      status: patient.enrollmentStatus || 'enrolled',
+      currentPhase: patient.currentPhase,
+      phaseProgress: patient.phaseProgress || {},
+      completedSections: [],
+      sectionsInProgress: [],
+      overdueSections: [],
+      careIndicators: [],
+      enrolledBy: patient.createdBy || '',
+      lastModifiedBy: patient.lastModifiedBy || '',
+      lastModifiedAt: patient.lastModifiedAt || new Date(),
+      changeHistory: []
+    }));
+  } catch (error) {
+    console.error('Error loading study patients:', error);
+    this.studyPatients = [];
+  }
+}
+
+// Study Progress Methods
+getStudyOverallProgress(study: Study): number {
+  if (!study.phases || study.phases.length === 0) return 0;
+  
+  const totalProgress = study.phases.reduce((sum, phase) => {
+    return sum + this.getPhaseProgress(study.id!, phase);
+  }, 0);
+  
+  return Math.round(totalProgress / study.phases.length);
+}
+
+// Helper for enrollment status display
+getEnrollmentStatus(patient: any): string {
+  return patient?.enrollmentStatus || patient?.status || 'active';
+}
+
+// Helper for treatment arm display
+getTreatmentArm(patient: any): string {
+  return patient?.treatmentArm || 'Unassigned';
+}
+
+  // Track Methods for ngFor
+  trackPhase(index: number, phase: any): string {
+    return phase.id || index.toString();
   }
 
   // Patient Template Methods
@@ -1252,6 +1437,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       };
 
       // Add optional fields only if they exist
+      // Note: When creating patients from templates, many study-specific fields
+      // (like treatmentArm, siteId) may not be applicable and will be undefined.
+      // These can be set later during the actual study enrollment process.
       if (patientData.siteId) {
         newPatient.siteId = patientData.siteId;
       }
@@ -1367,13 +1555,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getTotalEnrollments(): number {
-    return this.studyEnrollments.length;
+    return this.studies.reduce((total, study) => total + (study.actualEnrollment || 0), 0);
   }
 
-  // Removed duplicate - using the more accurate implementation below that filters for open indicators
-
   getActiveStudiesCount(): number {
-    return this.studies.filter(study => study.status === 'active').length;
+    return this.studies.filter(study => study.status === 'active' || study.status === 'recruiting').length;
   }
 
   trackStudy(index: number, study: Study): string {
@@ -1388,19 +1574,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async onStudyCreated(studyData: Study): Promise<void> {
     try {
       console.log('Creating study with data:', studyData);
-      
+
       // Create the study first
       const createdStudy = await this.studyService.createStudy(studyData);
       console.log('Study created:', createdStudy);
-      
+
       if (!createdStudy.id) {
         throw new Error('Study created but no ID returned');
       }
-      
+
       // If the study has sections/phases, create them as StudyPhaseConfig entries
       if (studyData.sections && studyData.sections.length > 0) {
         console.log('Creating study phases:', studyData.sections);
-        
+
         // Convert EnhancedStudySection to StudyPhaseConfig format
         const phaseConfigs = studyData.sections.map((section, index) => ({
           studyId: createdStudy.id!,
@@ -1428,12 +1614,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           allowSkip: section.isOptional || false,
           allowParallel: false
         }));
-        
+
         // Create phases using the study phase service
         await this.studyPhaseService.createStudyPhases(createdStudy.id, phaseConfigs);
         console.log('Study phases created successfully');
       }
-      
+
       this.showStudyCreationModal = false;
       // Refresh the studies list
       this.loadStudies();
@@ -1443,7 +1629,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       alert('Error creating study: ' + (error as Error).message);
     }
   }
-  
+
   private generatePhaseCode(sectionType: string): string {
     const codeMap: { [key: string]: string } = {
       'screening': 'SCR',
@@ -1455,7 +1641,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
     return codeMap[sectionType] || 'GEN';
   }
-  
+
   // Load studies
   loadStudies(): void {
     this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
@@ -1465,9 +1651,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadStudies();
   }
 
-  getSectionsForStudy(studyId: string): EnhancedStudySection[] {
-    const study = this.studies.find(s => s.id === studyId);
-    return (study?.sections as EnhancedStudySection[]) || [];
+  getSectionsForStudy(studyId: string): any[] {
+    // This would typically fetch from a service
+    // For now, return mock data or empty array
+    return [];
   }
 
   getCareIndicatorsForStudy(studyId: string): CareIndicator[] {
@@ -1475,10 +1662,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getStudyProgress(study: Study): number {
-    // Calculate progress based on enrollment vs target
-    const currentEnrollment = study.actualEnrollment || 0;
-    const targetEnrollment = study.plannedEnrollment || 1;
-    return Math.round((currentEnrollment / targetEnrollment) * 100);
+    if (!study.plannedEnrollment || study.plannedEnrollment === 0) {
+      return 0;
+    }
+    return Math.round(((study.actualEnrollment || 0) / study.plannedEnrollment) * 100);
   }
 
   getCareIndicatorIcon(type: string): string {
@@ -2141,19 +2328,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Get the current study
       const study = await this.studyService.getStudy(this.selectedStudy.id);
       if (!study) {
-        throw new Error('Study not found');
+        alert('Study not found');
+        return;
       }
 
-      // Find the section to update
-      const sectionIndex = study.sections.findIndex(s => s.id === sectionId);
-      if (sectionIndex === -1) {
-        throw new Error('Section not found');
+      // Find the section index
+      const sectionIndex = study.sections?.findIndex((s: any) => s.id === sectionId);
+      if (sectionIndex === -1 || sectionIndex === undefined) {
+        alert('Section not found');
+        return;
       }
 
-      // Get template details
-      const template = await this.templateService.getTemplate(templateId);
+      // Get the template details
+      const templates = await firstValueFrom(this.templates$);
+      const template = templates.find(t => t.id === templateId);
       if (!template) {
-        throw new Error('Template not found');
+        alert('Template not found');
+        return;
       }
 
       // Create template reference
@@ -2397,9 +2588,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  trackPatient(index: number, patient: PatientListItem): string {
-    return patient.id || index.toString();
-  }
   
   // Delete patient from study
   deletePatientFromStudy(patient: string | PatientListItem, studyId: string) {
@@ -2439,9 +2627,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
   
   // View patient details with phases and templates
-  viewPatientDetails(patient: PatientListItem) {
+  viewPatientDetails(patient: PatientListItem | PatientStudyEnrollment) {
     // Navigate to patient detail component
-    this.router.navigate(['/patient-detail', patient.id]);
+    // Handle both PatientListItem and PatientStudyEnrollment types
+    const patientId = 'id' in patient ? patient.id : patient.patientId;
+    this.router.navigate(['/patient-detail', patientId]);
   }
   
   // Toggle sidebar
@@ -2631,5 +2821,59 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   loadTemplates(): void {
     this.refreshTemplates();
+  }
+
+  // Template Assignment Methods
+  getTemplateCompletionForPhase(studyId: string, phaseId: string, templateId?: string): number {
+    // TODO: Implement actual template completion calculation
+    // templateId parameter is optional, used for specific template completion
+    return 0;
+  }
+
+  assignTemplateToPhase(studyId: string, phaseId: string): void {
+    // TODO: Implement template assignment modal/logic
+    console.log('Assigning template to phase:', phaseId);
+  }
+
+  trackTemplateAssignment(index: number, assignment: any): string {
+    return assignment?.id || index.toString();
+  }
+
+  addPhaseToStudy(studyId: string): void {
+    // TODO: Implement add phase modal/logic
+    console.log('Adding phase to study:', studyId);
+  }
+
+  // Patient Helper Methods
+  formatDate(date: any): string {
+    if (!date) return 'N/A';
+    if (date instanceof Date) {
+      return date.toLocaleDateString();
+    }
+    if (date.toDate && typeof date.toDate === 'function') {
+      return date.toDate().toLocaleDateString();
+    }
+    return 'N/A';
+  }
+
+  getSiteName(siteId: string): string {
+    // TODO: Implement site lookup
+    return siteId || 'Unassigned';
+  }
+
+  getPatientProgress(patient: PatientStudyEnrollment): number {
+    // TODO: Implement patient progress calculation based on patient enrollment data
+    if (!patient.phaseProgress) return 0;
+    
+    const phases = Object.values(patient.phaseProgress);
+    if (phases.length === 0) return 0;
+    
+    const totalProgress = phases.reduce((sum, phase) => sum + (phase.progress || 0), 0);
+    return Math.round(totalProgress / phases.length);
+  }
+
+  editPatientPhase(patient: PatientStudyEnrollment): void {
+    // TODO: Implement patient phase editing
+    console.log('Edit patient phase:', patient.studyId, patient.patientId);
   }
 }

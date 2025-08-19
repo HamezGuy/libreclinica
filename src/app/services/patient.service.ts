@@ -123,16 +123,22 @@ export class PatientService {
     });
 
     // Create reference in study's patients subcollection (using simplified patient data)
-    const studyPatientRef = {
+    const studyPatientRef: any = {
       patientId,
       patientNumber: newPatient.patientNumber,
       enrollmentDate: now,
       status: newPatient.enrollmentStatus,
-      treatmentArm: newPatient.treatmentArm,
-      siteId: newPatient.siteId,
       addedBy: currentUser.uid,
       addedAt: now
     };
+    
+    // Only add optional fields if they are defined
+    if (newPatient.treatmentArm !== undefined && newPatient.treatmentArm !== null) {
+      studyPatientRef.treatmentArm = newPatient.treatmentArm;
+    }
+    if (newPatient.siteId !== undefined && newPatient.siteId !== null) {
+      studyPatientRef.siteId = newPatient.siteId;
+    }
     
     await runInInjectionContext(this.injector, async () => {
       await setDoc(doc(this.firestore, `studies/${studyId}/patients`, patientId), studyPatientRef);
@@ -155,11 +161,13 @@ export class PatientService {
         
         for (const section of study.sections) {
           const newPhaseId = doc(collection(this.firestore, 'temp')).id;
-          const patientPhase = {
-            ...section,
+          const patientPhase: any = {
             patientId: patientId,
             originalSectionId: section.id,
             id: newPhaseId,
+            name: section.name || 'Unnamed Phase',
+            order: section.order || 0,
+            type: section.type || 'treatment',
             status: 'not_started',
             completionPercentage: 0,
             completedForms: [],
@@ -167,6 +175,10 @@ export class PatientService {
             createdAt: now,
             lastModifiedAt: now
           };
+          // Only add optional fields if they exist
+          if (section.description) patientPhase.description = section.description;
+          if (section.windowStartDays !== undefined) patientPhase.windowStartDays = section.windowStartDays;
+          if (section.windowEndDays !== undefined) patientPhase.windowEndDays = section.windowEndDays;
           patientPhases.push(patientPhase);
           
           // Copy forms associated with this section/phase
@@ -175,13 +187,13 @@ export class PatientService {
             
             for (const sectionTemplate of section.formTemplates) {
               // Create a patient-specific form instance
-              const patientForm = {
-                ...sectionTemplate,
+              const patientForm: any = {
                 patientId: patientId,
                 phaseId: newPhaseId, // Link to the new patient phase
                 originalSectionId: section.id, // Keep reference to original section
                 templateId: sectionTemplate.templateId || sectionTemplate.id,
                 id: doc(collection(this.firestore, 'temp')).id,
+                name: sectionTemplate.name || 'Unnamed Form',
                 status: 'not_started',
                 responses: {},
                 completedAt: null,
@@ -190,6 +202,9 @@ export class PatientService {
                 isRequired: sectionTemplate.isRequired || false,
                 order: sectionTemplate.order || 0
               };
+              // Only add optional fields if they exist
+              if (sectionTemplate.description) patientForm.description = sectionTemplate.description;
+              if (sectionTemplate.version) patientForm.version = sectionTemplate.version;
               patientForms.push(patientForm);
             }
           }
@@ -201,11 +216,13 @@ export class PatientService {
         
         for (const phase of study.phases) {
           const newPhaseId = doc(collection(this.firestore, 'temp')).id;
-          const patientPhase = {
-            ...phase,
+          const patientPhase: any = {
             patientId: patientId,
             originalPhaseId: phase.id,
             id: newPhaseId,
+            name: phase.name || 'Unnamed Phase',
+            order: phase.order || 0,
+            type: phase.type || 'treatment',
             status: 'not_started',
             completionPercentage: 0,
             completedForms: [],
@@ -213,6 +230,10 @@ export class PatientService {
             createdAt: now,
             lastModifiedAt: now
           };
+          // Only add optional fields if they exist
+          if (phase.description) patientPhase.description = phase.description;
+          if (phase.windowStartDays !== undefined) patientPhase.windowStartDays = phase.windowStartDays;
+          if (phase.windowEndDays !== undefined) patientPhase.windowEndDays = phase.windowEndDays;
           patientPhases.push(patientPhase);
           
           // Copy forms associated with this phase
@@ -221,19 +242,23 @@ export class PatientService {
               // Find the template in study.formTemplates
               const template = study.formTemplates?.find((t: any) => t.id === templateId);
               if (template) {
-                const patientForm = {
-                  ...template,
+                const patientForm: any = {
                   patientId: patientId,
                   phaseId: newPhaseId, // Link to the new patient phase
                   originalPhaseId: phase.id, // Keep reference to original phase
                   templateId: template.id,
                   id: doc(collection(this.firestore, 'temp')).id,
+                  name: template.name || 'Unnamed Form',
                   status: 'not_started',
                   responses: {},
                   completedAt: null,
                   createdAt: now,
                   lastModifiedAt: now
                 };
+                // Only add optional fields if they exist
+                if (template.description) patientForm.description = template.description;
+                if (template.version) patientForm.version = template.version;
+                if (template.isRequired !== undefined) patientForm.isRequired = template.isRequired;
                 patientForms.push(patientForm);
               }
             }
@@ -247,18 +272,22 @@ export class PatientService {
           // Check if this template was already added via a phase
           const alreadyAdded = patientForms.some((f: any) => f.templateId === template.id);
           if (!alreadyAdded) {
-            const patientForm = {
-              ...template,
+            const patientForm: any = {
               patientId: patientId,
               phaseId: null, // No phase association
               templateId: template.id,
               id: doc(collection(this.firestore, 'temp')).id,
+              name: template.name || 'Unnamed Form',
               status: 'not_started',
               responses: {},
               completedAt: null,
               createdAt: now,
               lastModifiedAt: now
             };
+            // Only add optional fields if they exist
+            if (template.description) patientForm.description = template.description;
+            if (template.version) patientForm.version = template.version;
+            if (template.isRequired !== undefined) patientForm.isRequired = template.isRequired;
             patientForms.push(patientForm);
           }
         }
@@ -266,33 +295,77 @@ export class PatientService {
       
       console.log(`[PatientService] Created ${patientPhases.length} phases and ${patientForms.length} forms for patient`);
       
-      // Update patient with phases and forms
-      await runInInjectionContext(this.injector, async () => {
-        await updateDoc(patientRef, {
-          phases: patientPhases,
-          forms: patientForms
+      // Update patient with phases and forms - clean them first to remove undefined values
+      const cleanedPhases = patientPhases.map(phase => this.prepareForFirestore(phase));
+      const cleanedForms = patientForms.map(form => this.prepareForFirestore(form));
+      
+      // Only update if we have phases or forms to add
+      if (cleanedPhases.length > 0 || cleanedForms.length > 0) {
+        const updateData: any = {};
+        if (cleanedPhases.length > 0) updateData.phases = cleanedPhases;
+        if (cleanedForms.length > 0) updateData.forms = cleanedForms;
+        
+        await runInInjectionContext(this.injector, async () => {
+          await updateDoc(patientRef, this.prepareForFirestore(updateData));
         });
+      }
+      
+      // Load study phases from the studyPhases collection
+      const { collection: fbCollection, getDocs, query, where, orderBy, getFirestore } = await import('@angular/fire/firestore');
+      const firestore = getFirestore();
+      
+      // Query study phases for this specific study ONLY
+      const studyPhasesRef = fbCollection(firestore, 'studyPhases');
+      const studyPhasesQuery = query(
+        studyPhasesRef, 
+        where('studyId', '==', studyId),
+        orderBy('order', 'asc')
+      );
+      
+      console.log(`[PatientService] Querying studyPhases collection for studyId: ${studyId}`);
+      
+      const studyPhasesSnapshot = await runInInjectionContext(this.injector, async () => 
+        await getDocs(studyPhasesQuery)
+      );
+      
+      const studyPhases = studyPhasesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log(`[PatientService] Found phase: ${data['phaseName'] || data['name']} with studyId: ${data['studyId']}`);
+        // Only include phases that belong to this specific study
+        if (data['studyId'] === studyId) {
+          return {
+            id: doc.id,
+            ...data
+          };
+        }
+        return null;
+      }).filter(phase => phase !== null); // Remove any null entries
+      
+      console.log(`[PatientService] Found ${studyPhases.length} study phases for study ${studyId}`);
+      
+      // Log phase details for debugging
+      studyPhases.forEach((phase: any) => {
+        console.log(`[PatientService] Phase: ${phase.phaseName || phase.name}, Templates: ${phase.templateAssignments?.length || 0}`);
       });
       
-      // Create visit subcomponents if sections exist
-      if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
-        // Create visit subcomponents from study sections
-        const visitSubcomponents = await this.createVisitSubcomponentsFromSections(
-          study.sections,
+      // Create visit subcomponents from study phases
+      if (studyPhases.length > 0) {
+        console.log(`[PatientService] Creating visit subcomponents from ${studyPhases.length} phases`);
+        await this.createVisitSubcomponentsFromPhases(
           patientId,
-          studyId,
+          studyPhases,
           currentUser.uid
         );
-        
-        // Update patient with visit subcomponents
-        await runInInjectionContext(this.injector, async () => {
-          await updateDoc(patientRef, {
-            visitSubcomponents: visitSubcomponents
-          });
-        });
+      } else if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
+        // Fallback to creating from sections if no phases exist
+        console.log(`[PatientService] No phases found in studyPhases collection, falling back to sections`);
+        await this.createVisitSubcomponentsFromSections(
+          patientId,
+          study.sections,
+          currentUser.uid
+        );
       } else {
-        // Fallback to default visit subcomponents if no sections are defined
-        await this.createDefaultVisitSubcomponents(patientId, studyId);
+        console.log(`[PatientService] No phases or sections found for study ${studyId}`);
       }
     }
 
@@ -352,43 +425,188 @@ export class PatientService {
     }
   }
 
+  // Create visit subcomponents from study phases
+  private async createVisitSubcomponentsFromPhases(
+    patientId: string,
+    studyPhases: any[],
+    userId: string
+  ): Promise<void> {
+    const { collection, doc, setDoc, getFirestore } = await import('@angular/fire/firestore');
+    const firestore = getFirestore();
+    const patientRef = doc(firestore, 'patients', patientId);
+    const subcomponentsRef = collection(patientRef, 'visitSubcomponents');
+    
+    let totalSubcomponents = 0;
+    
+    for (const phase of studyPhases) {
+      console.log(`[PatientService] Processing phase: ${phase.phaseName || phase.name}, ID: ${phase.id}`);
+      
+      // First, create a phase-level visit subcomponent
+      const phaseSubcomponentId = `phase_${phase.id}`;
+      const phaseSubcomponentRef = doc(subcomponentsRef, phaseSubcomponentId);
+      
+      const phaseSubcomponent: any = {
+        id: phaseSubcomponentId,
+        patientId,
+        studyId: phase.studyId, // Ensure studyId is included
+        phaseId: phase.id,
+        phaseName: phase.phaseName || phase.name || `Phase ${phase.order}`,
+        phaseOrder: phase.order || 0,
+        type: phase.type || 'treatment',
+        isPhaseFolder: true, // Mark this as a phase folder
+        order: phase.order || 0,
+        status: 'pending',
+        completionPercentage: 0,
+        createdAt: new Date(),
+        createdBy: userId,
+        updatedAt: new Date(),
+        lastModifiedBy: userId,
+        windowStartDays: phase.windowStartDays || 0,
+        windowEndDays: phase.windowEndDays || 30,
+        daysToComplete: phase.daysToComplete || 7,
+        // Store template IDs for this phase
+        templateIds: [],
+        requiredTemplateIds: [],
+        optionalTemplateIds: [],
+        completedTemplates: [],
+        inProgressTemplates: []
+      };
+      
+      // Add description if available
+      if (phase.description) {
+        phaseSubcomponent.description = phase.description;
+      }
+      
+      // Add scheduled date if applicable
+      if (phase.plannedDurationDays) {
+        const scheduledDate = new Date();
+        scheduledDate.setDate(scheduledDate.getDate() + (phase.plannedDurationDays || 0));
+        phaseSubcomponent.scheduledDate = scheduledDate;
+      }
+      
+      // Process template assignments for this phase
+      if (phase.templateAssignments && Array.isArray(phase.templateAssignments)) {
+        console.log(`[PatientService] Phase has ${phase.templateAssignments.length} template assignments`);
+        
+        const templateIds: string[] = [];
+        const requiredTemplateIds: string[] = [];
+        const optionalTemplateIds: string[] = [];
+        
+        for (let i = 0; i < phase.templateAssignments.length; i++) {
+          const assignment = phase.templateAssignments[i];
+          const templateSubcomponentId = `${phase.id}_template_${assignment.templateId || i}`;
+          const templateSubcomponentRef = doc(subcomponentsRef, templateSubcomponentId);
+          
+          // Add to template lists
+          templateIds.push(assignment.templateId);
+          if (assignment.isRequired) {
+            requiredTemplateIds.push(assignment.templateId);
+          } else {
+            optionalTemplateIds.push(assignment.templateId);
+          }
+          
+          const templateSubcomponent: any = {
+            id: templateSubcomponentId,
+            patientId,
+            studyId: phase.studyId, // Ensure studyId is included
+            phaseId: phase.id,
+            phaseName: phase.phaseName || phase.name || `Phase ${phase.order}`,
+            phaseOrder: phase.order || 0,
+            templateId: assignment.templateId,
+            templateName: assignment.templateName || `Template ${i + 1}`,
+            templateVersion: assignment.templateVersion || '1.0',
+            type: 'form', // Mark this as a form/template
+            isPhaseFolder: false,
+            order: (phase.order * 1000) + (assignment.order || i), // Ensure unique ordering
+            status: 'pending',
+            completionPercentage: 0,
+            createdAt: new Date(),
+            createdBy: userId,
+            updatedAt: new Date(),
+            lastModifiedBy: userId,
+            isRequired: assignment.isRequired || false,
+            completionRequired: assignment.completionRequired || false,
+            signatureRequired: assignment.signatureRequired || false,
+            reviewRequired: assignment.reviewRequired || false,
+            windowStartDays: assignment.windowStartDays || phase.windowStartDays || 0,
+            windowEndDays: assignment.windowEndDays || phase.windowEndDays || 30,
+            daysToComplete: assignment.daysToComplete || 7
+          };
+          
+          // Add scheduled date if applicable
+          if (assignment.scheduledDays || phase.plannedDurationDays) {
+            const scheduledDate = new Date();
+            scheduledDate.setDate(scheduledDate.getDate() + (assignment.scheduledDays || phase.plannedDurationDays || 0));
+            templateSubcomponent.scheduledDate = scheduledDate;
+          }
+          
+          console.log(`[PatientService] Creating template subcomponent: ${templateSubcomponent.templateName}`);
+          
+          await runInInjectionContext(this.injector, async () => {
+            await setDoc(templateSubcomponentRef, this.prepareForFirestore(templateSubcomponent));
+          });
+          
+          totalSubcomponents++;
+        }
+        
+        // Update phase subcomponent with template IDs
+        phaseSubcomponent.templateIds = templateIds;
+        phaseSubcomponent.requiredTemplateIds = requiredTemplateIds;
+        phaseSubcomponent.optionalTemplateIds = optionalTemplateIds;
+      } else {
+        console.log(`[PatientService] Phase ${phase.phaseName || phase.name} has no template assignments`);
+      }
+      
+      // Save the phase subcomponent
+      console.log(`[PatientService] Creating phase subcomponent: ${phaseSubcomponent.phaseName}`);
+      await runInInjectionContext(this.injector, async () => {
+        await setDoc(phaseSubcomponentRef, this.prepareForFirestore(phaseSubcomponent));
+      });
+      
+      totalSubcomponents++;
+    }
+    
+    console.log(`[PatientService] Created ${totalSubcomponents} visit subcomponents from ${studyPhases.length} phases for patient ${patientId}`);
+  }
+  
   // Create visit subcomponents from study sections
   private async createVisitSubcomponentsFromSections(
-    sections: any[],
     patientId: string,
-    studyId: string,
+    sections: any[],
     userId: string
-  ): Promise<PatientVisitSubcomponent[]> {
+  ): Promise<void> {
+    const { collection, doc, setDoc, getFirestore } = await import('@angular/fire/firestore');
+    const firestore = getFirestore();
+    const patientRef = doc(firestore, 'patients', patientId);
+    const subcomponentsRef = collection(patientRef, 'visitSubcomponents');
     const now = new Date();
-    const visitSubcomponents: PatientVisitSubcomponent[] = [];
 
     for (const section of sections) {
       const subcomponentId = this.generateId();
-      const subcomponent: PatientVisitSubcomponent = {
+      const subcomponent: any = {
         id: subcomponentId,
         patientId,
-        studyId,
         name: section.name || 'Unnamed Section',
-        description: section.description,
         type: section.type || 'treatment',
         order: section.order || 1,
         phaseId: section.id,
         isPhaseFolder: true,
         
-        // Calculate visit window dates based on enrollment date and scheduled day
-        scheduledDate: section.scheduledDay ? 
-          new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
-          undefined,
-        windowStartDate: section.windowStart !== undefined ? 
-          new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
-          undefined,
-        windowEndDate: section.windowEnd !== undefined ? 
-          new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
-          undefined,
-        
         // Initial status
         status: 'scheduled',
         completionPercentage: 0,
+        
+        // Timing information
+        windowStartDays: section.windowStartDays || 0,
+        windowEndDays: section.windowEndDays || 30,
+        daysToComplete: section.daysToComplete || 7,
+        
+        // Metadata
+        createdAt: now,
+        createdBy: userId,
+        updatedAt: now,
+        lastModifiedBy: userId,
+        lastModifiedAt: now,
         
         // Copy form template IDs from section
         templateIds: section.formTemplates || [],
@@ -399,19 +617,33 @@ export class PatientService {
         
         // Phase progression
         canProgressToNextPhase: false,
-        blockingTemplates: section.formTemplates || [],
-        
-        // Metadata
-        createdBy: userId,
-        createdAt: now,
-        lastModifiedBy: userId,
-        lastModifiedAt: now
+        blockingTemplates: section.formTemplates || []
       };
       
-      visitSubcomponents.push(subcomponent);
+      // Add optional fields only if they are defined
+      if (section.description !== undefined && section.description !== null) {
+        subcomponent.description = section.description;
+      }
+      
+      // Calculate visit window dates based on enrollment date and scheduled day
+      if (section.scheduledDay !== undefined && section.scheduledDay !== null) {
+        subcomponent.scheduledDate = new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000));
+      }
+      if (section.windowStart !== undefined && section.windowStart !== null) {
+        subcomponent.windowStartDate = new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000));
+      }
+      if (section.windowEnd !== undefined && section.windowEnd !== null) {
+        subcomponent.windowEndDate = new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000));
+      }
+      
+      // Save to Firestore subcollection
+      const subcomponentRef = doc(subcomponentsRef, subcomponentId);
+      await runInInjectionContext(this.injector, async () => {
+        await setDoc(subcomponentRef, this.prepareForFirestore(subcomponent));
+      });
     }
-
-    return visitSubcomponents;
+    
+    console.log(`Created ${sections.length} visit subcomponents from sections for patient ${patientId}`);
   }
 
   // Helper method to generate unique IDs
@@ -471,6 +703,33 @@ export class PatientService {
       // Mask PHI if user doesn't have permission
       if (!this.canViewPHI(currentUser)) {
         patient.demographics = this.maskPHI(patient.demographics);
+      }
+
+      // Load visit subcomponents from subcollection
+      try {
+        const subcomponentsRef = collection(this.firestore, this.COLLECTION_NAME, patientId, this.VISIT_SUBCOMPONENTS_COLLECTION);
+        const subcomponentsSnapshot = await runInInjectionContext(this.injector, async () => 
+          await getDocs(subcomponentsRef)
+        );
+        
+        const visitSubcomponents: PatientVisitSubcomponent[] = [];
+        subcomponentsSnapshot.forEach(doc => {
+          visitSubcomponents.push(this.convertFromFirestore(doc.data()) as PatientVisitSubcomponent);
+        });
+        
+        // Sort by order
+        visitSubcomponents.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        // Add to patient object for backward compatibility
+        patient.visitSubcomponents = visitSubcomponents;
+        
+        // Also set as phases if phases array is empty
+        if (!patient.phases || patient.phases.length === 0) {
+          patient.phases = visitSubcomponents;
+        }
+      } catch (error) {
+        console.log('No visit subcomponents found or error loading them:', error);
+        // Continue without subcomponents
       }
 
       return patient;
@@ -910,22 +1169,54 @@ export class PatientService {
 
   // Firestore conversion helpers
   private prepareForFirestore(data: any): any {
-    const prepared = { ...data };
+    // First remove undefined values
+    const cleaned = this.removeUndefinedFields(data);
+    const prepared = { ...cleaned };
     
     // Convert Date objects to Firestore Timestamps
     Object.keys(prepared).forEach(key => {
       if (prepared[key] instanceof Date) {
         prepared[key] = Timestamp.fromDate(prepared[key]);
       } else if (Array.isArray(prepared[key])) {
-        prepared[key] = prepared[key].map((item: any) => 
-          typeof item === 'object' ? this.prepareForFirestore(item) : item
-        );
+        prepared[key] = prepared[key]
+          .filter(item => item !== undefined) // Remove undefined items from arrays
+          .map((item: any) => 
+            typeof item === 'object' ? this.prepareForFirestore(item) : item
+          );
       } else if (typeof prepared[key] === 'object' && prepared[key] !== null) {
         prepared[key] = this.prepareForFirestore(prepared[key]);
       }
     });
     
     return prepared;
+  }
+  
+  // Helper to remove undefined fields from objects
+  private removeUndefinedFields(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj
+        .filter(item => item !== undefined)
+        .map(item => this.removeUndefinedFields(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const result: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          const cleanedValue = this.removeUndefinedFields(value);
+          if (cleanedValue !== undefined) {
+            result[key] = cleanedValue;
+          }
+        }
+      }
+      return result;
+    }
+    
+    return obj;
   }
 
   private convertFromFirestore(data: any): any {

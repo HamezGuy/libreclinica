@@ -294,8 +294,8 @@
                     <span>{{ study.actualEnrollment || 0 }}/{{ study.plannedEnrollment }} enrolled</span>
                   </div>
                   <div class="meta-item">
-                    <i class="material-icons">description</i>
-                    <span>{{ getSectionsForStudy(study.id || '').length }} sections</span>
+                    <i class="material-icons">timeline</i>
+                    <span>{{ getStudyPhases(study).length }} phases</span>
                   </div>
                   <div class="meta-item" *ngIf="getCareIndicatorsForStudy(study.id || '').length > 0">
                     <i class="material-icons">warning</i>
@@ -303,12 +303,20 @@
                   </div>
                 </div>
                 
-                <!-- Progress Bar for Selected Study -->
-                <div class="study-progress" *ngIf="selectedStudy?.id === study.id">
-                  <div class="progress-bar">
-                    <div class="progress-fill" [style.width.%]="getStudyProgress(study)"></div>
+                <!-- Study Phase Progress Overview -->
+                <div class="study-phases-overview" *ngIf="selectedStudy?.id === study.id">
+                  <div class="phases-progress-bar">
+                    <div *ngFor="let phase of getStudyPhases(study); let i = index" 
+                         class="phase-segment" 
+                         [class]="'phase-' + getPhaseStatus(study.id || '', phase)"
+                         [style.width.%]="100 / getStudyPhases(study).length"
+                         [title]="phase.phaseName + ': ' + getPhaseStatus(study.id || '', phase)">
+                      <span class="phase-code">{{ phase.phaseCode }}</span>
+                    </div>
                   </div>
-                  <span class="progress-text">{{ getStudyProgress(study) }}% Complete</span>
+                  <div class="overall-progress">
+                    <span class="progress-text">{{ getStudyOverallProgress(study) }}% Complete</span>
+                  </div>
                 </div>
               </div>
               
@@ -337,85 +345,197 @@
                 </div>
               </div>
               
-              <!-- Enhanced Study Management Panel -->
+              <!-- Enhanced Study Phase Management Panel -->
               <div class="enhanced-study-panel" *ngIf="selectedStudy?.id === study.id">
                 <div class="study-tabs">
-                  <button class="tab-button active" (click)="$event.stopPropagation()">
-                    <i class="material-icons">description</i>{{ 'dashboard.forms_sections' | translate }}</button>
-                  <button class="tab-button" (click)="openSubstudyModal(); $event.stopPropagation()">
-                    <i class="material-icons">location_on</i>{{ 'dashboard.substudies' | translate }}</button>
-                  <button class="tab-button" (click)="openStudyGroupModal(); $event.stopPropagation()">
-                    <i class="material-icons">group</i>{{ 'dashboard.study_groups' | translate }}</button>
-                  <button class="tab-button" *ngIf="getActiveDataQueriesCount() > 0" (click)="$event.stopPropagation()">
+                  <button class="tab-button" [class.active]="studyViewTab === 'phases'" (click)="studyViewTab = 'phases'; $event.stopPropagation()">
+                    <i class="material-icons">timeline</i>Study Phases</button>
+                  <button class="tab-button" [class.active]="studyViewTab === 'patients'" (click)="studyViewTab = 'patients'; loadStudyPatients(study.id || ''); $event.stopPropagation()">
+                    <i class="material-icons">people</i>Enrolled Patients ({{ study.actualEnrollment || 0 }})</button>
+                  <button class="tab-button" [class.active]="studyViewTab === 'sites'" (click)="studyViewTab = 'sites'; $event.stopPropagation()">
+                    <i class="material-icons">location_on</i>Sites</button>
+                  <button class="tab-button" *ngIf="getActiveDataQueriesCount() > 0" [class.active]="studyViewTab === 'queries'" (click)="studyViewTab = 'queries'; $event.stopPropagation()">
                     <i class="material-icons">help</i>
                     Data Queries ({{ getActiveDataQueriesCount() }})
                   </button>
                 </div>
                 
-                <!-- Study Sections with Form Management -->
-                <div class="study-sections">
-                  <div *ngFor="let section of getSectionsForStudy(study.id || ''); trackBy: trackSection" class="section-item" [class.completed]="isSectionComplete(section.id)">
+                <!-- Study Phases View -->
+                <div class="study-phases-detail" *ngIf="studyViewTab === 'phases'">
+                  <div *ngFor="let phase of getStudyPhases(study); trackBy: trackPhase" class="phase-card">
                     
-                    <div class="section-header">
-                      <div class="section-info">
-                        <h4>{{ section.name }}</h4>
-                        <span class="section-type">{{ section.type | titlecase }}</span>
-                        <div class="section-progress">
-                          <div class="progress-bar">
-                            <div class="progress-fill" [style.width.%]="getSectionCompletionPercentage(section.id)"></div>
+                    <div class="phase-header" (click)="togglePhaseExpansion(phase.id)">
+                      <div class="phase-info">
+                        <div class="phase-title">
+                          <span class="phase-code-badge">{{ phase.phaseCode }}</span>
+                          <h4>{{ phase.phaseName }}</h4>
+                        </div>
+                        <p class="phase-description" *ngIf="phase.description">{{ phase.description }}</p>
+                      </div>
+                      
+                      <div class="phase-status-indicator">
+                        <div class="phase-status" [class]="'status-' + getPhaseStatus(study.id || '', phase)">
+                          <i class="material-icons">{{ getPhaseStatusIcon(study.id || '', phase) }}</i>
+                          <span>{{ getPhaseStatusText(study.id || '', phase) }}</span>
+                        </div>
+                        <div class="phase-progress">
+                          <div class="progress-ring">
+                            <svg width="60" height="60">
+                              <circle cx="30" cy="30" r="25" fill="none" stroke="#e0e0e0" stroke-width="4"></circle>
+                              <circle cx="30" cy="30" r="25" fill="none" 
+                                      [attr.stroke]="getPhaseProgressColor(study.id || '', phase)" 
+                                      stroke-width="4"
+                                      [attr.stroke-dasharray]="getPhaseProgressDasharray(study.id || '', phase)"
+                                      [attr.stroke-dashoffset]="getPhaseProgressDashoffset(study.id || '', phase)"
+                                      transform="rotate(-90 30 30)"></circle>
+                            </svg>
+                            <div class="progress-text">{{ getPhaseProgress(study.id || '', phase) }}%</div>
                           </div>
-                          <span class="progress-text">{{ getSectionCompletionPercentage(section.id) }}% Complete</span>
+                        </div>
+                        <button class="expand-button" [class.expanded]="isPhaseExpanded(phase.id)">
+                          <i class="material-icons">{{ isPhaseExpanded(phase.id) ? 'expand_less' : 'expand_more' }}</i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Phase Details (Expandable) -->
+                    <div class="phase-details" *ngIf="isPhaseExpanded(phase.id)">
+                      <div class="phase-metadata">
+                        <div class="meta-row">
+                          <span class="meta-label">Duration:</span>
+                          <span class="meta-value">{{ phase.plannedDurationDays || 'N/A' }} days</span>
+                        </div>
+                        <div class="meta-row">
+                          <span class="meta-label">Window:</span>
+                          <span class="meta-value">{{ phase.windowStartDays || 0 }} to {{ phase.windowEndDays || 0 }} days</span>
+                        </div>
+                        <div class="meta-row">
+                          <span class="meta-label">Patients in Phase:</span>
+                          <span class="meta-value">{{ getPatientsInPhase(study.id || '', phase.id).length }}</span>
                         </div>
                       </div>
                       
-                      <div class="section-actions">
-                        <button class="btn btn-xs btn-secondary" (click)="openFormAssignmentModal(section); $event.stopPropagation()" :title="'dashboard.assign_form' | translate">
-                          <i class="material-icons">add</i>{{ 'dashboard.add_form' | translate }}</button>
-                        
-                        <button class="btn btn-xs btn-success" *ngIf="!isSectionComplete(section.id)" (click)="markSectionComplete(section.id); $event.stopPropagation()" :title="'dashboard.mark_complete' | translate">
-                          <i class="material-icons">check_circle</i>
-                        </button>
-                        
-                        <button class="btn btn-xs btn-warning" *ngIf="isSectionComplete(section.id)" (click)="markSectionIncomplete(section.id); $event.stopPropagation()" :title="'dashboard.mark_incomplete' | translate">
-                          <i class="material-icons">radio_button_unchecked</i>
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <!-- Section Forms -->
-                    <div class="section-forms" *ngIf="getFormInstancesForSection(section.id).length > 0">
-                      <div *ngFor="let formInstance of getFormInstancesForSection(section.id); trackBy: trackFormInstance" class="form-instance" [class]="'status-' + formInstance.status">
-                        
-                        <div class="form-info">
-                          <span class="form-name">{{ formInstance.templateName }}</span>
-                          <span class="form-status">{{ formInstance.status | titlecase }}</span>
-                          <div class="form-progress">
-                            <div class="progress-bar small">
-                              <div class="progress-fill" [style.width.%]="formInstance.completionPercentage"></div>
+                      <!-- Phase Templates -->
+                      <div class="phase-templates">
+                        <h5>Associated Templates ({{ phase.templateAssignments?.length || 0 }})</h5>
+                        <div class="template-list">
+                          <div *ngFor="let assignment of phase.templateAssignments; trackBy: trackTemplateAssignment" 
+                               class="template-item" 
+                               [class.required]="assignment.isRequired">
+                            <div class="template-info">
+                              <i class="material-icons">{{ assignment.category === 'vitals' ? 'favorite' : assignment.category === 'labs' ? 'science' : 'assignment' }}</i>
+                              <div class="template-details">
+                                <span class="template-name">{{ assignment.templateName }}</span>
+                                <span class="template-meta">
+                                  <span class="badge" *ngIf="assignment.isRequired">Required</span>
+                                  <span class="badge" *ngIf="!assignment.isRequired">Optional</span>
+                                  <span class="due-text" *ngIf="assignment.dueAfterDays">
+                                    Due {{ assignment.dueAfterDays }} days after phase start
+                                  </span>
+                                </span>
+                              </div>
                             </div>
-                            <span class="progress-text">{{ formInstance.completionPercentage }}%</span>
+                            <div class="template-completion">
+                              <span class="completion-stat">{{ getTemplateCompletionForPhase(study.id || '', phase.id, assignment.templateId) }}</span>
+                            </div>
                           </div>
                         </div>
                         
-                        <div class="form-actions">
-                          <button class="btn btn-xs btn-primary" (click)="$event.stopPropagation()" :title="'dashboard.fill_form' | translate">
-                            <i class="material-icons">edit</i>
-                          </button>
-                          
-                          <button class="btn btn-xs btn-info" *ngIf="formInstance.queries && formInstance.queries.length > 0" (click)="loadDataQueriesForForm(formInstance.id); $event.stopPropagation()" title="View Queries ({{ formInstance.queries.length }})">
-                            <i class="material-icons">help</i>
-                            {{ formInstance.queries.length }}
+                        <div class="no-templates" *ngIf="!phase.templateAssignments || phase.templateAssignments.length === 0">
+                          <i class="material-icons">assignment_late</i>
+                          <p>No templates assigned to this phase</p>
+                          <button class="btn btn-sm btn-primary" (click)="assignTemplateToPhase(study.id || '', phase.id); $event.stopPropagation()" *ngIf="permissions.canEdit">
+                            <i class="material-icons">add</i>Assign Templates
                           </button>
                         </div>
                       </div>
                     </div>
-                    
-                    <!-- Empty state for section -->
-                    <div class="section-empty" *ngIf="getFormInstancesForSection(section.id).length === 0">
-                      <p>{{ 'dashboard.no_forms_assigned_to_this_section' | translate }}</p>
-                      <button class="btn btn-sm btn-primary" (click)="openFormAssignmentModal(section); $event.stopPropagation()">
-                        <i class="material-icons">add</i>{{ 'dashboard.assign_first_form' | translate }}</button>
+                  </div>
+                  
+                  <!-- Add Phase Button -->
+                  <div class="add-phase-card" *ngIf="permissions.canEdit">
+                    <button class="btn btn-primary" (click)="addPhaseToStudy(study.id || ''); $event.stopPropagation()">
+                      <i class="material-icons">add_circle</i>Add New Phase
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Enrolled Patients View -->
+                <div class="study-patients-view" *ngIf="studyViewTab === 'patients'">
+                  <div class="patients-grid" *ngIf="studyPatients && studyPatients.length > 0">
+                    <div *ngFor="let patient of studyPatients; trackBy: trackPatient" class="patient-card">
+                      <div class="patient-header">
+                        <div class="patient-id">
+                          <i class="material-icons">person</i>
+                          <span class="patient-number">{{ patient.patientNumber }}</span>
+                        </div>
+                        <span class="enrollment-status" [class]="'status-' + patient.enrollmentStatus">
+                          {{ patient.enrollmentStatus | titlecase }}
+                        </span>
+                      </div>
+                      
+                      <div class="patient-info">
+                        <div class="info-row">
+                          <span class="info-label">Enrolled:</span>
+                          <span class="info-value">{{ formatDate(patient.enrollmentDate) }}</span>
+                        </div>
+                        <div class="info-row" *ngIf="patient.treatmentArm">
+                          <span class="info-label">Treatment Arm:</span>
+                          <span class="info-value">{{ patient.treatmentArm }}</span>
+                        </div>
+                        <div class="info-row" *ngIf="patient.siteId">
+                          <span class="info-label">Site:</span>
+                          <span class="info-value">{{ getSiteName(patient.siteId) }}</span>
+                        </div>
+                      </div>
+                      
+                      <div class="patient-phase-progress">
+                        <span class="progress-label">Current Phase:</span>
+                        <span class="current-phase">{{ getCurrentPatientPhase(patient) }}</span>
+                        <div class="mini-progress-bar">
+                          <div class="progress-fill" [style.width.%]="getPatientProgress(patient)"></div>
+                        </div>
+                      </div>
+                      
+                      <div class="patient-actions">
+                        <button class="btn btn-xs btn-primary" (click)="viewPatientDetails(patient); $event.stopPropagation()">
+                          <i class="material-icons">visibility</i>View
+                        </button>
+                        <button class="btn btn-xs btn-secondary" (click)="editPatientPhase(patient); $event.stopPropagation()" *ngIf="permissions.canEdit">
+                          <i class="material-icons">edit</i>Edit Phase
+                        </button>
+                      </div>
                     </div>
+                  </div>
+                  
+                  <div class="no-patients" *ngIf="!studyPatients || studyPatients.length === 0">
+                    <i class="material-icons">person_outline</i>
+                    <h4>No Patients Enrolled</h4>
+                    <p>Start enrolling patients to begin the study</p>
+                    <button class="btn btn-primary" (click)="enrollPatientInStudy(study); $event.stopPropagation()" *ngIf="permissions.canCreate">
+                      <i class="material-icons">person_add</i>Enroll First Patient
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Sites View -->
+                <div class="study-sites-view" *ngIf="studyViewTab === 'sites'">
+                  <div class="sites-grid" *ngIf="study.sites && study.sites.length > 0">
+                    <div *ngFor="let site of study.sites; trackBy: trackSite" class="site-card">
+                      <div class="site-header">
+                        <h4>{{ site.siteName }}</h4>
+                        <span class="site-number">Site #{{ site.siteNumber }}</span>
+                      </div>
+                      <div class="site-info">
+                        <p><strong>PI:</strong> {{ site.principalInvestigator }}</p>
+                        <p><strong>Location:</strong> {{ site.address.city }}, {{ site.address.country }}</p>
+                        <p><strong>Enrollment:</strong> {{ site.actualEnrollment }}/{{ site.targetEnrollment }}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="no-sites" *ngIf="!study.sites || study.sites.length === 0">
+                    <i class="material-icons">location_off</i>
+                    <p>No sites configured for this study</p>
                   </div>
                 </div>
               </div>
