@@ -292,9 +292,12 @@ export interface Study {
   // Patient Management
   patientIds: string[]; // Direct list of patient Firebase GUIDs for quick access
   
-  // Enhanced Study Structure
-  sections: EnhancedStudySection[];
-  phases: StudyPhaseConfig[]; // Chronological phases with metadata
+  // Phase Management - Using studyPhases collection
+  phaseIds: string[]; // References to phases in studyPhases collection
+  
+  // DEPRECATED - Remove these legacy fields
+  sections?: EnhancedStudySection[]; // DEPRECATED - use phaseIds instead
+  phases?: StudyPhaseConfig[]; // DEPRECATED - use phaseIds instead
   phaseTransitionRules: PhaseTransitionRule[]; // Rules for phase progression
   substudies: Substudy[];
   studyGroups: StudyGroup[];

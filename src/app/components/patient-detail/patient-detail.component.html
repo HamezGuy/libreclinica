@@ -93,21 +93,117 @@
 
   <!-- Study Phases Section -->
   <div class="study-phases-section" *ngIf="patient && patient.phases && patient.phases.length > 0">
-    <h2>
-      <i class="material-icons">assignment</i>{{ 'patient-detail.study_phases_templates' | translate }}</h2>
+    <!-- Enhanced Phase Header Section -->
+    <div class="phase-header-section">
+      <h2>
+        <i class="material-icons">assignment</i>{{ 'patient-detail.study_phases_templates' | translate }}
+      </h2>
+      <div class="phase-actions">
+        <button class="btn-secondary" (click)="refreshPhases()" title="Refresh phases">
+          <i class="material-icons">refresh</i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Phase Overview Cards -->
+    <div class="phase-overview-cards">
+      <div class="overview-card">
+        <div class="overview-icon">
+          <i class="material-icons">assignment_turned_in</i>
+        </div>
+        <div class="overview-content">
+          <div class="overview-value">{{ getCompletedPhasesCount() }}</div>
+          <div class="overview-label">Completed</div>
+        </div>
+      </div>
+      <div class="overview-card">
+        <div class="overview-icon">
+          <i class="material-icons">pending_actions</i>
+        </div>
+        <div class="overview-content">
+          <div class="overview-value">{{ getInProgressPhasesCount() }}</div>
+          <div class="overview-label">In Progress</div>
+        </div>
+      </div>
+      <div class="overview-card">
+        <div class="overview-icon">
+          <i class="material-icons">schedule</i>
+        </div>
+        <div class="overview-content">
+          <div class="overview-value">{{ getPendingPhasesCount() }}</div>
+          <div class="overview-label">Pending</div>
+        </div>
+      </div>
+      <div class="overview-card">
+        <div class="overview-icon">
+          <i class="material-icons">description</i>
+        </div>
+        <div class="overview-content">
+          <div class="overview-value">{{ getTotalFormsCount() }}</div>
+          <div class="overview-label">Total Forms</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase Timeline -->
+    <div class="phase-timeline">
+      <div class="timeline-item" 
+           *ngFor="let phase of patient.phases; let i = index"
+           [ngClass]="{
+             'completed': phase.status === 'completed',
+             'in-progress': phase.status === 'in_progress',
+             'active': selectedPhaseId === phase.id
+           }"
+           (click)="selectPhase(phase.id)">
+        <div class="timeline-marker">
+          <span class="marker-number">{{ i + 1 }}</span>
+        </div>
+        <div class="timeline-content">
+          <div class="timeline-title">{{ phase.name }}</div>
+          <div class="timeline-date" *ngIf="phase.scheduledDate">
+            {{ phase.scheduledDate | date:'MMM d, y' }}
+          </div>
+        </div>
+      </div>
+    </div>
     
     <!-- Display Phases -->
     <div class="phases-container">
-      <!-- Phase Cards -->
-      <div class="phase-card" *ngFor="let phase of patient.phases">
+      <!-- Enhanced Phase Cards -->
+      <div class="phase-card" 
+           *ngFor="let phase of patient.phases"
+           [ngClass]="{
+             'expanded': isPhaseExpanded(phase.id),
+             'completed': phase.status === 'completed',
+             'in-progress': phase.status === 'in_progress'
+           }">
         <div class="phase-header" (click)="togglePhase(phase.id)">
           <div class="phase-info">
-            <h3>{{ phase.name }}</h3>
+            <div class="phase-title-row">
+              <h3>{{ phase.name }}</h3>
+              <span class="phase-badge" [ngClass]="phase.type?.toLowerCase()">{{ phase.type || 'Phase' }}</span>
+            </div>
             <p class="phase-description">{{ phase.description }}</p>
             <div class="phase-meta">
-              <span class="phase-type">{{ phase.type || 'Phase' }}</span>
-              <span [ngClass]="['phase-status', phase.status]">{{ phase.status }}</span>
-              <span class="phase-progress">{{ phase.completionPercentage || 0 }}% Complete</span>
+              <span [ngClass]="['phase-status-badge', phase.status]">
+                <i class="material-icons" *ngIf="phase.status === 'completed'">check_circle</i>
+                <i class="material-icons" *ngIf="phase.status === 'in_progress'">pending</i>
+                <i class="material-icons" *ngIf="phase.status === 'not_started'">radio_button_unchecked</i>
+                {{ phase.status | titlecase }}
+              </span>
+              <div class="phase-progress-container">
+                <div class="phase-progress-bar">
+                  <div class="phase-progress-fill" 
+                       [style.width.%]="phase.completionPercentage || 0"
+                       [ngClass]="{
+                         'complete': phase.completionPercentage === 100,
+                         'in-progress': phase.completionPercentage > 0 && phase.completionPercentage < 100
+                       }">
+                    <span class="progress-shimmer"></span>
+                  </div>
+                </div>
+                <span class="phase-progress-text">{{ phase.completionPercentage || 0 }}%</span>
+              </div>
             </div>
           </div>
           
@@ -118,48 +214,131 @@
           </button>
         </div>
         
-        <!-- Phase Forms (Expanded) -->
-        <div class="phase-templates" *ngIf="isPhaseExpanded(phase.id) && patient.forms">
-          <div class="templates-header">
-            <h4>{{ 'patient-detail.form_templates' | translate }}</h4>
-            <span class="template-count">
-              {{ getFormsForPhase(phase.id).length }} forms
-            </span>
-          </div>
-          
-          <!-- Form List -->
-          <div class="template-list" *ngIf="getFormsForPhase(phase.id).length > 0">
-            <div class="template-item" *ngFor="let form of getFormsForPhase(phase.id)">
-              <div class="template-info">
-                <div class="template-name">
-                  <i class="material-icons">description</i>
-                  {{ form.templateName || form.name }}
-                </div>
-                <div class="template-meta">
-                  <span class="template-version">v{{ form.version || '1.0' }}</span>
-                  <span class="template-required" *ngIf="form.required">{{ 'patient-detail.required' | translate }}</span>
-                  <span class="template-optional" *ngIf="!form.required">{{ 'patient-detail.optional' | translate }}</span>
-                </div>
-              </div>
-              
-              <div class="template-status">
-                <span [ngClass]="['status-indicator', form.status || 'not_started']">
-                  <i class="material-icons" *ngIf="form.status === 'completed'">check_circle</i>
-                  <i class="material-icons" *ngIf="form.status === 'in_progress'">pending</i>
-                  <i class="material-icons" *ngIf="form.status === 'not_started' || !form.status">radio_button_unchecked</i>
-                  {{ form.status || 'not_started' }}
+        <!-- Enhanced Phase Forms (Expanded) -->
+        <div class="phase-content" *ngIf="isPhaseExpanded(phase.id)">
+          <div class="phase-forms-section" *ngIf="patient.forms">
+            <div class="forms-header">
+              <h4>
+                <i class="material-icons">description</i>
+                {{ 'patient-detail.form_templates' | translate }}
+              </h4>
+              <div class="forms-stats">
+                <span class="stat-badge">
+                  <i class="material-icons">assignment</i>
+                  {{ getFormsForPhase(phase.id).length }} forms
+                </span>
+                <span class="stat-badge completed" *ngIf="getCompletedFormsCount(phase.id) > 0">
+                  <i class="material-icons">check_circle</i>
+                  {{ getCompletedFormsCount(phase.id) }} completed
                 </span>
               </div>
-              
-              <button class="open-template-btn" (click)="openForm(form, phase)">
-                <i class="material-icons">open_in_new</i>{{ 'patient-detail.open' | translate }}</button>
+            </div>
+            
+            <!-- Enhanced Form List -->
+            <div class="forms-list" *ngIf="getFormsForPhase(phase.id).length > 0">
+              <div class="form-item" 
+                   *ngFor="let form of getFormsForPhase(phase.id)"
+                   [ngClass]="{'completed': form.status === 'completed', 'in-progress': form.status === 'in_progress'}">
+                <div class="form-icon">
+                  <i class="material-icons">{{ getFormIcon(form) }}</i>
+                </div>
+                <div class="form-details">
+                  <div class="form-name">
+                    {{ form.templateName || form.name }}
+                    <span class="form-version">v{{ form.version || '1.0' }}</span>
+                  </div>
+                  <div class="form-meta">
+                    <span class="form-badge" [ngClass]="{'required': form.required, 'optional': !form.required}">
+                      {{ form.required ? 'Required' : 'Optional' }}
+                    </span>
+                    <span class="form-category" *ngIf="form.category">
+                      {{ form.category }}
+                    </span>
+                    <span class="form-updated" *ngIf="form.lastUpdated">
+                      Updated {{ form.lastUpdated | date:'short' }}
+                    </span>
+                  </div>
+                </div>
+                <div class="form-status">
+                  <span [ngClass]="['status-indicator', form.status || 'not_started']">
+                    <i class="material-icons" *ngIf="form.status === 'completed'">check_circle</i>
+                    <i class="material-icons" *ngIf="form.status === 'in_progress'">pending</i>
+                    <i class="material-icons" *ngIf="!form.status || form.status === 'not_started'">radio_button_unchecked</i>
+                    <span class="status-text">{{ getFormStatusText(form.status) }}</span>
+                  </span>
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary" (click)="openForm(form, phase)">
+                    <i class="material-icons">{{ form.status === 'completed' ? 'visibility' : 'edit' }}</i>
+                    {{ form.status === 'completed' ? 'View' : 'Open' }}
+                  </button>
+                  <button class="btn-icon" 
+                          *ngIf="form.status === 'completed'"
+                          (click)="downloadFormData(form, phase)"
+                          title="Download data">
+                    <i class="material-icons">download</i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          
+            <!-- Empty State -->
+            <div class="empty-forms" *ngIf="getFormsForPhase(phase.id).length === 0">
+              <i class="material-icons">inbox</i>
+              <p>{{ 'patient-detail.no_templates_assigned_to_this_phase' | translate }}</p>
+              <button class="btn-secondary" (click)="assignTemplateToPhase(phase)">
+                <i class="material-icons">add</i>
+                Assign Template
+              </button>
             </div>
           </div>
-          
-          <!-- Empty State -->
-          <div class="empty-templates" *ngIf="getFormsForPhase(phase.id).length === 0">
-            <i class="material-icons">inbox</i>
-            <p>{{ 'patient-detail.no_templates_assigned_to_this_phase' | translate }}</p>
+
+          <!-- Phase Schedule Information -->
+          <div class="phase-schedule-info" *ngIf="phase.scheduledDate || phase.windowStartDate">
+            <h5>
+              <i class="material-icons">event</i>
+              Schedule Information
+            </h5>
+            <div class="schedule-grid">
+              <div class="schedule-item" *ngIf="phase.scheduledDate">
+                <label>Scheduled Date</label>
+                <span>{{ phase.scheduledDate | date:'mediumDate' }}</span>
+              </div>
+              <div class="schedule-item" *ngIf="phase.windowStartDate && phase.windowEndDate">
+                <label>Visit Window</label>
+                <span>{{ phase.windowStartDate | date:'shortDate' }} - {{ phase.windowEndDate | date:'shortDate' }}</span>
+              </div>
+              <div class="schedule-item" *ngIf="phase.actualDate">
+                <label>Actual Date</label>
+                <span>{{ phase.actualDate | date:'mediumDate' }}</span>
+              </div>
+              <div class="schedule-item" *ngIf="phase.completedBy">
+                <label>Completed By</label>
+                <span>{{ phase.completedBy }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase Actions -->
+          <div class="phase-actions-footer">
+            <button class="btn-secondary" 
+                    *ngIf="phase.status !== 'completed'"
+                    (click)="skipPhase(phase)">
+              <i class="material-icons">skip_next</i>
+              Skip Phase
+            </button>
+            <button class="btn-primary" 
+                    *ngIf="phase.status === 'not_started'"
+                    (click)="startPhase(phase)">
+              <i class="material-icons">play_arrow</i>
+              Start Phase
+            </button>
+            <button class="btn-success" 
+                    *ngIf="phase.status === 'in_progress' && canCompletePhase(phase)"
+                    (click)="completePhase(phase)">
+              <i class="material-icons">check</i>
+              Complete Phase
+            </button>
           </div>
         </div>
       </div>

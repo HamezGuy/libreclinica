@@ -164,29 +164,10 @@ export class StudyService implements IStudyService {
 
       const now = new Date();
       
-      // Process sections to generate IDs before creating the study
-      const processedSections = studyData.sections ? studyData.sections.map((section: any) => ({
-        ...section,
-        id: this.generateId(), // Generate unique ID for each section
-        studyId: '', // Will be set after study creation
-        createdBy: currentUser.uid,
-        createdAt: now,
-        lastModifiedBy: currentUser.uid,
-        lastModifiedAt: now,
-        // Ensure formTemplates are stored as string IDs only
-        formTemplates: this.extractTemplateIds(section.formTemplates || []),
-        formInstances: section.formInstances || [],
-        // Set default values for tracking fields
-        totalPatients: section.totalPatients || 0,
-        patientsCompleted: section.patientsCompleted || 0,
-        patientsInProgress: section.patientsInProgress || 0,
-        patientsOverdue: section.patientsOverdue || 0,
-        status: section.status || 'not_started'
-      })) : [];
-      
+      // Create the study WITHOUT sections - they will be in studyPhases collection
       const study: Omit<Study, 'id'> = {
         ...studyData,
-        sections: processedSections,
+        phaseIds: [], // Will store references to phases in studyPhases collection
         createdBy: currentUser.uid,
         createdAt: now,
         lastModifiedBy: currentUser.uid,
@@ -204,50 +185,82 @@ export class StudyService implements IStudyService {
         }]
       };
 
+      // Remove any legacy sections field if it exists
+      delete (study as any).sections;
+      delete (study as any).phases;
+
       const studiesRef = collection(this.firestore, 'studies');
-      
-      // Log the study object before cleaning
-      console.log('[StudyService] Study object before cleaning:', JSON.stringify(study, null, 2));
       
       // Clean the study object to remove any undefined values before saving to Firestore
       const cleanedStudy = this.removeUndefinedFields(study);
       
-      // Log the cleaned study object
-      console.log('[StudyService] Study object after cleaning:', JSON.stringify(cleanedStudy, null, 2));
-      
-      // Check for any remaining undefined values
-      this.checkForUndefined(cleanedStudy, 'cleanedStudy');
-      
       const docRef = await addDoc(studiesRef, cleanedStudy);
+      const studyId = docRef.id;
       
-      // Now update sections with the study ID
-      const finalSections = processedSections.map(section => ({
-        ...section,
-        studyId: docRef.id
-      }));
+      // Now create phases in the studyPhases collection if provided
+      const phaseIds: string[] = [];
+      if (studyData.sections && Array.isArray(studyData.sections)) {
+        const batch = writeBatch(this.firestore);
+        
+        for (let i = 0; i < studyData.sections.length; i++) {
+          const section = studyData.sections[i] as any;
+          const phaseId = this.generateId();
+          phaseIds.push(phaseId);
+          
+          const phaseData = {
+            id: phaseId,
+            studyId: studyId,
+            phaseName: section.name || `Phase ${i + 1}`,
+            phaseCode: section.code || `P${i + 1}`,
+            description: section.description || '',
+            order: section.order || i,
+            type: section.type || 'treatment',
+            plannedDurationDays: section.plannedDurationDays || 30,
+            windowStartDays: section.windowStart || 0,
+            windowEndDays: section.windowEnd || 30,
+            daysToComplete: section.daysToComplete || 7,
+            templateAssignments: this.extractTemplateAssignments(section.formTemplates || []),
+            isActive: true,
+            allowSkip: false,
+            allowParallel: false,
+            createdBy: currentUser.uid,
+            createdAt: now,
+            lastModifiedBy: currentUser.uid,
+            lastModifiedAt: now
+          };
+          
+          const phaseRef = doc(this.firestore, 'studyPhases', phaseId);
+          batch.set(phaseRef, this.removeUndefinedFields(phaseData));
+        }
+        
+        await batch.commit();
+        console.log(`[StudyService] Created ${phaseIds.length} phases in studyPhases collection for study ${studyId}`);
+      }
       
-      // Update the study document with sections that have the correct studyId
-      await updateDoc(docRef, {
-        sections: finalSections
-      });
+      // Update the study document with phase IDs
+      if (phaseIds.length > 0) {
+        await updateDoc(docRef, {
+          phaseIds: phaseIds
+        });
+      }
       
       const createdStudy: Study = { 
         ...study, 
-        id: docRef.id,
-        sections: finalSections
+        id: studyId,
+        phaseIds: phaseIds
       };
       
       // Log audit event
       await this.auditService.logAuditEvent({
         action: 'study_created',
         resourceType: 'study',
-        resourceId: docRef.id,
+        resourceId: studyId,
         userId: currentUser.uid,
         details: JSON.stringify({
           protocolNumber: study.protocolNumber,
           title: study.title,
           phase: study.phase,
-          sectionsCount: finalSections.length
+          phasesCount: phaseIds.length
         })
       });
 
@@ -917,6 +930,30 @@ export class StudyService implements IStudyService {
       .filter(id => id !== '');
   }
 
+  /**
+   * Extract template assignments from form templates array
+   */
+  private extractTemplateAssignments(templates: any[]): any[] {
+    if (!templates || !Array.isArray(templates)) return [];
+    
+    return templates.map((template: any) => {
+      if (typeof template === 'string') {
+        return {
+          templateId: template,
+          isRequired: true,
+          order: 0
+        };
+      }
+      return {
+        templateId: template.templateId || template.id || template,
+        isRequired: template.isRequired !== false,
+        order: template.order || 0,
+        name: template.name || '',
+        description: template.description || ''
+      };
+    });
+  }
+
   private async getClientIpAddress(): Promise<string> {
     try {
       const response = await fetch('https://api.ipify.org?format=json');
@@ -1008,11 +1045,9 @@ export class StudyService implements IStudyService {
       highPriorityIndicators: 0,
       overdueItems: 0,
       lastActivity: study.lastModifiedAt,
-      totalSections: study.sections.length,
+      totalSections: study.phaseIds ? study.phaseIds.length : 0,
       completedSections: 0, // TODO: Calculate from enrollments
-      totalForms: study.sections.reduce((sum, section) => 
-        sum + section.formTemplates.length, 0
-      ),
+      totalForms: 0, // TODO: Calculate from studyPhases collection
       completedForms: 0 // TODO: Calculate from form instances
     };
   }
@@ -1260,7 +1295,7 @@ export class StudyService implements IStudyService {
   }
 
   /**
-   * Create patient visit subcomponents from study sections
+   * Create patient visit subcomponents from study phases
    */
   private async createPatientVisitSubcomponents(
     study: Study,
@@ -1270,9 +1305,22 @@ export class StudyService implements IStudyService {
     const now = new Date();
     const visitSubcomponents: any[] = [];
 
-    // Always create visit subcomponents for each study section, even if templates have issues
-    if (study.sections && Array.isArray(study.sections)) {
-      for (const section of study.sections) {
+    // Load phases from studyPhases collection
+    if (study.phaseIds && Array.isArray(study.phaseIds) && study.phaseIds.length > 0) {
+      const phasesQuery = query(
+        collection(this.firestore, 'studyPhases'),
+        where('studyId', '==', study.id)
+      );
+      const phasesSnapshot = await getDocs(phasesQuery);
+      const phases = phasesSnapshot.docs.map(doc => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          ...data
+        };
+      }).sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+
+      for (const phase of phases as any[]) {
         try {
           // Extract template information safely
           const templateIds: string[] = [];
@@ -1280,8 +1328,8 @@ export class StudyService implements IStudyService {
           const optionalTemplateIds: string[] = [];
           const formTemplates: any[] = [];
           
-          if (section.formTemplates && Array.isArray(section.formTemplates)) {
-            for (const template of section.formTemplates) {
+          if (phase.formTemplates && Array.isArray(phase.formTemplates)) {
+            for (const template of phase.formTemplates) {
               try {
                 // Copy the entire template object for the patient
                 const patientTemplate = {
@@ -1309,7 +1357,7 @@ export class StudyService implements IStudyService {
                   optionalTemplateIds.push(template.templateId);
                 }
               } catch (templateError) {
-                console.error(`Error processing template in section ${section.name}:`, templateError);
+                console.error(`Error processing template in phase ${phase.phaseName || phase.name}:`, templateError);
                 // Continue with other templates even if one fails
               }
             }
@@ -1320,23 +1368,23 @@ export class StudyService implements IStudyService {
             id: this.generateId(),
             patientId: patientId,
             studyId: study.id || '',
-            name: section.name,
-            description: section.description || '',
-            type: section.type || 'treatment',
-            order: section.order,
-            phaseId: section.id,
-            phaseCode: `PHASE_${section.order}`,
+            name: phase.phaseName || phase.name,
+            description: phase.description || '',
+            type: phase.type || 'treatment',
+            order: phase.order,
+            phaseId: phase.id,
+            phaseCode: `PHASE_${phase.order}`,
             isPhaseFolder: true,
             
             // Calculate visit window dates based on enrollment date and scheduled day
-            scheduledDate: section.scheduledDay ? 
-              new Date(now.getTime() + (section.scheduledDay * 24 * 60 * 60 * 1000)) : 
+            scheduledDate: phase.scheduledDay ? 
+              new Date(now.getTime() + (phase.scheduledDay * 24 * 60 * 60 * 1000)) : 
               undefined,
-            windowStartDate: section.windowStart !== undefined ? 
-              new Date(now.getTime() + (section.windowStart * 24 * 60 * 60 * 1000)) : 
+            windowStartDate: phase.windowStart !== undefined ? 
+              new Date(now.getTime() + (phase.windowStart * 24 * 60 * 60 * 1000)) : 
               undefined,
-            windowEndDate: section.windowEnd !== undefined ? 
-              new Date(now.getTime() + (section.windowEnd * 24 * 60 * 60 * 1000)) : 
+            windowEndDate: phase.windowEnd !== undefined ? 
+              new Date(now.getTime() + (phase.windowEnd * 24 * 60 * 60 * 1000)) : 
               undefined,
             
             // Initial status
@@ -1363,19 +1411,19 @@ export class StudyService implements IStudyService {
           };
           
           visitSubcomponents.push(visitSubcomponent);
-        } catch (sectionError) {
-          console.error(`Error processing section ${section.name}:`, sectionError);
+        } catch (phaseError) {
+          console.error(`Error processing phase ${phase.phaseName || phase.name}:`, phaseError);
           // Still create a basic visit subcomponent even if there's an error
           const fallbackVisitSubcomponent = {
             id: this.generateId(),
             patientId: patientId,
             studyId: study.id || '',
-            name: section.name || 'Unknown Phase',
-            description: section.description || '',
-            type: section.type || 'treatment',
-            order: section.order || 0,
-            phaseId: section.id || this.generateId(),
-            phaseCode: `PHASE_${section.order || 0}`,
+            name: phase.phaseName || phase.name || 'Unknown Phase',
+            description: phase.description || '',
+            type: phase.type || 'treatment',
+            order: phase.order || 0,
+            phaseId: phase.id || this.generateId(),
+            phaseCode: `PHASE_${phase.order || 0}`,
             isPhaseFolder: true,
             status: 'scheduled' as const,
             completionPercentage: 0,

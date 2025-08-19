@@ -2332,12 +2332,24 @@ getTreatmentArm(patient: any): string {
         return;
       }
 
-      // Find the section index
-      const sectionIndex = study.sections?.findIndex((s: any) => s.id === sectionId);
-      if (sectionIndex === -1 || sectionIndex === undefined) {
-        alert('Section not found');
+      // Load the phase from studyPhases collection
+      const { collection, getDocs, query, where, doc, updateDoc, getFirestore } = await import('@angular/fire/firestore');
+      const firestore = getFirestore();
+      
+      const phasesQuery = query(
+        collection(firestore, 'studyPhases'),
+        where('studyId', '==', study.id),
+        where('id', '==', sectionId)
+      );
+      const phasesSnapshot = await getDocs(phasesQuery);
+      
+      if (phasesSnapshot.empty) {
+        alert('Phase not found');
         return;
       }
+      
+      const phaseDoc = phasesSnapshot.docs[0];
+      const phaseData = phaseDoc.data() as any;
 
       // Get the template details
       const templates = await firstValueFrom(this.templates$);
@@ -2353,23 +2365,26 @@ getTreatmentArm(patient: any): string {
         templateId: templateId,
         templateName: template.name,
         templateVersion: String(template.version || '1.0'),
-        order: study.sections[sectionIndex].formTemplates?.length || 0,
+        order: phaseData.formTemplates?.length || 0,
         isRequired: false,
         completionRequired: false,
         signatureRequired: false,
         reviewRequired: false
       };
 
-      // Add template reference to section
-      if (!study.sections[sectionIndex].formTemplates) {
-        study.sections[sectionIndex].formTemplates = [];
+      // Add template reference to phase
+      if (!phaseData.formTemplates) {
+        phaseData.formTemplates = [];
       }
-      study.sections[sectionIndex].formTemplates.push(templateRef);
+      phaseData.formTemplates.push(templateRef);
 
-      // Update the study with the new section data
-      await this.studyService.updateStudy(this.selectedStudy.id, {
-        sections: study.sections
-      }, 'Added form template to section');
+      // Update the phase in studyPhases collection
+      const phaseRef = doc(firestore, 'studyPhases', phaseDoc.id);
+      await updateDoc(phaseRef, {
+        formTemplates: phaseData.formTemplates,
+        lastModifiedAt: new Date(),
+        lastModifiedBy: (await this.authService.getCurrentUserProfile())?.uid || 'system'
+      });
 
       // Refresh the selected study data
       this.selectedStudy = await this.studyService.getStudy(this.selectedStudy.id);

@@ -719,12 +719,34 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   }
 
   // Save template
-  saveTemplate(): void {
-    if (this.builderForm.valid) {
-      const templateData = this.builderForm.value;
-      // TODO: Call template service to save
+  async saveTemplate(): Promise<void> {
+    if (!this.builderForm.valid) {
+      this.showSaveMessage('Please fill in all required fields', 'error');
+      return;
+    }
+
+    this.isSaving = true;
+    try {
+      const templateData = this.getCurrentTemplateData();
+      
+      if (this.templateId) {
+        // Update existing template
+        await this.formTemplateService.updateTemplate(this.templateId, templateData);
+        this.showSaveMessage('Template updated successfully', 'success');
+      } else {
+        // Create new template
+        const newTemplate = await this.formTemplateService.createTemplate(templateData);
+        this.templateId = newTemplate.id;
+        this.showSaveMessage('Template created successfully', 'success');
+      }
+      
       this.hasUnsavedChanges = false;
-      console.log('Saving template:', templateData);
+      this.templateSaved.emit(templateData);
+    } catch (error) {
+      console.error('Error saving template:', error);
+      this.showSaveMessage('Failed to save template. Please try again.', 'error');
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -745,13 +767,15 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   // Close builder
   closeBuilder(): void {
     if (this.hasUnsavedChanges) {
-      // TODO: Show confirmation dialog
-      if (confirm('You have unsaved changes. Are you sure you want to close?')) {
-        // Emit close event or navigate away
+      const confirmClose = confirm('You have unsaved changes. Are you sure you want to close without saving?');
+      if (!confirmClose) {
+        return;
       }
-    } else {
-      // Emit close event or navigate away
     }
+    
+    // Emit close event without saving
+    this.builderClosed.emit();
+    this.close.emit();
   }
 
   // Duplicate field

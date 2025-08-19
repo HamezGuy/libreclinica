@@ -155,217 +155,50 @@ export class PatientService {
       const patientPhases: any[] = [];
       const patientForms: any[] = [];
       
-      // Studies store phases as 'sections' - copy them as patient phases
-      if (study.sections && Array.isArray(study.sections)) {
-        console.log('[PatientService] Copying study sections as patient phases:', study.sections.length);
-        
-        for (const section of study.sections) {
-          const newPhaseId = doc(collection(this.firestore, 'temp')).id;
-          const patientPhase: any = {
-            patientId: patientId,
-            originalSectionId: section.id,
-            id: newPhaseId,
-            name: section.name || 'Unnamed Phase',
-            order: section.order || 0,
-            type: section.type || 'treatment',
-            status: 'not_started',
-            completionPercentage: 0,
-            completedForms: [],
-            inProgressForms: [],
-            createdAt: now,
-            lastModifiedAt: now
-          };
-          // Only add optional fields if they exist
-          if (section.description) patientPhase.description = section.description;
-          if (section.windowStartDays !== undefined) patientPhase.windowStartDays = section.windowStartDays;
-          if (section.windowEndDays !== undefined) patientPhase.windowEndDays = section.windowEndDays;
-          patientPhases.push(patientPhase);
-          
-          // Copy forms associated with this section/phase
-          if (section.formTemplates && Array.isArray(section.formTemplates)) {
-            console.log(`[PatientService] Copying ${section.formTemplates.length} templates for phase: ${section.name}`);
-            
-            for (const sectionTemplate of section.formTemplates) {
-              // Create a patient-specific form instance
-              const patientForm: any = {
-                patientId: patientId,
-                phaseId: newPhaseId, // Link to the new patient phase
-                originalSectionId: section.id, // Keep reference to original section
-                templateId: sectionTemplate.templateId || sectionTemplate.id,
-                id: doc(collection(this.firestore, 'temp')).id,
-                name: sectionTemplate.name || 'Unnamed Form',
-                status: 'not_started',
-                responses: {},
-                completedAt: null,
-                createdAt: now,
-                lastModifiedAt: now,
-                isRequired: sectionTemplate.isRequired || false,
-                order: sectionTemplate.order || 0
-              };
-              // Only add optional fields if they exist
-              if (sectionTemplate.description) patientForm.description = sectionTemplate.description;
-              if (sectionTemplate.version) patientForm.version = sectionTemplate.version;
-              patientForms.push(patientForm);
-            }
-          }
-        }
-      }
-      // Fallback: Check for legacy 'phases' field
-      else if (study.phases && Array.isArray(study.phases)) {
-        console.log('[PatientService] Using legacy phases field:', study.phases.length);
-        
-        for (const phase of study.phases) {
-          const newPhaseId = doc(collection(this.firestore, 'temp')).id;
-          const patientPhase: any = {
-            patientId: patientId,
-            originalPhaseId: phase.id,
-            id: newPhaseId,
-            name: phase.name || 'Unnamed Phase',
-            order: phase.order || 0,
-            type: phase.type || 'treatment',
-            status: 'not_started',
-            completionPercentage: 0,
-            completedForms: [],
-            inProgressForms: [],
-            createdAt: now,
-            lastModifiedAt: now
-          };
-          // Only add optional fields if they exist
-          if (phase.description) patientPhase.description = phase.description;
-          if (phase.windowStartDays !== undefined) patientPhase.windowStartDays = phase.windowStartDays;
-          if (phase.windowEndDays !== undefined) patientPhase.windowEndDays = phase.windowEndDays;
-          patientPhases.push(patientPhase);
-          
-          // Copy forms associated with this phase
-          if (phase.formTemplateIds && Array.isArray(phase.formTemplateIds)) {
-            for (const templateId of phase.formTemplateIds) {
-              // Find the template in study.formTemplates
-              const template = study.formTemplates?.find((t: any) => t.id === templateId);
-              if (template) {
-                const patientForm: any = {
-                  patientId: patientId,
-                  phaseId: newPhaseId, // Link to the new patient phase
-                  originalPhaseId: phase.id, // Keep reference to original phase
-                  templateId: template.id,
-                  id: doc(collection(this.firestore, 'temp')).id,
-                  name: template.name || 'Unnamed Form',
-                  status: 'not_started',
-                  responses: {},
-                  completedAt: null,
-                  createdAt: now,
-                  lastModifiedAt: now
-                };
-                // Only add optional fields if they exist
-                if (template.description) patientForm.description = template.description;
-                if (template.version) patientForm.version = template.version;
-                if (template.isRequired !== undefined) patientForm.isRequired = template.isRequired;
-                patientForms.push(patientForm);
-              }
-            }
-          }
-        }
-      }
+      // NOTE: We will NOT copy phases/sections here anymore to avoid duplication
+      // The phases will be created as visit subcomponents below from either:
+      // 1. studyPhases collection (preferred)
+      // 2. study.sections (fallback)
+      // 3. study.phases (legacy fallback)
       
-      // Also copy any standalone form templates not associated with phases
-      if (study.formTemplates && Array.isArray(study.formTemplates)) {
-        for (const template of study.formTemplates) {
-          // Check if this template was already added via a phase
-          const alreadyAdded = patientForms.some((f: any) => f.templateId === template.id);
-          if (!alreadyAdded) {
-            const patientForm: any = {
-              patientId: patientId,
-              phaseId: null, // No phase association
-              templateId: template.id,
-              id: doc(collection(this.firestore, 'temp')).id,
-              name: template.name || 'Unnamed Form',
-              status: 'not_started',
-              responses: {},
-              completedAt: null,
-              createdAt: now,
-              lastModifiedAt: now
-            };
-            // Only add optional fields if they exist
-            if (template.description) patientForm.description = template.description;
-            if (template.version) patientForm.version = template.version;
-            if (template.isRequired !== undefined) patientForm.isRequired = template.isRequired;
-            patientForms.push(patientForm);
-          }
-        }
-      }
-      
-      console.log(`[PatientService] Created ${patientPhases.length} phases and ${patientForms.length} forms for patient`);
-      
-      // Update patient with phases and forms - clean them first to remove undefined values
-      const cleanedPhases = patientPhases.map(phase => this.prepareForFirestore(phase));
-      const cleanedForms = patientForms.map(form => this.prepareForFirestore(form));
-      
-      // Only update if we have phases or forms to add
-      if (cleanedPhases.length > 0 || cleanedForms.length > 0) {
-        const updateData: any = {};
-        if (cleanedPhases.length > 0) updateData.phases = cleanedPhases;
-        if (cleanedForms.length > 0) updateData.forms = cleanedForms;
-        
-        await runInInjectionContext(this.injector, async () => {
-          await updateDoc(patientRef, this.prepareForFirestore(updateData));
-        });
-      }
+      console.log(`[PatientService] Skipping inline phase/form copying to avoid duplication`);
       
       // Load study phases from the studyPhases collection
-      const { collection: fbCollection, getDocs, query, where, orderBy, getFirestore } = await import('@angular/fire/firestore');
+      const { collection: fbCollection, getDocs, query, where, getFirestore } = await import('@angular/fire/firestore');
       const firestore = getFirestore();
       
       // Query study phases for this specific study ONLY
       const studyPhasesRef = fbCollection(firestore, 'studyPhases');
-      const studyPhasesQuery = query(
+      let studyPhasesQuery = query(
         studyPhasesRef, 
-        where('studyId', '==', studyId),
-        orderBy('order', 'asc')
+        where('studyId', '==', studyId)
       );
       
       console.log(`[PatientService] Querying studyPhases collection for studyId: ${studyId}`);
       
-      const studyPhasesSnapshot = await runInInjectionContext(this.injector, async () => 
-        await getDocs(studyPhasesQuery)
-      );
+      let studyPhasesSnapshot;
+      try {
+        studyPhasesSnapshot = await runInInjectionContext(this.injector, async () => 
+          await getDocs(studyPhasesQuery)
+        );
+      } catch (error) {
+        console.error(`[PatientService] Error querying studyPhases:`, error);
+        studyPhasesSnapshot = { docs: [] };
+      }
       
       const studyPhases = studyPhasesSnapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as any;
         console.log(`[PatientService] Found phase: ${data['phaseName'] || data['name']} with studyId: ${data['studyId']}`);
-        // Only include phases that belong to this specific study
-        if (data['studyId'] === studyId) {
-          return {
-            id: doc.id,
-            ...data
-          };
-        }
-        return null;
-      }).filter(phase => phase !== null); // Remove any null entries
+        return {
+          id: doc.id,
+          ...data
+        };
+      }).sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
       
-      console.log(`[PatientService] Found ${studyPhases.length} study phases for study ${studyId}`);
-      
-      // Log phase details for debugging
-      studyPhases.forEach((phase: any) => {
-        console.log(`[PatientService] Phase: ${phase.phaseName || phase.name}, Templates: ${phase.templateAssignments?.length || 0}`);
-      });
-      
-      // Create visit subcomponents from study phases
       if (studyPhases.length > 0) {
-        console.log(`[PatientService] Creating visit subcomponents from ${studyPhases.length} phases`);
-        await this.createVisitSubcomponentsFromPhases(
-          patientId,
-          studyPhases,
-          currentUser.uid
-        );
-      } else if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
-        // Fallback to creating from sections if no phases exist
-        console.log(`[PatientService] No phases found in studyPhases collection, falling back to sections`);
-        await this.createVisitSubcomponentsFromSections(
-          patientId,
-          study.sections,
-          currentUser.uid
-        );
+        await this.createVisitSubcomponentsFromPhases(patientId, studyPhases, currentUser.uid);
       } else {
-        console.log(`[PatientService] No phases or sections found for study ${studyId}`);
+        console.warn(`[PatientService] No phases found in studyPhases collection for study ${studyId}. Patient will have no phases.`);
       }
     }
 
@@ -569,8 +402,9 @@ export class PatientService {
     console.log(`[PatientService] Created ${totalSubcomponents} visit subcomponents from ${studyPhases.length} phases for patient ${patientId}`);
   }
   
-  // Create visit subcomponents from study sections
-  private async createVisitSubcomponentsFromSections(
+  // DEPRECATED - Remove this method as we only use studyPhases collection now
+  // Keeping temporarily for reference but should not be called
+  private async DEPRECATED_createVisitSubcomponentsFromSections(
     patientId: string,
     sections: any[],
     userId: string
@@ -609,15 +443,15 @@ export class PatientService {
         lastModifiedAt: now,
         
         // Copy form template IDs from section
-        templateIds: section.formTemplates || [],
-        requiredTemplateIds: section.formTemplates || [], // All templates are required by default
-        optionalTemplateIds: [],
+        templateIds: section.formTemplates?.map((t: any) => t.templateId || t.id || t) || [],
+        requiredTemplateIds: section.formTemplates?.filter((t: any) => t.isRequired !== false).map((t: any) => t.templateId || t.id || t) || [],
+        optionalTemplateIds: section.formTemplates?.filter((t: any) => t.isRequired === false).map((t: any) => t.templateId || t.id || t) || [],
         completedTemplates: [],
         inProgressTemplates: [],
         
         // Phase progression
         canProgressToNextPhase: false,
-        blockingTemplates: section.formTemplates || []
+        blockingTemplates: section.formTemplates?.filter((t: any) => t.isRequired !== false).map((t: any) => t.templateId || t.id || t) || []
       };
       
       // Add optional fields only if they are defined
