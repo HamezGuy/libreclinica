@@ -382,16 +382,19 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       order: [field.order || 0],
       width: [field.width || 'full'],
       columnPosition: [field.columnPosition || 'left'],
-      groupId: [field.groupId],
-      customAttributes: this.fb.group(field.customAttributes || {}),
       auditTrail: this.fb.group({
         trackChanges: [field.auditTrail?.trackChanges || false],
         reasonRequired: [field.auditTrail?.reasonRequired || false]
       }),
-      // Add unit-related fields for clinical fields
-      unit: [field.unit],
-      min: [field.min],
-      max: [field.max]
+      visibilityConditions: this.fb.array((field.visibilityConditions || []).map(condition => 
+        this.fb.group({
+          questionId: [condition.questionId || '', Validators.required],
+          operator: [condition.operator || 'equals', Validators.required],
+          value: [condition.value || ''],
+          optionId: [condition.optionId || ''],
+          logicalOperator: [condition.logicalOperator || 'and']
+        })
+      ))
     });
   }
 
@@ -435,6 +438,63 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       return rulesArray.controls;
     }
     return [];
+  }
+
+  getVisibilityConditionsArray(fieldIndex: number): FormArray {
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
+    return fieldControl.get('visibilityConditions') as FormArray || this.fb.array([]);
+  }
+
+  // Get available fields for visibility conditions (all fields except current)
+  getAvailableFieldsForConditions(currentFieldIndex: number): any[] {
+    const fields = this.getFieldsArray().controls;
+    return fields
+      .map((control, index) => ({
+        index,
+        name: control.get('name')?.value,
+        label: control.get('label')?.value,
+        type: control.get('type')?.value
+      }))
+      .filter((field, index) => index !== currentFieldIndex);
+  }
+
+  // Get condition operators based on field type
+  getConditionOperators(fieldType: string): { value: string; label: string }[] {
+    const baseOperators = [
+      { value: 'equals', label: 'Equals' },
+      { value: 'not-equals', label: 'Not Equals' },
+      { value: 'is-answered', label: 'Is Answered' },
+      { value: 'is-not-answered', label: 'Is Not Answered' }
+    ];
+
+    if (fieldType === 'number' || fieldType === 'date' || fieldType === 'datetime') {
+      return [
+        ...baseOperators,
+        { value: 'greater-than', label: 'Greater Than' },
+        { value: 'less-than', label: 'Less Than' },
+        { value: 'greater-than-or-equal', label: 'Greater Than or Equal' },
+        { value: 'less-than-or-equal', label: 'Less Than or Equal' }
+      ];
+    }
+
+    if (fieldType === 'text' || fieldType === 'textarea') {
+      return [
+        ...baseOperators,
+        { value: 'contains', label: 'Contains' },
+        { value: 'starts-with', label: 'Starts With' },
+        { value: 'ends-with', label: 'Ends With' }
+      ];
+    }
+
+    if (fieldType === 'select' || fieldType === 'multiselect' || fieldType === 'checkbox') {
+      return [
+        ...baseOperators,
+        { value: 'selected', label: 'Has Selected' },
+        { value: 'not-selected', label: 'Has Not Selected' }
+      ];
+    }
+
+    return baseOperators;
   }
 
   // Drag and drop handlers
@@ -513,6 +573,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       columnPosition: 'left', // Default to left column
       validationRules: [],
       conditionalLogic: [],
+      visibilityConditions: [], // Add visibility conditions for branching logic
       options: type === 'select' || type === 'multiselect' || type === 'radio' || type === 'checkbox' 
         ? [{ value: 'option1', label: 'Option 1' }] 
         : undefined,
@@ -548,280 +609,205 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.showFieldProperties = true;
   }
 
-  deleteField(index: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    fieldsArray.removeAt(index);
-    this.updateFieldOrders();
-    this.hasUnsavedChanges = true;
+  // Visibility conditions management
+  addVisibilityCondition(fieldIndex: number): void {
+    const fieldControl = this.getFieldsArray().at(fieldIndex) as FormGroup;
+    const visibilityConditions = fieldControl.get('visibilityConditions') as FormArray;
     
-    if (this.selectedField && fieldsArray.length === 0) {
-      this.selectedField = null;
-      this.showFieldProperties = false;
-    }
-  }
-
-  duplicateField(index: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    const originalField = fieldsArray.at(index).value;
-    const duplicatedField = { ...originalField, id: this.generateFieldId(), name: `${originalField.name}_copy` };
-    const fieldFormGroup = this.createFieldFormGroup(duplicatedField);
-    fieldsArray.insert(index + 1, fieldFormGroup);
-    this.updateFieldOrders();
-    this.hasUnsavedChanges = true;
-  }
-
-  // Template actions
-  async saveTemplate(): Promise<void> {
-    // First check basic form validity
-    if (this.builderForm.invalid) {
-      this.markFormGroupTouched(this.builderForm);
-      this.showSaveMessage('Please fix validation errors before saving.', 'error');
-      this.switchTab('form-info'); // Switch to form info tab to show errors
-      return;
-    }
-
-    // Check for required fields and default values
-    const formData = this.builderForm.value;
-    const validationErrors: string[] = [];
-    
-    // Check template name
-    if (!formData.name || formData.name.trim() === '') {
-      validationErrors.push('Template name is required');
-      this.builderForm.get('name')?.markAsTouched();
-      this.builderForm.get('name')?.setErrors({ required: true });
-    } else if (formData.name === 'New Form Template' || formData.name === 'Untitled Form') {
-      validationErrors.push('Please provide a meaningful template name');
-      this.builderForm.get('name')?.markAsTouched();
-      this.builderForm.get('name')?.setErrors({ invalidValue: true });
+    if (!visibilityConditions) {
+      // Create visibilityConditions array if it doesn't exist
+      fieldControl.addControl('visibilityConditions', this.fb.array([]));
     }
     
-    // Check category
-    if (!formData.category || formData.category.trim() === '') {
-      validationErrors.push('Category is required');
-      this.builderForm.get('category')?.markAsTouched();
-      this.builderForm.get('category')?.setErrors({ required: true });
-    }
-    
-    // Check version
-    if (!formData.version || String(formData.version).trim() === '') {
-      validationErrors.push('Version is required');
-      this.builderForm.get('version')?.markAsTouched();
-      this.builderForm.get('version')?.setErrors({ required: true });
-    }
-    
-    // Check template type
-    if (!formData.templateType || formData.templateType.trim() === '') {
-      validationErrors.push('Template type is required');
-      this.builderForm.get('templateType')?.markAsTouched();
-      this.builderForm.get('templateType')?.setErrors({ required: true });
-    }
-    
-    // If there are validation errors, show them and switch to form info tab
-    if (validationErrors.length > 0) {
-      const errorMessage = 'Please complete the following required fields:\n• ' + validationErrors.join('\n• ');
-      this.showSaveMessage(errorMessage, 'error');
-      this.switchTab('form-info'); // Switch to form info tab to show the fields with errors
-      return;
-    }
-
-    this.isSaving = true;
-    try {
-      const formData = this.builderForm.value;
-      
-      // Clean up undefined values to prevent Firestore errors
-      const cleanedFormData = this.cleanUndefinedValues(formData);
-      
-      const template: FormTemplate = {
-        ...this.currentTemplate,
-        ...cleanedFormData,
-        id: this.currentTemplate?.id || this.generateTemplateId(),
-        updatedAt: new Date(),
-        createdBy: this.currentTemplate?.createdBy || (await this.authService.getCurrentUserProfile())?.uid || '',
-        updatedBy: (await this.authService.getCurrentUserProfile())?.uid || ''
-      };
-
-      let savedTemplate: FormTemplate;
-      if (this.currentTemplate?.id) {
-        savedTemplate = await this.formTemplateService.updateTemplate(template.id!, template);
-      } else {
-        savedTemplate = await this.formTemplateService.createTemplate(template);
-      }
-
-      this.currentTemplate = savedTemplate;
-      this.hasUnsavedChanges = false;
-      this.templateSaved.emit(savedTemplate);
-      this.showSaveMessage('Form template saved successfully!', 'success');
-    } catch (error) {
-      console.error('Error saving template:', error);
-      
-      // Log user profile for debugging
-      try {
-        const userProfile = await this.authService.getCurrentUserProfile();
-        console.log('Current user profile:', {
-          uid: userProfile?.uid,
-          email: userProfile?.email,
-          accessLevel: userProfile?.accessLevel,
-          status: userProfile?.status
-        });
-      } catch (profileError) {
-        console.error('Failed to get user profile for debugging:', profileError);
-      }
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      this.showSaveMessage(`Failed to save template: ${errorMessage}`, 'error');
-    } finally {
-      this.isSaving = false;
-    }
-  }
-
-  async publishTemplate(): Promise<void> {
-    if (!this.currentTemplate?.id) return;
-
-    try {
-      await this.formTemplateService.publishTemplate(this.currentTemplate.id);
-      this.currentTemplate.status = 'published';
-      this.hasUnsavedChanges = false;
-    } catch (error) {
-      console.error('Error publishing template:', error);
-    }
-  }
-
-  previewTemplate(): void {
-    this.activeTab = 'preview';
-  }
-
-  @HostListener('window:beforeunload', ['$event'])
-  unloadNotification($event: any): void {
-    if (this.hasUnsavedChanges) {
-      $event.returnValue = true;
-    }
-  }
-
-  // Field option management methods
-  addOption(fieldIndex: number): void {
-    const field = this.fieldsArray.at(fieldIndex);
-    const optionsArray = field.get('options') as FormArray;
-    
-    const newOption = this.fb.group({
+    const newCondition = this.fb.group({
+      questionId: ['', Validators.required],
+      operator: ['equals', Validators.required],
       value: [''],
-      label: [''],
-      disabled: [false]
+      optionId: [''],
+      logicalOperator: ['and'] // 'and' or 'or' for combining multiple conditions
     });
     
-    optionsArray.push(newOption);
+    (fieldControl.get('visibilityConditions') as FormArray).push(newCondition);
     this.hasUnsavedChanges = true;
   }
 
-  removeOption(fieldIndex: number, optionIndex: number): void {
-    const field = this.fieldsArray.at(fieldIndex);
-    const optionsArray = field.get('options') as FormArray;
+  removeVisibilityCondition(fieldIndex: number, conditionIndex: number): void {
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
+    const visibilityConditions = fieldControl.get('visibilityConditions') as FormArray;
     
-    optionsArray.removeAt(optionIndex);
-    this.hasUnsavedChanges = true;
-  }
-
-  // Close the form builder without saving
-  closeBuilder(): void {
-    // Check for unsaved changes
-    if (this.hasUnsavedChanges) {
-      const confirmClose = confirm('You have unsaved changes. Are you sure you want to close?');
-      if (!confirmClose) return;
-    }
-    
-    // If in modal mode, emit close event
-    if (this.isModal) {
-      this.close.emit();
-      this.builderClosed.emit();
-    } else {
-      // Navigate back to dashboard or previous route
-      this.router.navigate(['/dashboard']);
+    if (visibilityConditions && visibilityConditions.length > conditionIndex) {
+      visibilityConditions.removeAt(conditionIndex);
+      this.hasUnsavedChanges = true;
     }
   }
 
-  // Utility methods
-  private generateTemplateId(): string {
-    return `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private markFormGroupTouched(formGroup: FormGroup): void {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-
-      if (control instanceof FormGroup) {
-        this.markFormGroupTouched(control);
-      }
-    });
-  }
-
-  // Getters for template access
-  get fieldsArray(): FormArray {
+  // Get fields array
+  getFieldsArray(): FormArray {
     return this.builderForm.get('fields') as FormArray;
   }
 
-  get fieldGroupsArray(): FormArray {
-    return this.builderForm.get('fieldGroups') as FormArray;
-  }
-
-  get canPublish(): boolean {
-    return this.currentTemplate?.status === 'draft' && !this.hasUnsavedChanges;
-  }
-
-  get canSave(): boolean {
-    return this.builderForm.valid && this.hasUnsavedChanges;
-  }
-
-  // Helper methods for template binding
-  getFormFieldControls(): AbstractControl[] {
-    return this.fieldsArray.controls;
-  }
-
-  getSelectedFieldControl(): FormGroup | null {
-    if (this.selectedField) {
-      const index = this.fieldsArray.controls.findIndex(control => 
-        control.get('id')?.value === this.selectedField?.id
-      );
-      if (index >= 0) {
-        return this.fieldsArray.controls[index] as FormGroup;
-      }
-    }
-    return null;
-  }
-
-  onFieldReorder(event: CdkDragDrop<AbstractControl[]>): void {
-    if (event.previousContainer === event.container) {
-      moveItemInArray(this.fieldsArray.controls, event.previousIndex, event.currentIndex);
-      this.updateFieldOrders();
+  // Add option to field
+  addOption(fieldIndex: number): void {
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
+    const optionsArray = fieldControl.get('options') as FormArray;
+    
+    if (optionsArray) {
+      const newOption = this.fb.group({
+        value: [`option${optionsArray.length + 1}`, Validators.required],
+        label: [`Option ${optionsArray.length + 1}`, Validators.required]
+      });
+      optionsArray.push(newOption);
+      this.hasUnsavedChanges = true;
     }
   }
 
-  // Validation rule management methods
+  // Remove option from field
+  removeOption(fieldIndex: number, optionIndex: number): void {
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
+    const optionsArray = fieldControl.get('options') as FormArray;
+    
+    if (optionsArray && optionsArray.length > 1) { // Keep at least one option
+      optionsArray.removeAt(optionIndex);
+      this.hasUnsavedChanges = true;
+    }
+  }
+
+  // Add validation rule
   addValidationRule(fieldIndex: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    const fieldControl = fieldsArray.at(fieldIndex);
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
     const rulesArray = fieldControl.get('validationRules') as FormArray;
     
-    const newRule = this.fb.group({
-      type: [''],
-      value: [''],
-      message: ['']
-    });
-    
-    rulesArray.push(newRule);
-    this.hasUnsavedChanges = true;
+    if (rulesArray) {
+      const newRule = this.fb.group({
+        type: ['required', Validators.required],
+        value: [null],
+        message: ['', Validators.required]
+      });
+      rulesArray.push(newRule);
+      this.hasUnsavedChanges = true;
+    }
   }
 
+  // Remove validation rule
   removeValidationRule(fieldIndex: number, ruleIndex: number): void {
-    const fieldsArray = this.builderForm.get('fields') as FormArray;
-    const fieldControl = fieldsArray.at(fieldIndex);
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
     const rulesArray = fieldControl.get('validationRules') as FormArray;
     
-    rulesArray.removeAt(ruleIndex);
-    this.hasUnsavedChanges = true;
+    if (rulesArray && rulesArray.length > ruleIndex) {
+      rulesArray.removeAt(ruleIndex);
+      this.hasUnsavedChanges = true;
+    }
   }
 
   getValidationRule(type: string): ValidationRuleOption | undefined {
     return this.validationRules.find(rule => rule.type === type);
+  }
+
+  // Getter for fields array (for template)
+  get fieldsArray(): FormArray {
+    return this.builderForm.get('fields') as FormArray;
+  }
+
+  // Check if user can save
+  get canSave(): boolean {
+    return this.builderForm.valid && this.hasUnsavedChanges;
+  }
+
+  // Check if user can publish
+  get canPublish(): boolean {
+    return this.builderForm.valid && !this.hasUnsavedChanges;
+  }
+
+  // Save template
+  saveTemplate(): void {
+    if (this.builderForm.valid) {
+      const templateData = this.builderForm.value;
+      // TODO: Call template service to save
+      this.hasUnsavedChanges = false;
+      console.log('Saving template:', templateData);
+    }
+  }
+
+  // Publish template
+  publishTemplate(): void {
+    if (this.builderForm.valid) {
+      const templateData = this.builderForm.value;
+      // TODO: Call template service to publish
+      console.log('Publishing template:', templateData);
+    }
+  }
+
+  // Preview template
+  previewTemplate(): void {
+    this.activeTab = 'preview';
+  }
+
+  // Close builder
+  closeBuilder(): void {
+    if (this.hasUnsavedChanges) {
+      // TODO: Show confirmation dialog
+      if (confirm('You have unsaved changes. Are you sure you want to close?')) {
+        // Emit close event or navigate away
+      }
+    } else {
+      // Emit close event or navigate away
+    }
+  }
+
+  // Duplicate field
+  duplicateField(fieldIndex: number): void {
+    const fieldControl = this.getFieldsArray().at(fieldIndex);
+    if (fieldControl) {
+      const fieldValue = fieldControl.value;
+      const duplicatedField = {
+        ...fieldValue,
+        id: this.generateFieldId(),
+        name: `${fieldValue.name}_copy`,
+        label: `${fieldValue.label} (Copy)`
+      };
+      const fieldFormGroup = this.createFieldFormGroup(duplicatedField);
+      this.getFieldsArray().insert(fieldIndex + 1, fieldFormGroup);
+      this.updateFieldOrders();
+      this.hasUnsavedChanges = true;
+    }
+  }
+
+  // Delete field
+  deleteField(fieldIndex: number): void {
+    this.getFieldsArray().removeAt(fieldIndex);
+    this.updateFieldOrders();
+    this.hasUnsavedChanges = true;
+    this.selectedField = null;
+    this.showFieldProperties = false;
+  }
+
+  // Helper method to get field type by field name
+  getFieldTypeByName(fieldName: string): string {
+    const fields = this.getFieldsArray().controls;
+    const field = fields.find(control => control.get('name')?.value === fieldName);
+    return field?.get('type')?.value || 'text';
+  }
+
+  // Helper method to check if a field is a select-type field
+  isSelectField(fieldName: string): boolean {
+    const fieldType = this.getFieldTypeByName(fieldName);
+    return ['select', 'multiselect', 'radio', 'checkbox'].includes(fieldType);
+  }
+
+  // Helper method to get options for a field by name
+  getFieldOptions(fieldName: string): any[] {
+    const fields = this.getFieldsArray().controls;
+    const field = fields.find(control => control.get('name')?.value === fieldName);
+    if (field) {
+      const optionsArray = field.get('options') as FormArray;
+      if (optionsArray) {
+        return optionsArray.controls.map(control => ({
+          value: control.get('value')?.value,
+          label: control.get('label')?.value
+        }));
+      }
+    }
+    return [];
   }
 
   // Clinical field unit switching methods

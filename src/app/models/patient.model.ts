@@ -141,6 +141,10 @@ export interface Patient {
   currentVisitId?: string;
   nextScheduledVisitId?: string;
   
+  // Study Phases and Forms (copied from study for patient-specific data)
+  phases?: any[]; // Patient-specific phases copied from study
+  forms?: any[]; // Patient-specific form instances copied from study templates
+  
   // Medical History (summary)
   medicalHistory?: {
     conditions: string[];

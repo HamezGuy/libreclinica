@@ -2,7 +2,23 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '../../pipes/translate.pipe';
-import { Survey, SurveyQuestion, QuestionType, QuestionOption, SurveyType, SurveyStatus, SurveyDisplayMode, SurveyTriggerType } from '../../models/survey.model';
+import { 
+  Survey, 
+  SurveyQuestion, 
+  QuestionType, 
+  QuestionOption, 
+  SurveyType, 
+  SurveyStatus, 
+  SurveyDisplayMode, 
+  SurveyTriggerType,
+  BranchingRule,
+  BranchCondition,
+  BranchAction,
+  ConditionOperator,
+  BranchActionType,
+  VisibilityCondition,
+  BranchTarget
+} from '../../models/survey.model';
 import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
@@ -257,10 +273,12 @@ export class SurveyEditorComponent implements OnInit {
         maxValue: [question?.validation?.maxValue || null],
         pattern: [question?.validation?.pattern || '']
       }),
-      conditionalLogic: this.fb.group({
-        enabled: [question?.conditionalLogic?.enabled || false],
-        conditions: [question?.conditionalLogic?.conditions || []]
-      })
+      branchingLogic: this.fb.array(
+        question?.branchingLogic?.map(rule => this.createBranchingRuleForm(rule)) || []
+      ),
+      visibilityConditions: this.fb.array(
+        question?.visibilityConditions?.map(condition => this.createVisibilityConditionForm(condition)) || []
+      )
     });
   }
   
@@ -431,6 +449,46 @@ export class SurveyEditorComponent implements OnInit {
       question.patchValue({ options });
     }
   }
+
+  // Per-option branching (Microsoft Forms style)
+  updateOptionBranching(questionIndex: number, optionIndex: number, raw: string) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+
+    const options: QuestionOption[] = [...(question.get('options')!.value || [])];
+    if (!options[optionIndex]) return;
+
+    let branchTo: BranchTarget | undefined;
+    if (!raw || raw === 'next') {
+      branchTo = undefined; // default behavior: go to next visible question
+    } else if (raw === 'end') {
+      branchTo = { type: 'end' };
+    } else if (raw.startsWith('question:')) {
+      const targetId = raw.split(':')[1];
+      branchTo = { type: 'question', questionId: targetId };
+    } else if (raw.startsWith('section:')) {
+      const sectionId = raw.split(':')[1];
+      branchTo = { type: 'section', sectionId };
+    }
+
+    // Apply the update immutably and remove the key if defaulting to next
+    const updated = { ...options[optionIndex] } as any;
+    if (branchTo) {
+      updated.branchTo = branchTo;
+    } else {
+      delete updated.branchTo;
+    }
+    options[optionIndex] = updated;
+    question.patchValue({ options });
+  }
+
+  // Only allow branching to questions after the current one to reduce cycles
+  getAvailableQuestionsForBranching(currentQuestionIndex: number): { id: string; text: string }[] {
+    return this.questions.controls
+      .map((q, index) => ({ id: q.get('id')?.value as string, text: (q.get('text')?.value || `Question ${index + 1}`) as string, index }))
+      .filter(q => q.index > currentQuestionIndex)
+      .map(q => ({ id: q.id, text: q.text }));
+  }
   
   // Triggers management
   get triggers(): FormArray {
@@ -496,7 +554,144 @@ export class SurveyEditorComponent implements OnInit {
   
   // Helpers
   generateId(): string {
-    return `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return 'q_' + Math.random().toString(36).substr(2, 9);
+  }
+  
+  // Branching Logic Methods
+  createBranchingRuleForm(rule?: BranchingRule): FormGroup {
+    return this.fb.group({
+      id: [rule?.id || this.generateId()],
+      name: [rule?.name || ''],
+      enabled: [rule?.enabled ?? true],
+      conditionLogic: [rule?.conditionLogic || 'all'],
+      conditions: this.fb.array(
+        rule?.conditions?.map(c => this.createBranchConditionForm(c)) || [this.createBranchConditionForm()]
+      ),
+      action: this.fb.group({
+        type: [rule?.action?.type || 'skip-to-question'],
+        target: this.fb.group({
+          type: [rule?.action?.target?.type || 'question'],
+          questionId: [rule?.action?.target?.questionId || ''],
+          sectionId: [rule?.action?.target?.sectionId || '']
+        }),
+        message: [rule?.action?.message || '']
+      })
+    });
+  }
+  
+  createBranchConditionForm(condition?: BranchCondition): FormGroup {
+    return this.fb.group({
+      questionId: [condition?.questionId || ''],
+      operator: [condition?.operator || 'equals'],
+      value: [condition?.value || ''],
+      optionId: [condition?.optionId || '']
+    });
+  }
+  
+  createVisibilityConditionForm(condition?: VisibilityCondition): FormGroup {
+    return this.fb.group({
+      questionId: [condition?.questionId || ''],
+      operator: [condition?.operator || 'equals'],
+      value: [condition?.value || ''],
+      optionId: [condition?.optionId || '']
+    });
+  }
+  
+  addBranchingRule(questionIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const branchingLogic = question.get('branchingLogic') as FormArray;
+    branchingLogic.push(this.createBranchingRuleForm());
+  }
+  
+  removeBranchingRule(questionIndex: number, ruleIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const branchingLogic = question.get('branchingLogic') as FormArray;
+    branchingLogic.removeAt(ruleIndex);
+  }
+  
+  addBranchCondition(questionIndex: number, ruleIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const branchingLogic = question.get('branchingLogic') as FormArray;
+    const rule = branchingLogic.at(ruleIndex);
+    if (!rule) return;
+    
+    const conditions = rule.get('conditions') as FormArray;
+    conditions.push(this.createBranchConditionForm());
+  }
+  
+  removeBranchCondition(questionIndex: number, ruleIndex: number, conditionIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const branchingLogic = question.get('branchingLogic') as FormArray;
+    const rule = branchingLogic.at(ruleIndex);
+    if (!rule) return;
+    
+    const conditions = rule.get('conditions') as FormArray;
+    conditions.removeAt(conditionIndex);
+  }
+  
+  addVisibilityCondition(questionIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const visibilityConditions = question.get('visibilityConditions') as FormArray;
+    visibilityConditions.push(this.createVisibilityConditionForm());
+  }
+  
+  removeVisibilityCondition(questionIndex: number, conditionIndex: number) {
+    const question = this.questions.at(questionIndex);
+    if (!question) return;
+    
+    const visibilityConditions = question.get('visibilityConditions') as FormArray;
+    visibilityConditions.removeAt(conditionIndex);
+  }
+  
+  getAvailableQuestions(currentQuestionIndex: number): any[] {
+    return this.questions.controls
+      .map((q, index) => ({ 
+        id: q.get('id')?.value, 
+        text: q.get('text')?.value || `Question ${index + 1}`,
+        index: index
+      }))
+      .filter((q, index) => index !== currentQuestionIndex);
+  }
+  
+  getQuestionOptions(questionId: string): QuestionOption[] {
+    const question = this.questions.controls.find(q => q.get('id')?.value === questionId);
+    return question?.get('options')?.value || [];
+  }
+  
+  getOperators(): { value: ConditionOperator; label: string }[] {
+    return [
+      { value: 'equals', label: 'Equals' },
+      { value: 'not-equals', label: 'Not Equals' },
+      { value: 'contains', label: 'Contains' },
+      { value: 'not-contains', label: 'Does Not Contain' },
+      { value: 'greater-than', label: 'Greater Than' },
+      { value: 'less-than', label: 'Less Than' },
+      { value: 'greater-than-or-equal', label: 'Greater Than or Equal' },
+      { value: 'less-than-or-equal', label: 'Less Than or Equal' },
+      { value: 'is-answered', label: 'Is Answered' },
+      { value: 'is-not-answered', label: 'Is Not Answered' },
+      { value: 'selected', label: 'Option Selected' },
+      { value: 'not-selected', label: 'Option Not Selected' }
+    ];
+  }
+  
+  getActionTypes(): { value: BranchActionType; label: string }[] {
+    return [
+      { value: 'skip-to-question', label: 'Skip to Question' },
+      { value: 'skip-to-end', label: 'Skip to End' },
+      { value: 'end-survey', label: 'End Survey' },
+      { value: 'show-message', label: 'Show Message' }
+    ];
   }
   
   getSurveyTypeLabel(type: SurveyType): string {

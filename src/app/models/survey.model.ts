@@ -12,6 +12,7 @@ export interface Survey {
   
   // Content
   questions: SurveyQuestion[];
+  sections?: SurveySection[];
   welcomeMessage?: string;
   thankYouMessage?: string;
   welcomeScreen?: {
@@ -99,8 +100,11 @@ export interface SurveyQuestion {
   required: boolean;
   order: number;
   
-  // Conditional logic
-  showIf?: QuestionCondition;
+  // Branching logic
+  branchingLogic?: BranchingRule[];
+  
+  // Visibility conditions
+  visibilityConditions?: VisibilityCondition[];
   
   // Question-specific options
   options?: QuestionOption[];
@@ -112,12 +116,6 @@ export interface SurveyQuestion {
   
   // Layout
   layout?: QuestionLayout;
-  
-  // Conditional logic
-  conditionalLogic?: {
-    enabled: boolean;
-    conditions: any[];
-  };
   
   // Settings
   settings?: {
@@ -153,12 +151,76 @@ export interface QuestionOption {
   order: number;
   isOther?: boolean;
   otherText?: string;
+  // Branching action when this option is selected
+  branchTo?: BranchTarget;
 }
 
-export interface QuestionCondition {
+// Branching Logic Interfaces
+export interface BranchingRule {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  conditions: BranchCondition[];
+  conditionLogic: 'all' | 'any'; // AND or OR logic
+  action: BranchAction;
+}
+
+export interface BranchCondition {
   questionId: string;
-  operator: 'equals' | 'not-equals' | 'contains' | 'greater-than' | 'less-than';
+  operator: ConditionOperator;
   value: any;
+  optionId?: string; // For specific option selection
+}
+
+export type ConditionOperator = 
+  | 'equals' 
+  | 'not-equals' 
+  | 'contains' 
+  | 'not-contains'
+  | 'greater-than' 
+  | 'less-than' 
+  | 'greater-than-or-equal'
+  | 'less-than-or-equal'
+  | 'is-answered'
+  | 'is-not-answered'
+  | 'selected' // For specific option
+  | 'not-selected'; // For specific option
+
+export interface BranchAction {
+  type: BranchActionType;
+  target?: BranchTarget;
+  message?: string; // For end survey with message
+}
+
+export type BranchActionType = 
+  | 'skip-to-question'
+  | 'skip-to-end'
+  | 'end-survey'
+  | 'show-message';
+
+export interface BranchTarget {
+  type: 'next' | 'question' | 'end' | 'section';
+  questionId?: string; // For 'question' type
+  sectionId?: string; // For 'section' type
+  message?: string; // Optional message for 'end' type
+}
+
+// Visibility Conditions
+export interface VisibilityCondition {
+  questionId: string;
+  operator: ConditionOperator;
+  value: any;
+  optionId?: string;
+  logicalOperator?: 'and' | 'or'; // For combining multiple conditions
+}
+
+// Question sections for better organization
+export interface SurveySection {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  questionIds: string[];
 }
 
 export interface QuestionValidation {

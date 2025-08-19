@@ -1,9 +1,15 @@
 <html><head></head><body><div class="patient-detail-container" *ngIf="!loading">
   <!-- Header -->
-  <div class="detail-header">
+  <div class="patient-header">
     <button class="back-button" (click)="goBack()">
-      <i class="material-icons">arrow_back</i>{{ 'patient-detail.back_to_dashboard' | translate }}</button>
-    <h1>{{ 'patient-detail.patient_details' | translate }}</h1>
+      <span class="material-icons">arrow_back</span>
+      {{ 'patient-detail.back' | translate }}
+    </button>
+    <h1>{{ 'patient-detail.title' | translate }}: {{ patient?.patientNumber }}</h1>
+    <button class="export-button" (click)="openExportModal()">
+      <span class="material-icons">download</span>
+      {{ 'patient-detail.exportToExcel' | translate }}
+    </button>
   </div>
 
   <!-- Error State -->
@@ -12,8 +18,39 @@
     <p>{{ error }}</p>
   </div>
 
-  <!-- Patient Information -->
-  <div class="patient-info-section" *ngIf="patient && !error">
+  <!-- Main Content with Sidebar -->
+  <div class="patient-detail-content" *ngIf="patient && !error">
+    <!-- Phases Sidebar Navigation -->
+    <div class="phases-sidebar" *ngIf="patient.phases && patient.phases.length > 0">
+      <h3 class="sidebar-title">
+        <i class="material-icons">timeline</i>
+        Study Phases
+      </h3>
+      <div class="phases-nav-list">
+        <div class="phase-nav-item" 
+             *ngFor="let phase of patient.phases; let i = index"
+             [ngClass]="{'active': selectedPhaseId === phase.id, 'completed': phase.status === 'completed', 'in-progress': phase.status === 'in_progress'}"
+             (click)="selectPhase(phase.id)">
+          <div class="phase-nav-indicator">
+            <span class="phase-number">{{ i + 1 }}</span>
+            <i class="material-icons status-icon" *ngIf="phase.status === 'completed'">check_circle</i>
+            <i class="material-icons status-icon" *ngIf="phase.status === 'in_progress'">pending</i>
+          </div>
+          <div class="phase-nav-info">
+            <div class="phase-nav-name">{{ phase.name }}</div>
+            <div class="phase-nav-meta">
+              <span class="phase-nav-type">{{ phase.type || 'Visit' }}</span>
+              <span class="phase-nav-progress">{{ phase.completionPercentage || 0 }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="patient-main-content">
+      <!-- Patient Information -->
+      <div class="patient-info-section">
     <div class="info-card">
       <h2>
         <i class="material-icons">person</i>{{ 'patient-detail.patient_information' | translate }}</h2>
@@ -55,9 +92,84 @@
   </div>
 
   <!-- Study Phases Section -->
-  <div class="study-phases-section" *ngIf="patient && patient.visitSubcomponents && patient.visitSubcomponents.length > 0">
+  <div class="study-phases-section" *ngIf="patient && patient.phases && patient.phases.length > 0">
     <h2>
       <i class="material-icons">assignment</i>{{ 'patient-detail.study_phases_templates' | translate }}</h2>
+    
+    <!-- Display Phases -->
+    <div class="phases-container">
+      <!-- Phase Cards -->
+      <div class="phase-card" *ngFor="let phase of patient.phases">
+        <div class="phase-header" (click)="togglePhase(phase.id)">
+          <div class="phase-info">
+            <h3>{{ phase.name }}</h3>
+            <p class="phase-description">{{ phase.description }}</p>
+            <div class="phase-meta">
+              <span class="phase-type">{{ phase.type || 'Phase' }}</span>
+              <span [ngClass]="['phase-status', phase.status]">{{ phase.status }}</span>
+              <span class="phase-progress">{{ phase.completionPercentage || 0 }}% Complete</span>
+            </div>
+          </div>
+          
+          <button class="expand-button">
+            <i class="material-icons">
+              {{ isPhaseExpanded(phase.id) ? 'expand_less' : 'expand_more' }}
+            </i>
+          </button>
+        </div>
+        
+        <!-- Phase Forms (Expanded) -->
+        <div class="phase-templates" *ngIf="isPhaseExpanded(phase.id) && patient.forms">
+          <div class="templates-header">
+            <h4>{{ 'patient-detail.form_templates' | translate }}</h4>
+            <span class="template-count">
+              {{ getFormsForPhase(phase.id).length }} forms
+            </span>
+          </div>
+          
+          <!-- Form List -->
+          <div class="template-list" *ngIf="getFormsForPhase(phase.id).length > 0">
+            <div class="template-item" *ngFor="let form of getFormsForPhase(phase.id)">
+              <div class="template-info">
+                <div class="template-name">
+                  <i class="material-icons">description</i>
+                  {{ form.templateName || form.name }}
+                </div>
+                <div class="template-meta">
+                  <span class="template-version">v{{ form.version || '1.0' }}</span>
+                  <span class="template-required" *ngIf="form.required">{{ 'patient-detail.required' | translate }}</span>
+                  <span class="template-optional" *ngIf="!form.required">{{ 'patient-detail.optional' | translate }}</span>
+                </div>
+              </div>
+              
+              <div class="template-status">
+                <span [ngClass]="['status-indicator', form.status || 'not_started']">
+                  <i class="material-icons" *ngIf="form.status === 'completed'">check_circle</i>
+                  <i class="material-icons" *ngIf="form.status === 'in_progress'">pending</i>
+                  <i class="material-icons" *ngIf="form.status === 'not_started' || !form.status">radio_button_unchecked</i>
+                  {{ form.status || 'not_started' }}
+                </span>
+              </div>
+              
+              <button class="open-template-btn" (click)="openForm(form, phase)">
+                <i class="material-icons">open_in_new</i>{{ 'patient-detail.open' | translate }}</button>
+            </div>
+          </div>
+          
+          <!-- Empty State -->
+          <div class="empty-templates" *ngIf="getFormsForPhase(phase.id).length === 0">
+            <i class="material-icons">inbox</i>
+            <p>{{ 'patient-detail.no_templates_assigned_to_this_phase' | translate }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Legacy Visit Subcomponents Section (only show if no phases) -->
+  <div class="study-phases-section" *ngIf="patient && (!patient.phases || patient.phases.length === 0) && patient.visitSubcomponents && patient.visitSubcomponents.length > 0">
+    <h2>
+      <i class="material-icons">assignment</i>{{ 'patient-detail.visit_subcomponents' | translate }}</h2>
     
     <div class="phases-container">
       <!-- Phase Cards -->
@@ -105,11 +217,11 @@
               </div>
               
               <div class="template-status">
-                <span [ngClass]="['status-indicator', getTemplateStatus(template.templateId, phase)]">
-                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'completed'">check_circle</i>
-                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'in-progress'">pending</i>
-                  <i class="material-icons" *ngIf="getTemplateStatus(template.templateId, phase) === 'pending'">radio_button_unchecked</i>
-                  {{ getTemplateStatus(template.templateId, phase) }}
+                <span [ngClass]="['status-indicator', getTemplateStatus(phase, template.templateId)]">
+                  <i class="material-icons" *ngIf="getTemplateStatus(phase, template.templateId) === 'completed'">check_circle</i>
+                  <i class="material-icons" *ngIf="getTemplateStatus(phase, template.templateId) === 'in-progress'">pending</i>
+                  <i class="material-icons" *ngIf="getTemplateStatus(phase, template.templateId) === 'pending'">radio_button_unchecked</i>
+                  {{ getTemplateStatus(phase, template.templateId) }}
                 </span>
               </div>
               
@@ -148,7 +260,7 @@
   </div>
 
   <!-- No Phases State -->
-  <div class="no-phases-state" *ngIf="patient && (!patient.visitSubcomponents || patient.visitSubcomponents.length === 0)">
+  <div class="no-phases-state" *ngIf="patient && (!patient.phases || patient.phases.length === 0) && (!patient.visitSubcomponents || patient.visitSubcomponents.length === 0)">
     <i class="material-icons">assignment_late</i>
     <h3>{{ 'patient-detail.no_study_phases_assigned' | translate }}</h3>
     <p>{{ 'patient-detail.this_patient_has_not_been_assigned_any_study_phase' | translate }}</p>
@@ -156,9 +268,71 @@
 
 </div>
 
-<!-- Loading State -->
-<div class="loading-state" *ngIf="loading">
-  <div class="spinner"></div>
-  <p>{{ 'patient-detail.loading_patient_details' | translate }}</p>
+<!-- Excel Export Modal -->
+<div class="modal-overlay" *ngIf="showExportModal" (click)="closeExportModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ 'patient-detail.exportModal.title' | translate }}</h2>
+      <button class="close-button" (click)="closeExportModal()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="export-options">
+        <h3>{{ 'patient-detail.exportModal.options' | translate }}</h3>
+        
+        <div class="option-group">
+          <label class="checkbox-label">
+            <input type="checkbox" 
+                   [(ngModel)]="exportOptions.includeMetadata">
+            {{ 'patient-detail.exportModal.includeMetadata' | translate }}
+          </label>
+        </div>
+        
+        <div class="phases-selection" *ngIf="patient && patient.phases && patient.phases.length > 0">
+          <h4>{{ 'patient-detail.exportModal.selectPhases' | translate }}</h4>
+          
+          <div class="option-group">
+            <label class="checkbox-label">
+              <input type="checkbox" 
+                     [(ngModel)]="exportOptions.allPhases"
+                     (change)="exportOptions.selectedPhases = []">
+              {{ 'patient-detail.exportModal.allPhases' | translate }}
+            </label>
+          </div>
+          
+          <div class="phases-list" *ngIf="!exportOptions.allPhases">
+            <div class="phase-checkbox" *ngFor="let phase of patient.phases">
+              <label class="checkbox-label">
+                <input type="checkbox" 
+                       [checked]="isPhaseSelected(phase.id)"
+                       (change)="togglePhaseSelection(phase.id)">
+                {{ phase.name }}
+                <span class="phase-status">({{ phase.status }})</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="cancel-button" (click)="closeExportModal()">
+        {{ 'patient-detail.exportModal.cancel' | translate }}
+      </button>
+      <button class="export-button primary" 
+              (click)="exportToExcel()"
+              [disabled]="!exportOptions.allPhases && exportOptions.selectedPhases.length === 0">
+        <span class="material-icons">download</span>
+        {{ 'patient-detail.exportModal.export' | translate }}
+      </button>
+    </div>
+  </div>
 </div>
-</body></html>
+
+<!-- Loading State -->
+<div class="loading-container" *ngIf="loading">
+  <div class="spinner"></div>
+  <p>{{ 'common.loading' | translate }}</p>
+</div>

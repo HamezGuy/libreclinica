@@ -168,7 +168,7 @@
         <mat-icon color="warn">warning</mat-icon>
         <div class="warning-content">
           <h3>{{ 'duplicate_names_detected' | translate }}</h3>
-          <p>{{ 'duplicate_names_message' | translate:{ names: duplicateNames?.join(', ') || '' } }}</p>
+          <p>{{ 'duplicate_names_message' | translate:{ names: duplicateNames.join(', ') || '' } }}</p>
           <p>{{ 'ensure_unique_names' | translate }}</p>
         </div>
       </div>

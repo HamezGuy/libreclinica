@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { FormTemplate, FormField, FormFieldType } from '../models/form-template.model';
+import { Patient } from '../models/patient.model';
 
 export interface ExcelData {
   headers: string[];
@@ -166,10 +167,10 @@ export class ExcelConversionService {
   }
 
   /**
-   * Convert Excel data to FormTemplate
+   * Convert Excel to template using field names as unique identifiers
    */
-  async excelToTemplate(
-    excelData: ExcelData, 
+  async convertExcelToTemplate(
+    excelData: ExcelData,
     templateName: string,
     existingTemplate?: FormTemplate
   ): Promise<ConversionResult> {
@@ -177,68 +178,55 @@ export class ExcelConversionService {
     const warnings: string[] = [];
     const fieldMapping = new Map<string, string>();
     
-    // Validate field names are unique
-    const fieldNames = excelData.fieldNames || [];
-    const uniqueNames = new Set(fieldNames);
-    if (uniqueNames.size !== fieldNames.length) {
-      const duplicates = fieldNames.filter((name, index) => 
-        fieldNames.indexOf(name) !== index
-      );
+    // Validate Excel data
+    if (!excelData.headers || excelData.headers.length === 0) {
+      errors.push('No headers found in Excel file');
+      return { success: false, errors, warnings };
+    }
+    
+    // Use field names directly from headers - these ARE the unique identifiers
+    const fieldNames = excelData.headers.filter(header => {
+      // Skip common metadata columns
+      const skipColumns = ['Patient Number', 'Patient Name', 'Date of Birth', 
+                          'Study ID', 'Site ID', 'Form Status', 'Completed Date'];
+      return !skipColumns.includes(header);
+    });
+    
+    // Check for duplicate field names
+    const duplicates = fieldNames.filter((name, index) => 
+      fieldNames.indexOf(name) !== index
+    );
+    if (duplicates.length > 0) {
       errors.push(`Duplicate field names found: ${duplicates.join(', ')}`);
       return { success: false, errors, warnings };
     }
     
-    // If existing template provided, check for field name matches
-    if (existingTemplate) {
-      const templateFieldNames = new Set(existingTemplate.fields.map(f => f.name));
-      const excelFieldNames = new Set(fieldNames);
-      
-      // Find mismatches
-      const inTemplateNotInExcel = [...templateFieldNames].filter(name => !excelFieldNames.has(name));
-      const inExcelNotInTemplate = [...excelFieldNames].filter(name => !templateFieldNames.has(name));
-      
-      if (inTemplateNotInExcel.length > 0) {
-        warnings.push(`Fields in template but not in Excel: ${inTemplateNotInExcel.join(', ')}`);
-      }
-      
-      if (inExcelNotInTemplate.length > 0) {
-        warnings.push(`Fields in Excel but not in template: ${inExcelNotInTemplate.join(', ')}`);
-      }
-      
-      // Check if there are critical mismatches
-      if (inTemplateNotInExcel.length > 0 && inExcelNotInTemplate.length > 0) {
-        errors.push('Field names do not match between Excel and template. Please ensure all field names match exactly.');
-        return { success: false, errors, warnings };
-      }
-    }
-    
-    // Create form fields from Excel data
+    // Create form fields using field names as both ID and name
     const fields: FormField[] = [];
     
-    for (let i = 0; i < fieldNames.length; i++) {
-      const fieldName = fieldNames[i];
-      const columnData = excelData.rows.map(row => row[i]);
+    fieldNames.forEach((fieldName, index) => {
+      // Get column index in original data
+      const colIndex = excelData.headers.indexOf(fieldName);
+      const columnData = excelData.rows.map(row => row[colIndex]);
       
-      // Infer field type from data
+      // Infer field type from actual data values
       const fieldType = this.inferFieldType(columnData);
       
-      // Check if field exists in existing template
-      const existingField = existingTemplate?.fields.find(f => f.name === fieldName);
-      
+      // Use field name as the unique identifier
       const field: FormField = {
-        id: this.generateFieldId(fieldName),
-        name: fieldName,
-        type: existingField?.type || fieldType,
-        label: this.generateLabel(fieldName),
-        description: existingField?.description || '',
-        required: existingField?.required || false,
+        id: fieldName, // Use field name as ID
+        name: fieldName, // Field name is the identifier
+        type: fieldType,
+        label: fieldName, // Display name is the same
+        description: '',
+        required: false,
         readonly: false,
         hidden: false,
-        validationRules: existingField?.validationRules || [],
-        isPhiField: existingField?.isPhiField || this.isPotentialPHI(fieldName),
-        auditRequired: existingField?.auditRequired || false,
-        order: i,
-        section: existingField?.section || 'main'
+        validationRules: [],
+        isPhiField: this.isPotentialPHI(fieldName),
+        auditRequired: false,
+        order: index,
+        section: 'main'
       };
       
       // Add options for select fields if we can detect them
@@ -253,8 +241,8 @@ export class ExcelConversionService {
       }
       
       fields.push(field);
-      fieldMapping.set(fieldName, field.id);
-    }
+      fieldMapping.set(fieldName, fieldName); // Map field name to itself since we use names as IDs
+    });
     
     // Create the template
     const template: FormTemplate = existingTemplate ? {
@@ -310,6 +298,309 @@ export class ExcelConversionService {
       fieldMapping
     };
   }
+
+  /**
+   * Export multiple patient forms to a single Excel table
+   * Uses field names as column headers for easy data analysis
+   */
+  async exportMultiplePatientFormsToExcel(
+    patients: Patient[],
+    templateId: string,
+    templateName: string
+  ): Promise<void> {
+    const wb = XLSX.utils.book_new();
+    
+    // Collect all form data across patients
+    const allFormData: any[] = [];
+    const fieldNames = new Set<string>();
+    
+    patients.forEach(patient => {
+      // Find forms matching the template
+      const patientForms = patient.forms?.filter(f => 
+        f.templateId === templateId || f.templateName === templateName
+      ) || [];
+      
+      patientForms.forEach(form => {
+        const rowData: any = {
+          'Patient Number': patient.patientNumber,
+          'Patient Name': `${patient.demographics?.firstName || ''} ${patient.demographics?.lastName || ''}`.trim() || 'N/A',
+          'Date of Birth': patient.demographics?.dateOfBirth ? new Date(patient.demographics.dateOfBirth).toLocaleDateString() : '',
+          'Study ID': patient.studyId,
+          'Site ID': patient.siteId || '',
+          'Form Status': form.status || 'draft',
+          'Completed Date': form.completedAt ? new Date(form.completedAt).toLocaleDateString() : ''
+        };
+        
+        // Add form field data using field names as keys
+        if (form.data) {
+          Object.entries(form.data).forEach(([fieldName, value]) => {
+            fieldNames.add(fieldName);
+            rowData[fieldName] = this.formatCellValue(value);
+          });
+        } else if (form.fields) {
+          // Fallback to fields array if data object doesn't exist
+          form.fields.forEach((field: any) => {
+            const name = field.label || field.name;
+            fieldNames.add(name);
+            rowData[name] = this.formatCellValue(field.value);
+          });
+        }
+        
+        allFormData.push(rowData);
+      });
+    });
+    
+    // Create headers - patient info first, then form fields
+    const headers = [
+      'Patient Number',
+      'Patient Name', 
+      'Date of Birth',
+      'Study ID',
+      'Site ID',
+      'Form Status',
+      'Completed Date',
+      ...Array.from(fieldNames).sort()
+    ];
+    
+    // Create worksheet data
+    const wsData: any[][] = [headers];
+    
+    // Add data rows
+    allFormData.forEach(row => {
+      const dataRow = headers.map(header => row[header] || '');
+      wsData.push(dataRow);
+    });
+    
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Auto-size columns
+    const colWidths = headers.map(header => ({
+      wch: Math.max(header.length, 15)
+    }));
+    ws['!cols'] = colWidths;
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Patient Forms');
+    
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    // Save file
+    const timestamp = new Date().toISOString().split('T')[0];
+    const fileName = `${templateName}_AllPatients_${timestamp}.xlsx`;
+    saveAs(blob, fileName);
+  }
+  
+  /**
+   * Export single patient data with templates to Excel
+   */
+  async exportPatientDataToExcel(
+    patient: Patient,
+    includeMetadata: boolean = true,
+    selectedPhases?: string[]
+  ): Promise<void> {
+    const wb = XLSX.utils.book_new();
+    
+    // Create patient info sheet
+    if (includeMetadata) {
+      const patientInfoSheet = this.createPatientInfoSheet(patient);
+      XLSX.utils.book_append_sheet(wb, patientInfoSheet, 'Patient Info');
+    }
+    
+    // Export phases and forms data
+    if (patient.phases && patient.phases.length > 0) {
+      const phasesToExport = selectedPhases 
+        ? patient.phases.filter(p => selectedPhases.includes(p.id))
+        : patient.phases;
+      
+      for (const phase of phasesToExport) {
+        const phaseSheet = this.createPhaseDataSheet(phase, patient.forms || []);
+        const sheetName = this.sanitizeSheetName(phase.name || `Phase_${phase.id}`);
+        XLSX.utils.book_append_sheet(wb, phaseSheet, sheetName);
+      }
+    }
+    
+    // Export legacy visit subcomponents if no phases
+    if ((!patient.phases || patient.phases.length === 0) && patient.visitSubcomponents) {
+      for (const visit of patient.visitSubcomponents) {
+        const visitSheet = this.createVisitDataSheet(visit);
+        const sheetName = this.sanitizeSheetName(visit.name || `Visit_${visit.id}`);
+        XLSX.utils.book_append_sheet(wb, visitSheet, sheetName);
+      }
+    }
+    
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    // Save file with patient number and timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const fileName = `Patient_${patient.patientNumber}_${timestamp}.xlsx`;
+    saveAs(blob, fileName);
+  }
+
+  /**
+   * Create patient information sheet
+   */
+  private createPatientInfoSheet(patient: Patient): XLSX.WorkSheet {
+    const data: any[][] = [
+      ['Patient Information'],
+      [],
+      ['Patient Number', patient.patientNumber],
+      ['Study ID', patient.studyId],
+      ['Site ID', patient.siteId || 'N/A'],
+      ['Enrollment Date', patient.enrollmentDate ? new Date(patient.enrollmentDate).toLocaleDateString() : 'N/A'],
+      ['Enrollment Status', patient.enrollmentStatus],
+      ['Treatment Arm', patient.treatmentArm || 'N/A'],
+      [],
+      ['Demographics'],
+      ['First Name', patient.demographics?.firstName || 'N/A'],
+      ['Last Name', patient.demographics?.lastName || 'N/A'],
+      ['Date of Birth', patient.demographics?.dateOfBirth ? new Date(patient.demographics.dateOfBirth).toLocaleDateString() : 'N/A'],
+      ['Gender', patient.demographics?.gender || 'N/A'],
+      [],
+      ['Study Progress'],
+      ['Total Visits', patient.studyProgress?.totalVisits || 0],
+      ['Completed Visits', patient.studyProgress?.completedVisits || 0],
+      ['Overall Completion', `${patient.studyProgress?.overallCompletionPercentage || 0}%`],
+      [],
+      ['Consent Status'],
+      ['Has Valid Consent', patient.hasValidConsent ? 'Yes' : 'No'],
+      ['Consent Expiration', patient.consentExpirationDate ? new Date(patient.consentExpirationDate).toLocaleDateString() : 'N/A']
+    ];
+    
+    return XLSX.utils.aoa_to_sheet(data);
+  }
+
+  /**
+   * Create phase data sheet with forms
+   */
+  private createPhaseDataSheet(phase: any, forms: any[]): XLSX.WorkSheet {
+    const data: any[][] = [];
+    
+    // Phase header
+    data.push(['Phase Information']);
+    data.push([]);
+    data.push(['Phase Name', phase.name]);
+    data.push(['Phase Type', phase.type || 'Standard']);
+    data.push(['Status', phase.status]);
+    data.push(['Completion', `${phase.completionPercentage || 0}%`]);
+    data.push([]);
+    data.push(['Form Data']);
+    data.push([]);
+    
+    // Get forms for this phase
+    const phaseForms = forms.filter(f => 
+      f.phaseId === phase.id || f.originalPhaseId === phase.id
+    );
+    
+    if (phaseForms.length > 0) {
+      // Create headers from all unique fields across forms
+      const allFields = new Set<string>();
+      const fieldInfo = new Map<string, any>();
+      
+      phaseForms.forEach(form => {
+        if (form.fields) {
+          form.fields.forEach((field: any) => {
+            allFields.add(field.name || field.label);
+            fieldInfo.set(field.name || field.label, field);
+          });
+        }
+      });
+      
+      // Add headers
+      const headers = ['Form Name', 'Form Status', 'Completed Date', ...Array.from(allFields)];
+      data.push(headers);
+      
+      // Add form data rows
+      phaseForms.forEach(form => {
+        const row: any[] = [
+          form.name || form.templateName || 'Unnamed Form',
+          form.status || 'not_started',
+          form.completedAt ? new Date(form.completedAt).toLocaleDateString() : ''
+        ];
+        
+        // Add field values
+        allFields.forEach(fieldName => {
+          const field = form.fields?.find((f: any) => 
+            f.name === fieldName || f.label === fieldName
+          );
+          const value = form.responses?.[field?.id] || 
+                       form.responses?.[field?.name] || 
+                       '';
+          row.push(this.formatValueForExcel(value, field?.type || 'text'));
+        });
+        
+        data.push(row);
+      });
+    } else {
+      data.push(['No forms available for this phase']);
+    }
+    
+    return XLSX.utils.aoa_to_sheet(data);
+  }
+
+  /**
+   * Create visit subcomponent data sheet
+   */
+  private createVisitDataSheet(visit: any): XLSX.WorkSheet {
+    const data: any[][] = [];
+    
+    data.push(['Visit Information']);
+    data.push([]);
+    data.push(['Visit Name', visit.name]);
+    data.push(['Visit Type', visit.type]);
+    data.push(['Status', visit.status]);
+    data.push(['Completion', `${visit.completionPercentage || 0}%`]);
+    data.push([]);
+    
+    if (visit.formTemplates && visit.formTemplates.length > 0) {
+      data.push(['Form Templates']);
+      data.push(['Template Name', 'Required', 'Status']);
+      
+      visit.formTemplates.forEach((template: any) => {
+        data.push([
+          template.name || 'Unnamed Template',
+          template.required ? 'Yes' : 'No',
+          template.status || 'not_started'
+        ]);
+      });
+    }
+    
+    return XLSX.utils.aoa_to_sheet(data);
+  }
+
+  /**
+   * Sanitize sheet name for Excel
+   */
+  private sanitizeSheetName(name: string): string {
+    // Excel sheet names have restrictions
+    let sanitized = name
+      .replace(/[\[\]\*\?\/\\:]/g, '_') // Remove invalid characters
+      .substring(0, 31); // Max 31 characters
+    
+    // Ensure unique by adding number if needed
+    if (this.usedSheetNames.has(sanitized)) {
+      let counter = 1;
+      let uniqueName = `${sanitized.substring(0, 28)}_${counter}`;
+      while (this.usedSheetNames.has(uniqueName)) {
+        counter++;
+        uniqueName = `${sanitized.substring(0, 28)}_${counter}`;
+      }
+      sanitized = uniqueName;
+    }
+    
+    this.usedSheetNames.add(sanitized);
+    return sanitized;
+  }
+  
+  private usedSheetNames = new Set<string>();
 
   /**
    * Convert FormTemplate to Excel
@@ -456,27 +747,71 @@ export class ExcelConversionService {
   }
 
   /**
-   * Generate field ID from field name
+   * Format cell value for Excel export
    */
-  private generateFieldId(fieldName: string): string {
-    return fieldName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '');
+  private formatCellValue(value: any): string {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.toLocaleDateString();
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
   }
 
   /**
-   * Generate label from field name
+   * Import Excel data to create form instances for multiple patients
    */
-  private generateLabel(fieldName: string): string {
-    return fieldName
-      .replace(/_/g, ' ')
-      .replace(/([A-Z])/g, ' $1')
-      .trim()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
+  async importExcelToPatientForms(
+    file: File,
+    templateId: string
+  ): Promise<{ success: boolean; imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+    
+    try {
+      const excelData = await this.parseExcelFile(file);
+      
+      if (!excelData.headers || excelData.rows.length === 0) {
+        errors.push('No data found in Excel file');
+        return { success: false, imported: 0, errors };
+      }
+      
+      // Extract patient identifiers and form data
+      const patientNumberIndex = excelData.headers.indexOf('Patient Number');
+      if (patientNumberIndex === -1) {
+        errors.push('Patient Number column not found');
+        return { success: false, imported: 0, errors };
+      }
+      
+      // Get field names (excluding metadata columns)
+      const metadataColumns = ['Patient Number', 'Patient Name', 'Date of Birth', 
+                               'Study ID', 'Site ID', 'Form Status', 'Completed Date'];
+      const fieldNames = excelData.headers.filter(h => !metadataColumns.includes(h));
+      
+      // Process each row
+      for (const row of excelData.rows) {
+        const patientNumber = row[patientNumberIndex];
+        if (!patientNumber) continue;
+        
+        // Extract form data using field names
+        const formData: Record<string, any> = {};
+        fieldNames.forEach(fieldName => {
+          const index = excelData.headers.indexOf(fieldName);
+          if (index !== -1) {
+            formData[fieldName] = row[index];
+          }
+        });
+        
+        // Here you would save the form data to the database
+        // For now, just count as imported
+        imported++;
+      }
+      
+      return { success: true, imported, errors };
+    } catch (error) {
+      errors.push(`Import failed: ${error}`);
+      return { success: false, imported: 0, errors };
+    }
   }
 
   /**

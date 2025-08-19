@@ -271,8 +271,67 @@
     gap: 10px;
     align-items: center;
     
-    input {
+    .drag-handle {
+      cursor: move;
+      color: #999;
+      font-size: 1.2rem;
+    }
+    
+    .option-inputs {
       flex: 1;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      
+      input {
+        flex: 1;
+      }
+      
+      // Branching dropdown styling
+      .branching-select {
+        min-width: 180px;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+        font-size: 0.9rem;
+        color: #555;
+        cursor: pointer;
+        transition: all 0.2s;
+        
+        &:hover {
+          border-color: #4CAF50;
+        }
+        
+        &:focus {
+          outline: none;
+          border-color: #4CAF50;
+          box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+        }
+        
+        option {
+          padding: 8px;
+          
+          &[disabled] {
+            color: #999;
+            font-style: italic;
+          }
+        }
+      }
+    }
+    
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #f44336;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 5px;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #d32f2f;
+      }
     }
   }
 }
@@ -528,11 +587,160 @@
   font-size: 0.875rem;
 }
 
+// Branching Logic Styles
+.branching-section,
+.visibility-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    h4 {
+      margin: 0;
+      color: #495057;
+      font-size: 1.1rem;
+      font-weight: 600;
+
+      i {
+        margin-right: 8px;
+        color: #6c757d;
+      }
+    }
+  }
+
+  .branching-rules {
+    .branching-rule {
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 15px;
+
+      .rule-header {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+
+        .rule-name {
+          flex: 1;
+          max-width: 300px;
+        }
+
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          margin: 0;
+          font-weight: normal;
+
+          input[type="checkbox"] {
+            margin: 0;
+          }
+        }
+      }
+
+      .conditions-section {
+        margin-bottom: 15px;
+
+        .condition-logic {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+          font-size: 0.95rem;
+
+          .form-control-inline {
+            width: auto;
+            display: inline-block;
+            padding: 4px 8px;
+          }
+        }
+
+        .conditions-list {
+          margin-bottom: 10px;
+        }
+      }
+
+      .action-section {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        flex-wrap: wrap;
+
+        > label {
+          font-weight: 600;
+          margin-top: 6px;
+        }
+
+        select,
+        textarea {
+          flex: 1;
+          min-width: 200px;
+        }
+
+        > div {
+          flex: 1;
+          min-width: 200px;
+        }
+      }
+    }
+  }
+
+  .condition-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+
+    > label {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    select,
+    input {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .btn-icon {
+      padding: 6px 10px;
+      min-width: auto;
+    }
+  }
+
+  .visibility-conditions {
+    .condition-row {
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+    }
+  }
+}
+
+.form-control-inline {
+  display: inline-block;
+  width: auto;
+  vertical-align: middle;
+}
+
 // Responsive
 @media (max-width: 768px) {
   .survey-editor {
-    width: 100%;
-    height: 100vh;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
     max-width: 100%;
     border-radius: 0;
   }

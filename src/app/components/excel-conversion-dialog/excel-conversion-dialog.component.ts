@@ -213,7 +213,7 @@ export class ExcelConversionDialogComponent implements OnInit {
       }
       
       // Convert Excel to template
-      this.conversionResult = await this.excelService.excelToTemplate(
+      this.conversionResult = await this.excelService.convertExcelToTemplate(
         this.excelData,
         templateName,
         existingTemplate

@@ -34,7 +34,7 @@ import {
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { UserProfile } from '../models/user-profile.model';
 import { AccessLevel } from '../enums/access-levels.enum';
-import { StudyPatientReference } from '../models/study-patient-reference.model';
+// StudyPatientReference removed - using Patient model directly
 import { StudyPhaseService } from './study-phase.service';
 
 @Injectable({
@@ -76,6 +76,8 @@ export class PatientService {
       consents: patientData.consents || [],
       hasValidConsent: this.checkValidConsent(patientData.consents || []),
       visitSubcomponents: [], // Will be created separately
+      phases: [], // Will be copied from study
+      forms: [], // Will be copied from study
       studyProgress: {
         totalVisits: 0,
         completedVisits: 0,
@@ -120,35 +122,159 @@ export class PatientService {
       await setDoc(patientRef, this.prepareForFirestore(cleanedPatient));
     });
 
-    // Create reference in study's patients subcollection
-    const studyPatientRef: StudyPatientReference = {
+    // Create reference in study's patients subcollection (using simplified patient data)
+    const studyPatientRef = {
       patientId,
       patientNumber: newPatient.patientNumber,
       enrollmentDate: now,
-      status: 'screening',
+      status: newPatient.enrollmentStatus,
+      treatmentArm: newPatient.treatmentArm,
+      siteId: newPatient.siteId,
       addedBy: currentUser.uid,
       addedAt: now
     };
     
-    // Add optional fields only if they are defined
-    if (patientData.treatmentArm !== undefined) {
-      studyPatientRef.treatmentArm = patientData.treatmentArm;
-    }
-    if (patientData.siteId !== undefined) {
-      studyPatientRef.siteId = patientData.siteId;
-    }
-    
-    const studyPatientsRef = collection(this.firestore, `studies/${studyId}/patients`);
     await runInInjectionContext(this.injector, async () => {
-      await addDoc(studyPatientsRef, studyPatientRef);
+      await setDoc(doc(this.firestore, `studies/${studyId}/patients`, patientId), studyPatientRef);
     });
 
-    // Create visit subcomponents from study sections
+    // Get study data to copy phases and forms
     const studyDoc = await runInInjectionContext(this.injector, async () => {
       return await getDoc(doc(this.firestore, 'studies', studyId));
     });
     if (studyDoc.exists()) {
       const study = studyDoc.data() as any;
+      
+      // Copy phases and forms from study to patient
+      const patientPhases: any[] = [];
+      const patientForms: any[] = [];
+      
+      // Studies store phases as 'sections' - copy them as patient phases
+      if (study.sections && Array.isArray(study.sections)) {
+        console.log('[PatientService] Copying study sections as patient phases:', study.sections.length);
+        
+        for (const section of study.sections) {
+          const newPhaseId = doc(collection(this.firestore, 'temp')).id;
+          const patientPhase = {
+            ...section,
+            patientId: patientId,
+            originalSectionId: section.id,
+            id: newPhaseId,
+            status: 'not_started',
+            completionPercentage: 0,
+            completedForms: [],
+            inProgressForms: [],
+            createdAt: now,
+            lastModifiedAt: now
+          };
+          patientPhases.push(patientPhase);
+          
+          // Copy forms associated with this section/phase
+          if (section.formTemplates && Array.isArray(section.formTemplates)) {
+            console.log(`[PatientService] Copying ${section.formTemplates.length} templates for phase: ${section.name}`);
+            
+            for (const sectionTemplate of section.formTemplates) {
+              // Create a patient-specific form instance
+              const patientForm = {
+                ...sectionTemplate,
+                patientId: patientId,
+                phaseId: newPhaseId, // Link to the new patient phase
+                originalSectionId: section.id, // Keep reference to original section
+                templateId: sectionTemplate.templateId || sectionTemplate.id,
+                id: doc(collection(this.firestore, 'temp')).id,
+                status: 'not_started',
+                responses: {},
+                completedAt: null,
+                createdAt: now,
+                lastModifiedAt: now,
+                isRequired: sectionTemplate.isRequired || false,
+                order: sectionTemplate.order || 0
+              };
+              patientForms.push(patientForm);
+            }
+          }
+        }
+      }
+      // Fallback: Check for legacy 'phases' field
+      else if (study.phases && Array.isArray(study.phases)) {
+        console.log('[PatientService] Using legacy phases field:', study.phases.length);
+        
+        for (const phase of study.phases) {
+          const newPhaseId = doc(collection(this.firestore, 'temp')).id;
+          const patientPhase = {
+            ...phase,
+            patientId: patientId,
+            originalPhaseId: phase.id,
+            id: newPhaseId,
+            status: 'not_started',
+            completionPercentage: 0,
+            completedForms: [],
+            inProgressForms: [],
+            createdAt: now,
+            lastModifiedAt: now
+          };
+          patientPhases.push(patientPhase);
+          
+          // Copy forms associated with this phase
+          if (phase.formTemplateIds && Array.isArray(phase.formTemplateIds)) {
+            for (const templateId of phase.formTemplateIds) {
+              // Find the template in study.formTemplates
+              const template = study.formTemplates?.find((t: any) => t.id === templateId);
+              if (template) {
+                const patientForm = {
+                  ...template,
+                  patientId: patientId,
+                  phaseId: newPhaseId, // Link to the new patient phase
+                  originalPhaseId: phase.id, // Keep reference to original phase
+                  templateId: template.id,
+                  id: doc(collection(this.firestore, 'temp')).id,
+                  status: 'not_started',
+                  responses: {},
+                  completedAt: null,
+                  createdAt: now,
+                  lastModifiedAt: now
+                };
+                patientForms.push(patientForm);
+              }
+            }
+          }
+        }
+      }
+      
+      // Also copy any standalone form templates not associated with phases
+      if (study.formTemplates && Array.isArray(study.formTemplates)) {
+        for (const template of study.formTemplates) {
+          // Check if this template was already added via a phase
+          const alreadyAdded = patientForms.some((f: any) => f.templateId === template.id);
+          if (!alreadyAdded) {
+            const patientForm = {
+              ...template,
+              patientId: patientId,
+              phaseId: null, // No phase association
+              templateId: template.id,
+              id: doc(collection(this.firestore, 'temp')).id,
+              status: 'not_started',
+              responses: {},
+              completedAt: null,
+              createdAt: now,
+              lastModifiedAt: now
+            };
+            patientForms.push(patientForm);
+          }
+        }
+      }
+      
+      console.log(`[PatientService] Created ${patientPhases.length} phases and ${patientForms.length} forms for patient`);
+      
+      // Update patient with phases and forms
+      await runInInjectionContext(this.injector, async () => {
+        await updateDoc(patientRef, {
+          phases: patientPhases,
+          forms: patientForms
+        });
+      });
+      
+      // Create visit subcomponents if sections exist
       if (study.sections && Array.isArray(study.sections) && study.sections.length > 0) {
         // Create visit subcomponents from study sections
         const visitSubcomponents = await this.createVisitSubcomponentsFromSections(
@@ -390,7 +516,7 @@ export class PatientService {
     const studyPatientsSnapshot = await runInInjectionContext(this.injector, async () => await getDocs(studyPatientsRef));
     
     const patientIds = studyPatientsSnapshot.docs.map(doc => {
-      const data = doc.data() as StudyPatientReference;
+      const data = doc.data() as { patientId: string };
       return data.patientId;
     });
 

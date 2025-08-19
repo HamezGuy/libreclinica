@@ -1,18 +1,25 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormBuilder, FormControl, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
-import { CdkDragDrop, moveItemInArray, DragDropModule } from '@angular/cdk/drag-drop';
-import { Survey, SurveyQuestion, SurveyResponse } from '../../models/survey.model';
+import { AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { 
+  Survey, 
+  SurveyQuestion, 
+  SurveyResponse,
+  BranchingRule,
+  BranchAction,
+  VisibilityCondition
+} from '../../models/survey.model';
 import { SurveyService } from '../../services/survey.service';
 import { ToastService } from '../../services/toast.service';
 import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
 import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
   selector: 'app-survey-response',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, DragDropModule, TranslatePipe],
+  imports: [CommonModule, ReactiveFormsModule, TranslatePipe],
   templateUrl: './survey-response.component.html',
   styleUrls: ['./survey-response.component.scss']
 })
@@ -23,10 +30,14 @@ export class SurveyResponseComponent implements OnInit {
   @Output() responseCancelled = new EventEmitter<void>();
 
   responseForm!: FormGroup;
-  currentQuestionIndex: number = 0;
-  isSubmitting: boolean = false;
-  startTime!: Date;
+  currentQuestionIndex = 0;
+  isSubmitting = false;
+  visibleQuestions: SurveyQuestion[] = [];
+  questionHistory: number[] = [];
+  branchingMessage: string | null = null;
+  surveyEnded = false;
   currentUser: any = null;
+  startTime!: Date;
 
   constructor(
     private fb: FormBuilder,
@@ -43,7 +54,9 @@ export class SurveyResponseComponent implements OnInit {
   async ngOnInit() {
     this.startTime = new Date();
     this.buildForm();
-    
+    this.updateVisibleQuestions();
+    this.subscribeToFormChanges();
+
     // Get current user if authenticated
     try {
       const userProfile = await firstValueFrom(this.authService.currentUserProfile$);
@@ -196,20 +209,189 @@ export class SurveyResponseComponent implements OnInit {
     return 'Invalid input';
   }
 
-  nextQuestion() {
-    if (this.currentQuestionIndex < this.survey.questions.length - 1) {
-      this.currentQuestionIndex++;
+  subscribeToFormChanges() {
+    // Subscribe to form value changes to update visibility and branching
+    this.responseForm.valueChanges.subscribe(() => {
+      this.updateVisibleQuestions();
+    });
+  }
+
+  updateVisibleQuestions() {
+    this.visibleQuestions = this.survey.questions.filter(q => this.isQuestionVisible(q));
+  }
+
+  isQuestionVisible(question: SurveyQuestion): boolean {
+    // Check visibility conditions
+    if (!question.visibilityConditions || question.visibilityConditions.length === 0) {
+      return true;
+    }
+    
+    // Evaluate all visibility conditions (using AND logic)
+    return question.visibilityConditions.every(condition => 
+      this.evaluateCondition(condition)
+    );
+  }
+
+  evaluateCondition(condition: VisibilityCondition | any): boolean {
+    const answer = this.responseForm.get(condition.questionId)?.value;
+    
+    switch (condition.operator) {
+      case 'equals':
+        return answer === condition.value;
+      case 'not-equals':
+        return answer !== condition.value;
+      case 'contains':
+        return Array.isArray(answer) ? answer.includes(condition.value) : 
+               String(answer).includes(String(condition.value));
+      case 'not-contains':
+        return Array.isArray(answer) ? !answer.includes(condition.value) : 
+               !String(answer).includes(String(condition.value));
+      case 'greater-than':
+        return Number(answer) > Number(condition.value);
+      case 'less-than':
+        return Number(answer) < Number(condition.value);
+      case 'greater-than-or-equal':
+        return Number(answer) >= Number(condition.value);
+      case 'less-than-or-equal':
+        return Number(answer) <= Number(condition.value);
+      case 'is-answered':
+        return answer !== null && answer !== undefined && answer !== '';
+      case 'is-not-answered':
+        return answer === null || answer === undefined || answer === '';
+      case 'selected':
+        return Array.isArray(answer) ? answer.includes(condition.optionId) : 
+               answer === condition.optionId;
+      case 'not-selected':
+        return Array.isArray(answer) ? !answer.includes(condition.optionId) : 
+               answer !== condition.optionId;
+      default:
+        return true;
     }
   }
 
+  processBranchingLogic(question: SurveyQuestion): BranchAction | null {
+    if (!question.branchingLogic || question.branchingLogic.length === 0) {
+      return null;
+    }
+
+    // Find the first matching branching rule
+    for (const rule of question.branchingLogic) {
+      if (!rule.enabled) continue;
+
+      const conditionsMatch = rule.conditionLogic === 'all'
+        ? rule.conditions.every(c => this.evaluateCondition(c))
+        : rule.conditions.some(c => this.evaluateCondition(c));
+
+      if (conditionsMatch) {
+        return rule.action;
+      }
+    }
+
+    return null;
+  }
+
+  nextQuestion() {
+    const currentQuestion = this.survey.questions[this.currentQuestionIndex];
+    
+    // Check if current question has branching logic
+    const branchAction = this.processBranchingLogic(currentQuestion);
+    
+    if (branchAction) {
+      this.handleBranchAction(branchAction);
+    } else {
+      // Normal flow: move to next visible question
+      this.moveToNextVisibleQuestion();
+    }
+  }
+
+  handleBranchAction(action: BranchAction) {
+    switch (action.type) {
+      case 'skip-to-question':
+        if (action.target?.questionId) {
+          const targetIndex = this.survey.questions.findIndex(
+            q => q.id === action.target?.questionId
+          );
+          if (targetIndex !== -1) {
+            this.questionHistory.push(this.currentQuestionIndex);
+            this.currentQuestionIndex = targetIndex;
+          } else {
+            this.moveToNextVisibleQuestion();
+          }
+        }
+        break;
+        
+      case 'skip-to-end':
+        this.questionHistory.push(this.currentQuestionIndex);
+        this.currentQuestionIndex = this.survey.questions.length;
+        break;
+        
+      case 'end-survey':
+        this.surveyEnded = true;
+        this.branchingMessage = action.message || 'Thank you for your response.';
+        break;
+        
+      case 'show-message':
+        this.branchingMessage = action.message || '';
+        this.moveToNextVisibleQuestion();
+        break;
+        
+      default:
+        this.moveToNextVisibleQuestion();
+    }
+  }
+
+  moveToNextVisibleQuestion() {
+    this.questionHistory.push(this.currentQuestionIndex);
+    
+    let nextIndex = this.currentQuestionIndex + 1;
+    while (nextIndex < this.survey.questions.length) {
+      if (this.isQuestionVisible(this.survey.questions[nextIndex])) {
+        this.currentQuestionIndex = nextIndex;
+        return;
+      }
+      nextIndex++;
+    }
+    
+    // No more visible questions
+    this.currentQuestionIndex = this.survey.questions.length;
+  }
+
   previousQuestion() {
-    if (this.currentQuestionIndex > 0) {
-      this.currentQuestionIndex--;
+    if (this.questionHistory.length > 0) {
+      this.currentQuestionIndex = this.questionHistory.pop()!;
+      this.branchingMessage = null;
+      this.surveyEnded = false;
     }
   }
 
   goToQuestion(index: number) {
-    this.currentQuestionIndex = index;
+    if (this.isQuestionVisible(this.survey.questions[index])) {
+      this.questionHistory.push(this.currentQuestionIndex);
+      this.currentQuestionIndex = index;
+    }
+  }
+
+  get currentQuestion(): SurveyQuestion | null {
+    if (this.surveyEnded || this.currentQuestionIndex >= this.survey.questions.length) {
+      return null;
+    }
+    return this.survey.questions[this.currentQuestionIndex];
+  }
+
+  get isLastQuestion(): boolean {
+    if (this.surveyEnded) return true;
+    
+    // Check if there are any more visible questions after current
+    for (let i = this.currentQuestionIndex + 1; i < this.survey.questions.length; i++) {
+      if (this.isQuestionVisible(this.survey.questions[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  get canGoBack(): boolean {
+    return this.questionHistory.length > 0;
   }
 
   async submitResponse() {

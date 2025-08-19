@@ -51,7 +51,7 @@ import {
   StudyFormInstanceStatus,
   SectionCompletionStatus
 } from '../models/study.model';
-import { StudyPatientReference } from '../models/study-patient-reference.model';
+// StudyPatientReference removed - using simplified patient reference directly
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { CloudAuditService } from './cloud-audit.service';
 import { AccessLevel } from '../enums/access-levels.enum';
@@ -338,7 +338,7 @@ export class StudyService implements IStudyService {
       
       // Delete all patient references and actual patient documents
       for (const docSnapshot of studyPatientsSnapshot.docs) {
-        const patientRef = docSnapshot.data() as StudyPatientReference;
+        const patientRef = docSnapshot.data() as { patientId: string };
         
         // Delete the patient reference from the study subcollection
         batch.delete(docSnapshot.ref);

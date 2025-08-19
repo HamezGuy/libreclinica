@@ -98,26 +98,48 @@ export class SurveyPopupComponent implements OnInit {
   }
   
   isQuestionVisible(question: SurveyQuestion): boolean {
-    if (!question.showIf) return true;
-    
-    const { questionId, operator, value } = question.showIf;
-    const answer = this.form.get(questionId)?.value;
-    
-    switch (operator) {
-      case 'equals':
-        return answer === value;
-      case 'not-equals':
-        return answer !== value;
-      case 'contains':
-        return Array.isArray(answer) ? answer.includes(value) : 
-               String(answer).includes(String(value));
-      case 'greater-than':
-        return Number(answer) > Number(value);
-      case 'less-than':
-        return Number(answer) < Number(value);
-      default:
-        return true;
+    // Check visibility conditions
+    if (!question.visibilityConditions || question.visibilityConditions.length === 0) {
+      return true;
     }
+    
+    // Evaluate all visibility conditions (using AND logic)
+    return question.visibilityConditions.every(condition => {
+      const answer = this.form.get(condition.questionId)?.value;
+      
+      switch (condition.operator) {
+        case 'equals':
+          return answer === condition.value;
+        case 'not-equals':
+          return answer !== condition.value;
+        case 'contains':
+          return Array.isArray(answer) ? answer.includes(condition.value) : 
+                 String(answer).includes(String(condition.value));
+        case 'not-contains':
+          return Array.isArray(answer) ? !answer.includes(condition.value) : 
+                 !String(answer).includes(String(condition.value));
+        case 'greater-than':
+          return Number(answer) > Number(condition.value);
+        case 'less-than':
+          return Number(answer) < Number(condition.value);
+        case 'greater-than-or-equal':
+          return Number(answer) >= Number(condition.value);
+        case 'less-than-or-equal':
+          return Number(answer) <= Number(condition.value);
+        case 'is-answered':
+          return answer !== null && answer !== undefined && answer !== '';
+        case 'is-not-answered':
+          return answer === null || answer === undefined || answer === '';
+        case 'selected':
+          return Array.isArray(answer) ? answer.includes(condition.optionId) : 
+                 answer === condition.optionId;
+        case 'not-selected':
+          return Array.isArray(answer) ? !answer.includes(condition.optionId) : 
+                 answer !== condition.optionId;
+        default:
+          return true;
+      }
+    });
   }
   
   startSurvey() {
@@ -140,9 +162,37 @@ export class SurveyPopupComponent implements OnInit {
     // Mark current question as answered
     if (this.currentQuestion) {
       this.answeredQuestions.add(this.currentQuestion.id);
+      
+      // Check for per-option branching (Microsoft Forms style)
+      const answer = this.form.get(this.currentQuestion.id)?.value;
+      
+      // For single-choice questions, check if selected option has branching
+      if (this.currentQuestion.type === 'single-choice' && answer) {
+        const selectedOption = this.currentQuestion.options?.find(opt => opt.id === answer || opt.value === answer);
+        
+        if (selectedOption?.branchTo) {
+          // Handle branching based on the selected option
+          if (selectedOption.branchTo.type === 'end') {
+            // End the survey immediately
+            this.submitSurvey();
+            return;
+          } else if (selectedOption.branchTo.type === 'question' && selectedOption.branchTo.questionId) {
+            // Jump to specific question
+            const targetIndex = this.survey.questions.findIndex(q => q.id === selectedOption.branchTo!.questionId);
+            if (targetIndex >= 0 && this.isQuestionVisible(this.survey.questions[targetIndex])) {
+              this.currentQuestionIndex = targetIndex;
+              return;
+            }
+          } else if (selectedOption.branchTo.type === 'section' && selectedOption.branchTo.sectionId) {
+            // Jump to first question of section (if sections are implemented)
+            // For now, fallback to next question
+          }
+          // If branch target is 'next' or invalid, fall through to normal flow
+        }
+      }
     }
     
-    // Find next visible question
+    // Default behavior: Find next visible question
     for (let i = this.currentQuestionIndex + 1; i < this.survey.questions.length; i++) {
       if (this.isQuestionVisible(this.survey.questions[i])) {
         this.currentQuestionIndex = i;

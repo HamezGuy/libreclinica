@@ -1,4 +1,5 @@
 import { AccessLevel } from '../enums/access-levels.enum';
+import { VisibilityCondition } from './survey.model';
 
 // Template Types
 export type TemplateType = 'form' | 'patient' | 'study_subject';
@@ -123,6 +124,7 @@ export interface FormField {
   showWhen?: ConditionalRule[];
   requiredWhen?: ConditionalRule[];
   conditionalLogic?: ConditionalLogicRule[];
+  visibilityConditions?: VisibilityCondition[];
   
   // Layout and grouping
   groupId?: string;

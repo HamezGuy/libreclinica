@@ -638,6 +638,100 @@
                   </div>
                 </div>
 
+                <!-- Visibility Conditions (Branching Logic) -->
+                <div class="property-section">
+                  <h4>
+                    <span class="material-icons">account_tree</span>
+                    {{ 'form-builder.visibility_conditions' | translate }}
+                    <small class="text-muted">{{ 'form-builder.branching_logic' | translate }}</small>
+                  </h4>
+                  
+                  <div formArrayName="visibilityConditions">
+                    <div *ngFor="let conditionControl of getVisibilityConditionsArray(i).controls; let m = index" 
+                         class="visibility-condition-item" [formGroupName]="m">
+                      
+                      <!-- Logical Operator (for multiple conditions) -->
+                      <div class="form-group" *ngIf="m > 0">
+                        <select class="form-control form-control-sm" formControlName="logicalOperator">
+                          <option value="and">{{ 'form-builder.and' | translate }}</option>
+                          <option value="or">{{ 'form-builder.or' | translate }}</option>
+                        </select>
+                      </div>
+                      
+                      <div class="condition-row">
+                        <!-- Field Selection -->
+                        <div class="form-group">
+                          <label>{{ 'form-builder.when_field' | translate }}</label>
+                          <select class="form-control" formControlName="questionId">
+                            <option value="">{{ 'form-builder.select_field' | translate }}</option>
+                            <option *ngFor="let availableField of getAvailableFieldsForConditions(i)" 
+                                    [value]="availableField.name">
+                              {{ availableField.label }} ({{ availableField.name }})
+                            </option>
+                          </select>
+                        </div>
+                        
+                        <!-- Operator Selection -->
+                        <div class="form-group">
+                          <label>{{ 'form-builder.operator' | translate }}</label>
+                          <select class="form-control" formControlName="operator">
+                            <option value="">{{ 'form-builder.select_operator' | translate }}</option>
+                            <ng-container *ngIf="conditionControl.get('questionId')?.value">
+                              <option *ngFor="let op of getConditionOperators(getFieldTypeByName(conditionControl.get('questionId')?.value))" 
+                                      [value]="op.value">
+                                {{ op.label }}
+                              </option>
+                            </ng-container>
+                          </select>
+                        </div>
+                        
+                        <!-- Value Input -->
+                        <div class="form-group" *ngIf="!['is-answered', 'is-not-answered'].includes(conditionControl.get('operator')?.value)">
+                          <label>{{ 'form-builder.value' | translate }}</label>
+                          
+                          <!-- For select fields, show options dropdown -->
+                          <select class="form-control" formControlName="value" 
+                                  *ngIf="isSelectField(conditionControl.get('questionId')?.value) && 
+                                         ['equals', 'not-equals', 'selected', 'not-selected'].includes(conditionControl.get('operator')?.value)">
+                            <option value="">{{ 'form-builder.select_option' | translate }}</option>
+                            <option *ngFor="let opt of getFieldOptions(conditionControl.get('questionId')?.value)" 
+                                    [value]="opt.value">
+                              {{ opt.label }}
+                            </option>
+                          </select>
+                          
+                          <!-- For other fields, show text input -->
+                          <input type="text" class="form-control" formControlName="value" 
+                                 *ngIf="!isSelectField(conditionControl.get('questionId')?.value) || 
+                                        !['equals', 'not-equals', 'selected', 'not-selected'].includes(conditionControl.get('operator')?.value)"
+                                 [placeholder]="'form-builder.enter_value' | translate">
+                        </div>
+                        
+                        <!-- Remove Button -->
+                        <button type="button" class="btn btn-link btn-sm text-danger remove-condition-btn" 
+                                (click)="removeVisibilityCondition(i, m)"
+                                [title]="'form-builder.remove_condition' | translate">
+                          <span class="material-icons">close</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <!-- Add Condition Button -->
+                    <button type="button" class="btn btn-outline-primary btn-sm" (click)="addVisibilityCondition(i)">
+                      <span class="material-icons">add</span>
+                      {{ 'form-builder.add_visibility_condition' | translate }}
+                    </button>
+                    
+                    <!-- Help Text -->
+                    <div class="help-text mt-2">
+                      <small class="text-muted">
+                        <span class="material-icons">info</span>
+                        {{ 'form-builder.visibility_conditions_help' | translate }}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Audit Trail Settings -->
                 <div class="property-section" formGroupName="auditTrail">
                   <h4>{{ 'form-builder.audit_trail' | translate }}</h4>

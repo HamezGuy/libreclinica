@@ -898,8 +898,9 @@
       .validation-rule-item {
         padding: 12px;
         background: #f8fafc;
-        border-radius: 8px;
+        border-radius: 6px;
         margin-bottom: 12px;
+        position: relative;
 
         .form-group {
           margin-bottom: 8px;
@@ -907,6 +908,133 @@
           &:last-child {
             margin-bottom: 0;
           }
+        }
+      }
+
+      // Visibility Conditions Styling
+      .visibility-condition-item {
+        padding: 16px;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        position: relative;
+        transition: all 0.3s ease;
+
+        &:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          border-color: #cbd5e1;
+        }
+
+        .condition-row {
+          display: flex;
+          gap: 12px;
+          align-items: flex-end;
+          flex-wrap: wrap;
+
+          .form-group {
+            flex: 1;
+            min-width: 180px;
+            margin-bottom: 0;
+
+            label {
+              font-size: 12px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #64748b;
+              margin-bottom: 4px;
+            }
+
+            .form-control {
+              height: 38px;
+              font-size: 14px;
+            }
+
+            &:first-child {
+              flex: 1.5;
+            }
+          }
+
+          .remove-condition-btn {
+            flex-shrink: 0;
+            padding: 6px;
+            margin-bottom: 0;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            
+            &:hover {
+              background: #fee2e2;
+              color: #dc2626;
+            }
+
+            .material-icons {
+              font-size: 18px;
+            }
+          }
+        }
+
+        // Logical operator styling
+        > .form-group:first-child {
+          margin-bottom: 12px;
+          
+          .form-control-sm {
+            width: 100px;
+            height: 28px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 0 12px;
+            text-transform: uppercase;
+          }
+        }
+      }
+
+      // Help text styling
+      .help-text {
+        padding: 12px;
+        background: #f0f9ff;
+        border-left: 3px solid #3b82f6;
+        border-radius: 4px;
+        
+        small {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #1e40af;
+          
+          .material-icons {
+            font-size: 16px;
+          }
+        }
+      }
+
+      // Add button styling for visibility conditions
+      .btn-outline-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        cursor: pointer;
+
+        &:hover {
+          background: #667eea;
+          color: white;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .material-icons {
+          font-size: 18px;
         }
       }
     }

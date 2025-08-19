@@ -114,15 +114,36 @@
                 <input type="checkbox" formControlName="required">{{ 'survey.required_question' | translate }}</label>
             </div>
             
-            <!-- Options for choice questions -->
+            <!-- Options for choice questions with branching -->
             <div class="options-section" *ngIf="needsOptions(question.get('type')!.value)">
               <label>{{ 'survey.answer_options' | translate }}</label>
               <div class="options-list">
-                <div class="option-item" *ngFor="let option of question.get('options')!.value; let j = index">
-                  <input type="text" class="form-control" [value]="option.text" (input)="updateOption(i, j, 'text', $any($event.target).value)" [placeholder]="'survey.option_text' | translate">
-                  <button type="button" class="btn-icon btn-danger" (click)="removeOption(i, j)">
-                    <i class="fas fa-times"></i>
-                  </button>
+                <div class="option-item-with-branching" *ngFor="let option of question.get('options')!.value; let j = index">
+                  <div class="option-row">
+                    <input type="text" class="form-control option-text" [value]="option.text" 
+                           (input)="updateOption(i, j, 'text', $any($event.target).value)" 
+                           [placeholder]="'survey.option_text' | translate">
+                    
+                    <!-- Branching dropdown for this option -->
+                    <div class="branch-control">
+                      <label class="branch-label">Go to:</label>
+                      <select class="form-control branch-select" 
+                              [value]="option.branchTo?.type || 'next'"
+                              (change)="updateOptionBranching(i, j, $any($event.target).value)">
+                        <option value="next">Next question</option>
+                        <option value="end">End of survey</option>
+                        <option disabled>──────────</option>
+                        <option *ngFor="let q of getAvailableQuestionsForBranching(i)" 
+                                [value]="'question:' + q.id">
+                          Go to: {{ q.text | slice:0:30 }}{{ q.text.length > 30 ? '...' : '' }}
+                        </option>
+                      </select>
+                    </div>
+                    
+                    <button type="button" class="btn-icon btn-danger" (click)="removeOption(i, j)">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
               <button type="button" class="btn btn-sm btn-secondary" (click)="addOption(i)">
@@ -155,6 +176,145 @@
                 <div class="form-group">
                   <label>{{ 'survey.max_label' | translate }}</label>
                   <input type="text" formControlName="scaleMaxLabel" class="form-control" [placeholder]="'survey.eg_strongly_agree' | translate">
+                </div>
+              </div>
+            </div>
+            
+            <!-- Branching Logic Section -->
+            <div class="branching-section">
+              <div class="section-header">
+                <h4>
+                  <i class="fas fa-code-branch"></i>
+                  Branching Logic
+                </h4>
+                <button type="button" class="btn btn-sm btn-secondary" (click)="addBranchingRule(i)">
+                  <i class="fas fa-plus"></i> Add Rule
+                </button>
+              </div>
+              
+              <div formArrayName="branchingLogic" class="branching-rules">
+                <div *ngFor="let rule of $any(question.get('branchingLogic')).controls; let j = index" 
+                     [formGroupName]="j" class="branching-rule">
+                  
+                  <div class="rule-header">
+                    <input type="text" formControlName="name" class="form-control rule-name" 
+                           placeholder="Rule name (optional)">
+                    <label class="checkbox-label">
+                      <input type="checkbox" formControlName="enabled"> Enabled
+                    </label>
+                    <button type="button" class="btn-icon btn-danger" (click)="removeBranchingRule(i, j)">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                  
+                  <div class="conditions-section">
+                    <div class="condition-logic">
+                      <label>When</label>
+                      <select formControlName="conditionLogic" class="form-control-inline">
+                        <option value="all">All</option>
+                        <option value="any">Any</option>
+                      </select>
+                      <label>of these conditions are met:</label>
+                    </div>
+                    
+                    <div formArrayName="conditions" class="conditions-list">
+                      <div *ngFor="let condition of $any(rule.get('conditions')).controls; let k = index" 
+                           [formGroupName]="k" class="condition-row">
+                        
+                        <select formControlName="questionId" class="form-control">
+                          <option value="">Select question</option>
+                          <option *ngFor="let q of getAvailableQuestions(i)" [value]="q.id">
+                            {{ q.text }}
+                          </option>
+                        </select>
+                        
+                        <select formControlName="operator" class="form-control">
+                          <option *ngFor="let op of getOperators()" [value]="op.value">
+                            {{ op.label }}
+                          </option>
+                        </select>
+                        
+                        <input *ngIf="!['is-answered', 'is-not-answered'].includes(condition.get('operator')!.value)"
+                               type="text" formControlName="value" class="form-control" 
+                               placeholder="Value">
+                        
+                        <button type="button" class="btn-icon btn-danger" 
+                                (click)="removeBranchCondition(i, j, k)">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-sm btn-outline-secondary" 
+                            (click)="addBranchCondition(i, j)">
+                      <i class="fas fa-plus"></i> Add Condition
+                    </button>
+                  </div>
+                  
+                  <div formGroupName="action" class="action-section">
+                    <label>Then:</label>
+                    <select formControlName="type" class="form-control">
+                      <option *ngFor="let action of getActionTypes()" [value]="action.value">
+                        {{ action.label }}
+                      </option>
+                    </select>
+                    
+                    <div formGroupName="target" *ngIf="rule.get('action.type')!.value === 'skip-to-question'">
+                      <select formControlName="questionId" class="form-control">
+                        <option value="">Select target question</option>
+                        <option *ngFor="let q of getAvailableQuestions(i)" [value]="q.id">
+                          {{ q.text }}
+                        </option>
+                      </select>
+                    </div>
+                    
+                    <textarea *ngIf="['end-survey', 'show-message'].includes(rule.get('action.type')!.value)"
+                              formControlName="message" class="form-control" rows="2" 
+                              placeholder="Message to display"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Visibility Conditions Section -->
+            <div class="visibility-section">
+              <div class="section-header">
+                <h4>
+                  <i class="fas fa-eye"></i>
+                  Visibility Conditions
+                </h4>
+                <button type="button" class="btn btn-sm btn-secondary" (click)="addVisibilityCondition(i)">
+                  <i class="fas fa-plus"></i> Add Condition
+                </button>
+              </div>
+              
+              <div formArrayName="visibilityConditions" class="visibility-conditions">
+                <div *ngFor="let condition of $any(question.get('visibilityConditions')).controls; let j = index" 
+                     [formGroupName]="j" class="condition-row">
+                  
+                  <label>Show when:</label>
+                  
+                  <select formControlName="questionId" class="form-control">
+                    <option value="">Select question</option>
+                    <option *ngFor="let q of getAvailableQuestions(i)" [value]="q.id">
+                      {{ q.text }}
+                    </option>
+                  </select>
+                  
+                  <select formControlName="operator" class="form-control">
+                    <option *ngFor="let op of getOperators()" [value]="op.value">
+                      {{ op.label }}
+                    </option>
+                  </select>
+                  
+                  <input *ngIf="!['is-answered', 'is-not-answered'].includes(condition.get('operator')!.value)"
+                         type="text" formControlName="value" class="form-control" 
+                         placeholder="Value">
+                  
+                  <button type="button" class="btn-icon btn-danger" 
+                          (click)="removeVisibilityCondition(i, j)">
+                    <i class="fas fa-times"></i>
+                  </button>
                 </div>
               </div>
             </div>
