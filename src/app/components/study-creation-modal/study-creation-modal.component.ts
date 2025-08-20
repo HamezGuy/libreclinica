@@ -564,6 +564,7 @@ export class StudyCreationModalComponent implements OnInit {
       formTemplatesArray.push(this.fb.group({
         templateId: [template.id, Validators.required],
         templateName: [template.name],
+        templateVersion: [template.version || '1.0'],
         order: [formTemplatesArray.length + 1],
         isRequired: [false] // Add the missing isRequired field
       }));

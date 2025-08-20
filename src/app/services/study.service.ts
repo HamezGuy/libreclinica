@@ -936,19 +936,23 @@ export class StudyService implements IStudyService {
   private extractTemplateAssignments(templates: any[]): any[] {
     if (!templates || !Array.isArray(templates)) return [];
     
-    return templates.map((template: any) => {
+    return templates.map((template: any, index: number) => {
       if (typeof template === 'string') {
         return {
           templateId: template,
+          templateName: `Template ${index + 1}`,
+          templateVersion: '1.0',
           isRequired: true,
-          order: 0
+          order: index
         };
       }
       return {
         templateId: template.templateId || template.id || template,
+        templateName: template.templateName || template.name || `Template ${index + 1}`,
+        templateVersion: template.templateVersion || template.version || '1.0',
         isRequired: template.isRequired !== false,
-        order: template.order || 0,
-        name: template.name || '',
+        order: template.order || index,
+        name: template.name || template.templateName || '',
         description: template.description || ''
       };
     });
