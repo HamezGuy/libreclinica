@@ -34,6 +34,9 @@ export class StudyCreationModalComponent implements OnInit {
   templatesLoaded = false;
   currentStep = 1;
   totalSteps = 3;
+  
+  // Additional lock to prevent any actions during creation
+  private creationLock = false;
 
 
   async ngOnInit(): Promise<void> {
@@ -93,7 +96,8 @@ export class StudyCreationModalComponent implements OnInit {
   }
 
   onClose(): void {
-    if (this.isCreatingStudy) {
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Cannot close - study creation in progress');
       return; // Don't allow closing while creating
     }
     
@@ -106,25 +110,30 @@ export class StudyCreationModalComponent implements OnInit {
     
     this.close.emit();
     this.studyCreationForm.reset();
+    this.currentStep = 1;
+    this.isCreatingStudy = false;
+    this.creationLock = false;
   }
 
   onSubmit(): void {
-    // CRITICAL: On step 3 (Review & Create), ALWAYS allow study creation
-    if (this.currentStep === 3) {
-      // Skip validation on final step - user can always create the study
-      console.log('[StudyCreationModal] On Review & Create step - bypassing validation');
-    } else if (this.studyCreationForm.invalid) {
-      // For other steps, enforce validation
-      Object.keys(this.studyCreationForm.controls).forEach(key => {
-        const control = this.studyCreationForm.get(key);
-        if (control && control.invalid) {
-          control.markAsTouched();
-        }
-      });
+    // CRITICAL: Only allow submission from step 3 (Review & Create)
+    if (this.currentStep !== 3) {
+      console.log('[StudyCreationModal] Form submission blocked - not on final step');
       return;
     }
-
+    
+    // Prevent duplicate submissions with double-check
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Already creating study - preventing duplicate submission');
+      return;
+    }
+    
+    // Set both locks immediately to prevent any race conditions
     this.isCreatingStudy = true;
+    this.creationLock = true;
+    
+    // CRITICAL: On step 3 (Review & Create), ALWAYS allow study creation
+    console.log('[StudyCreationModal] Starting study creation with locks engaged');
     const formValue = this.studyCreationForm.value;
     
     // Build study object with ALL required fields from the Study model
@@ -213,9 +222,19 @@ export class StudyCreationModalComponent implements OnInit {
     // Ensure no undefined values exist
     const cleanedStudy = this.removeUndefinedFields(newStudy);
     
-    // Keep isCreatingStudy as true to prevent duplicate submissions
-    // The parent component should reset this flag after successful creation
+    // Keep locks engaged until parent component handles the creation
+    // The parent component should call resetCreationState() after handling
     this.create.emit(cleanedStudy as Study);
+  }
+  
+  // Public method to reset creation state after parent handles the creation
+  resetCreationState(): void {
+    this.isCreatingStudy = false;
+    this.creationLock = false;
+    this.currentStep = 1;
+    this.studyCreationForm.reset();
+    this.initializeForm();
+    console.log('[StudyCreationModal] Creation state reset');
   }
   
   // Helper method to remove undefined fields from an object
@@ -509,6 +528,11 @@ export class StudyCreationModalComponent implements OnInit {
 
   // Add a new section/phase
   addSection(): void {
+    // Block actions during creation
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Action blocked - study creation in progress');
+      return;
+    }
     const sectionForm = this.fb.group({
       name: ['', Validators.required],
       description: [''],
@@ -526,6 +550,11 @@ export class StudyCreationModalComponent implements OnInit {
 
   // Remove a section
   removeSection(index: number): void {
+    // Block actions during creation
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Action blocked - study creation in progress');
+      return;
+    }
     this.sectionsArray.removeAt(index);
     // Update order for remaining sections
     this.sectionsArray.controls.forEach((control, idx) => {
@@ -684,6 +713,11 @@ export class StudyCreationModalComponent implements OnInit {
 
   // Navigate between steps
   nextStep(): void {
+    // Block navigation during creation
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Navigation blocked - study creation in progress');
+      return;
+    }
     // Mark all controls as touched to trigger validation display
     if (this.currentStep === 1) {
       // Mark basic info fields as touched
@@ -723,6 +757,12 @@ export class StudyCreationModalComponent implements OnInit {
   }
 
   previousStep(): void {
+    // Block navigation during creation
+    if (this.isCreatingStudy || this.creationLock) {
+      console.log('[StudyCreationModal] Navigation blocked - study creation in progress');
+      return;
+    }
+    
     if (this.currentStep > 1) {
       this.currentStep--;
     }

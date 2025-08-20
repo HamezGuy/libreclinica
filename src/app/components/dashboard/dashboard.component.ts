@@ -1689,6 +1689,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   async onStudyCreated(studyData: Study): Promise<void> {
+    // Prevent processing if already creating (additional safety check)
+    if (this.studyCreationModal?.isCreatingStudy) {
+      console.log('Study creation already in progress - ignoring duplicate request');
+      return;
+    }
+    
     try {
       console.log('Creating study with data:', studyData);
 
@@ -1707,13 +1713,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Refresh the studies list
       this.loadStudies();
       alert('Study created successfully with ' + (studyData.sections?.length || 0) + ' phases!');
+      
+      // Reset the modal state completely after successful creation
+      if (this.studyCreationModal) {
+        this.studyCreationModal.resetCreationState();
+      }
     } catch (error) {
       console.error('Error creating study:', error);
       alert('Error creating study: ' + (error as Error).message);
-    } finally {
-      // Reset the modal's creating flag to allow future submissions
+      
+      // Reset the modal state on error to allow retry
       if (this.studyCreationModal) {
         this.studyCreationModal.isCreatingStudy = false;
+        // Note: Don't call full reset on error - user may want to fix and retry
       }
     }
   }

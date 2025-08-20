@@ -73,7 +73,7 @@
         </div>
         
         <div class="questions-list" formArrayName="questions">
-          <div class="question-card" *ngFor="let question of questions.controls; let i = index" [formGroupName]="i">
+          <div class="question-card" *ngFor="let question of questions.controls; let i = index; trackBy: trackByQuestionIndex" [formGroupName]="i">
             
             <div class="question-header">
               <div class="question-number">Q{{ i + 1 }}</div>
@@ -118,7 +118,7 @@
             <div class="options-section" *ngIf="needsOptions(question.get('type')!.value)">
               <label>{{ 'survey.answer_options' | translate }}</label>
               <div class="options-list">
-                <div class="option-item-with-branching" *ngFor="let option of question.get('options')!.value; let j = index">
+                <div class="option-item-with-branching" *ngFor="let option of question.get('options')!.value; let j = index; trackBy: trackByOptionIndex">
                   <div class="option-row">
                     <input type="text" class="form-control option-text" [value]="option.text" 
                            (input)="updateOption(i, j, 'text', $any($event.target).value)" 
@@ -416,7 +416,7 @@
         <div class="settings-section">
           <h4>{{ 'survey.triggers' | translate }}</h4>
           <div formArrayName="triggers">
-            <div class="trigger-item" *ngFor="let trigger of triggers.controls; let i = index" [formGroupName]="i">
+            <div class="trigger-item" *ngFor="let trigger of triggers.controls; let i = index; trackBy: trackByTriggerIndex" [formGroupName]="i">
               <select formControlName="type" class="form-control">
                 <option value="page_view">{{ 'survey.page_view' | translate }}</option>
                 <option value="time_on_page">{{ 'survey.time_on_page' | translate }}</option>

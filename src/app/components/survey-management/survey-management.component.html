@@ -107,7 +107,7 @@
       </div>
       
       <div class="action-buttons">
-        <button class="btn btn-sm btn-primary" (click)="editSurvey(survey)" [title]="'survey.actions.editTitle' | translate">
+        <button class="btn btn-sm btn-primary" (click)="editSurvey(survey); $event.stopPropagation()" [title]="'survey.actions.editTitle' | translate">
           <i class="material-icons">edit</i>
           {{ 'common.edit' | translate }}
         </button>
@@ -122,19 +122,19 @@
           {{ 'survey.actions.test' | translate }}
         </button>
         
-        <button class="btn btn-sm btn-icon" (click)="duplicateSurvey(survey)" [title]="'survey.actions.duplicate' | translate">
+        <button class="btn btn-sm btn-icon" (click)="duplicateSurvey(survey); $event.stopPropagation()" [title]="'survey.actions.duplicate' | translate">
           <i class="material-icons">content_copy</i>
         </button>
         
-        <button class="btn btn-sm btn-icon" (click)="viewAnalytics(survey)" [title]="'survey.actions.analytics' | translate" *ngIf="survey.responseCount && survey.responseCount > 0">
+        <button class="btn btn-sm btn-icon" (click)="viewAnalytics(survey); $event.stopPropagation()" [title]="'survey.actions.analytics' | translate" *ngIf="survey.responseCount && survey.responseCount > 0">
           <i class="material-icons">bar_chart</i>
         </button>
         
-        <button class="btn btn-sm btn-icon" (click)="toggleSurveyStatus(survey)" [title]="(survey.status === 'active' ? 'survey.actions.pause' : 'survey.actions.activate') | translate" *ngIf="survey.status === 'active' || survey.status === 'paused'">
+        <button class="btn btn-sm btn-icon" (click)="toggleSurveyStatus(survey); $event.stopPropagation()" [title]="(survey.status === 'active' ? 'survey.actions.pause' : 'survey.actions.activate') | translate" *ngIf="survey.status === 'active' || survey.status === 'paused'">
           <i class="material-icons">{{ survey.status === 'active' ? 'pause' : 'play_arrow' }}</i>
         </button>
         
-        <button class="btn btn-sm btn-icon btn-danger" (click)="deleteSurvey(survey)" [title]="'common.delete' | translate" *ngIf="canDeleteSurveys">
+        <button class="btn btn-sm btn-icon btn-danger" (click)="deleteSurvey(survey); $event.stopPropagation()" [title]="'common.delete' | translate" *ngIf="canDeleteSurveys">
           <i class="material-icons">delete</i>
         </button>
       </div>

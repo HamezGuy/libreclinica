@@ -158,6 +158,11 @@ export class SurveyEditorComponent implements OnInit {
   
   // Step navigation
   nextStep() {
+    // Validate current step before proceeding
+    if (!this.validateCurrentStep()) {
+      return;
+    }
+    
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
     }
@@ -170,7 +175,78 @@ export class SurveyEditorComponent implements OnInit {
   }
   
   goToStep(step: number) {
+    // Don't allow skipping ahead without validation
+    if (step > this.currentStep && !this.validateCurrentStep()) {
+      return;
+    }
     this.currentStep = step;
+  }
+  
+  validateCurrentStep(): boolean {
+    switch (this.currentStep) {
+      case 1: // Basic Information
+        const title = this.surveyForm.get('title');
+        const type = this.surveyForm.get('type');
+        
+        if (!title?.value || title.value.trim() === '') {
+          this.toastService.error('Please enter a survey title');
+          title?.markAsTouched();
+          return false;
+        }
+        
+        if (!type?.value) {
+          this.toastService.error('Please select a survey type');
+          type?.markAsTouched();
+          return false;
+        }
+        return true;
+        
+      case 2: // Questions
+        if (this.questions.length === 0) {
+          this.toastService.error('Please add at least one question');
+          return false;
+        }
+        
+        // Validate each question has required fields
+        for (let i = 0; i < this.questions.length; i++) {
+          const question = this.questions.at(i);
+          const text = question.get('text');
+          const type = question.get('type');
+          const options = question.get('options')?.value || [];
+          
+          if (!text?.value || text.value.trim() === '') {
+            this.toastService.error(`Question ${i + 1}: Please enter question text`);
+            text?.markAsTouched();
+            return false;
+          }
+          
+          // Check if question type needs options and has at least 2
+          if (this.needsOptions(type?.value) && options.length < 2) {
+            this.toastService.error(`Question ${i + 1}: Please add at least 2 answer options`);
+            return false;
+          }
+          
+          // Check that all options have text
+          for (let j = 0; j < options.length; j++) {
+            if (!options[j].text || options[j].text.trim() === '') {
+              this.toastService.error(`Question ${i + 1}, Option ${j + 1}: Please enter option text`);
+              return false;
+            }
+          }
+        }
+        return true;
+        
+      case 3: // Settings
+        // Settings are optional, so always valid
+        return true;
+        
+      case 4: // Review
+        // Final review, no additional validation needed
+        return true;
+        
+      default:
+        return true;
+    }
   }
   
   // Questions management
@@ -443,10 +519,16 @@ export class SurveyEditorComponent implements OnInit {
   
   updateOption(questionIndex: number, optionIndex: number, field: 'value' | 'text', value: string) {
     const question = this.questions.at(questionIndex);
-    const options = [...(question.get('options')!.value || [])];
+    const options = question.get('options')!.value || [];
     if (options[optionIndex]) {
-      options[optionIndex] = { ...options[optionIndex], [field]: value };
-      question.patchValue({ options });
+      // Create a new array with updated option to maintain immutability
+      const updatedOptions = options.map((opt: QuestionOption, idx: number) => {
+        if (idx === optionIndex) {
+          return { ...opt, [field]: value };
+        }
+        return opt;
+      });
+      question.get('options')!.setValue(updatedOptions);
     }
   }
 
@@ -455,7 +537,7 @@ export class SurveyEditorComponent implements OnInit {
     const question = this.questions.at(questionIndex);
     if (!question) return;
 
-    const options: QuestionOption[] = [...(question.get('options')!.value || [])];
+    const options: QuestionOption[] = question.get('options')!.value || [];
     if (!options[optionIndex]) return;
 
     let branchTo: BranchTarget | undefined;
@@ -471,15 +553,21 @@ export class SurveyEditorComponent implements OnInit {
       branchTo = { type: 'section', sectionId };
     }
 
-    // Apply the update immutably and remove the key if defaulting to next
-    const updated = { ...options[optionIndex] } as any;
-    if (branchTo) {
-      updated.branchTo = branchTo;
-    } else {
-      delete updated.branchTo;
-    }
-    options[optionIndex] = updated;
-    question.patchValue({ options });
+    // Create a new array with updated option to maintain immutability
+    const updatedOptions = options.map((opt: QuestionOption, idx: number) => {
+      if (idx === optionIndex) {
+        const updated = { ...opt } as any;
+        if (branchTo) {
+          updated.branchTo = branchTo;
+        } else {
+          delete updated.branchTo;
+        }
+        return updated;
+      }
+      return opt;
+    });
+    
+    question.get('options')!.setValue(updatedOptions);
   }
 
   // Only allow branching to questions after the current one to reduce cycles
@@ -739,5 +827,18 @@ export class SurveyEditorComponent implements OnInit {
     } else {
       this.close.emit();
     }
+  }
+  
+  // TrackBy functions to prevent input unfocusing
+  trackByQuestionIndex(index: number): number {
+    return index;
+  }
+  
+  trackByOptionIndex(index: number): number {
+    return index;
+  }
+  
+  trackByTriggerIndex(index: number): number {
+    return index;
   }
 }
