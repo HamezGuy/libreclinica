@@ -102,6 +102,8 @@
     "export_info_title": "The Excel file will contain:",
     "export_info_fields": "All field names from the template",
     "export_info_types": "Field types and descriptions",
-    "export_info_required": "Required/optional indicators"
+    "export_info_required": "Required/optional indicators",
+    "data_fields": "Data Fields",
+    "metadata": "Metadata"
   }
 }

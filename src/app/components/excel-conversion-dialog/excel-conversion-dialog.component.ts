@@ -218,9 +218,12 @@ export class ExcelConversionDialogComponent implements OnInit {
 
   onOrientationChange(): void {
     const orientation = this.form.get('orientation')?.value;
-    if (orientation && orientation !== 'auto') {
+    if (orientation) {
       this.parseOptions.orientation = orientation;
-      this.parseExcelFile();
+      // Only reparse if we have a file selected
+      if (this.selectedFile) {
+        this.parseExcelFile();
+      }
     }
   }
 

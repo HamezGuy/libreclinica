@@ -64,7 +64,9 @@
     "export_info_title": "Excelファイルには以下が含まれます：",
     "export_info_fields": "テンプレートからのすべてのフィールド名",
     "export_info_types": "フィールドタイプと説明",
-    "export_info_required": "必須/オプションのインジケーター"
+    "export_info_required": "必須/任意の指標",
+    "data_fields": "データフィールド",
+    "metadata": "メタデータ"
   },
   "import_template_from_excel": "Excelからテンプレートをインポート",
   "export_template_to_excel": "Excelにテンプレートをエクスポート",
