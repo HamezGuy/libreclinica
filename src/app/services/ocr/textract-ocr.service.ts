@@ -32,7 +32,7 @@ export class TextractOcrService implements IOcrService {
     private templateBuilder: OcrTemplateBuilderService
   ) {
     // Initialize with environment configuration
-    this.API_ENDPOINT = environment.aws?.textract?.endpoint || 'https://textract.us-east-1.amazonaws.com';
+    this.API_ENDPOINT = 'https://textract.us-east-1.amazonaws.com';
     
     // Load AWS config
     this.awsConfigService.loadConfig().subscribe(config => {

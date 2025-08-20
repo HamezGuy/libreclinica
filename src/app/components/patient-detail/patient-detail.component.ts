@@ -612,7 +612,7 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
           },
           tooltip: {
             callbacks: {
-              label: (context) => {
+              label: (context: any) => {
                 const label = context.dataset.label || '';
                 const value = context.parsed.y;
                 return `${label}: ${value} template${value !== 1 ? 's' : ''}`;
