@@ -729,6 +729,14 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   // Save template
   async saveTemplate(): Promise<void> {
     if (!this.builderForm.valid) {
+      // Log validation errors
+      console.error('Form validation failed:', this.builderForm.errors);
+      Object.keys(this.builderForm.controls).forEach(key => {
+        const control = this.builderForm.get(key);
+        if (control && control.errors) {
+          console.error(`Field '${key}' has errors:`, control.errors);
+        }
+      });
       this.showSaveMessage('Please fill in all required fields', 'error');
       return;
     }
@@ -736,6 +744,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.isSaving = true;
     try {
       const templateData = this.getCurrentTemplateData();
+      console.log('Template data being saved:', templateData);
       
       if (this.templateId) {
         // Update existing template
@@ -750,9 +759,11 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       
       this.hasUnsavedChanges = false;
       this.templateSaved.emit(templateData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving template:', error);
-      this.showSaveMessage('Failed to save template. Please try again.', 'error');
+      // Show the actual error message
+      const errorMessage = error?.message || 'Failed to save template. Please try again.';
+      this.showSaveMessage(errorMessage, 'error');
     } finally {
       this.isSaving = false;
     }
@@ -1001,18 +1012,22 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
   // Get current template data for live preview
   getCurrentTemplateData(): FormTemplate {
     const formValue = this.builderForm.value;
+    
+    // Get current user info from auth service if available
+    const currentUserId = this.currentTemplate?.createdBy || 'system';
+    
     return {
-      id: this.currentTemplate?.id || '',
-      name: formValue.name,
-      description: formValue.description,
-      version: formValue.version,
-      templateType: formValue.templateType as TemplateType,
-      category: formValue.category,
+      id: this.currentTemplate?.id,
+      name: formValue.name || 'Untitled Template',
+      description: formValue.description || '',
+      version: formValue.version || 1,
+      templateType: formValue.templateType as TemplateType || 'form',
+      category: formValue.category || 'general',
       status: this.currentTemplate?.status || 'draft',
-      fields: formValue.fields,
+      fields: formValue.fields || [],
       fieldGroups: formValue.fieldGroups || [],
       conditionalLogic: formValue.conditionalLogic || [],
-      instructions: formValue.instructions,
+      instructions: formValue.instructions || '',
       // Fix field name mappings
       allowSavePartial: formValue.allowPartialSave || false,
       allowPartialSave: formValue.allowPartialSave || false, // Include both for compatibility
@@ -1020,13 +1035,13 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       requiresSignature: formValue.requiresSignature || false, // Include both for compatibility
       requiresElectronicSignature: formValue.requiresSignature || false,
       allowEditing: true,
-      maxSubmissions: formValue.maxSubmissions || 0,
+      maxSubmissions: formValue.maxSubmissions || 1,
       expirationDate: formValue.expirationDate,
-      createdBy: this.currentTemplate?.createdBy || '',
+      createdBy: this.currentTemplate?.createdBy || currentUserId,
       createdAt: this.currentTemplate?.createdAt || new Date(),
       updatedAt: new Date(),
-      updatedBy: this.currentTemplate?.updatedBy || '',
-      lastModifiedBy: this.currentTemplate?.lastModifiedBy || '',
+      updatedBy: currentUserId,
+      lastModifiedBy: currentUserId,
       tags: formValue.tags || [],
       changeHistory: this.currentTemplate?.changeHistory || [],
       // Template type flags - set based on templateType value
