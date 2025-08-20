@@ -52,7 +52,7 @@ export type FieldType = FormFieldType;
 
 // Validation Rules
 export interface ValidationRule {
-  type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'custom';
+  type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'custom' | 'email' | 'phone' | 'dateRange';
   value?: any;
   message: string;
   customValidator?: string; // Function name for custom validation
@@ -136,6 +136,9 @@ export interface FormField {
   unit?: string; // Unit label for clinical fields (e.g., 'cm', 'kg', '°C')
   min?: number; // Minimum value for numeric/clinical fields
   max?: number; // Maximum value for numeric/clinical fields
+  
+  // Date/Time field properties
+  format?: string; // Format for date/time fields (e.g., 'YYYY-MM-DD', 'HH:mm')
   
   // Audit and Compliance
   criticalDataPoint?: boolean; // Requires additional verification

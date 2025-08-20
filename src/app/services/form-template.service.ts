@@ -110,12 +110,44 @@ export class FormTemplateService {
   }
 
   /**
+   * Helper function to clean undefined values from objects before sending to Firestore
+   */
+  private cleanForFirestore(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanForFirestore(item));
+    }
+    
+    if (obj instanceof Date) {
+      return obj;
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const value = obj[key];
+          if (value !== undefined) {
+            cleaned[key] = this.cleanForFirestore(value);
+          }
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
+  /**
    * Create a new form template
    * Only ADMIN and INVESTIGATOR can create templates
    */
-  async createTemplate(template: FormTemplate): Promise<FormTemplate> {
+  async createTemplate(template: Partial<FormTemplate>): Promise<FormTemplate> {
     const currentUser = await this.authService.getCurrentUserProfile();
-    console.log('Creating template with user:', {
+    console.log('[createTemplate] Current user:', {
       uid: currentUser?.uid,
       email: currentUser?.email,
       accessLevel: currentUser?.accessLevel,
@@ -136,8 +168,11 @@ export class FormTemplateService {
       // Remove id field to avoid conflicts with Firestore document ID
       const { id, ...templateWithoutId } = template;
       
+      // Clean undefined values before sending to Firestore
+      const cleanedTemplate = this.cleanForFirestore(templateWithoutId);
+      
       const templateData = {
-        ...templateWithoutId,
+        ...cleanedTemplate,
         createdBy: currentUser.uid,
         lastModifiedBy: currentUser.uid,
         createdAt: serverTimestamp(),
@@ -160,7 +195,14 @@ export class FormTemplateService {
       // Create local template object with proper Date types
       const createdTemplate: FormTemplate = {
         id: docRef.id,
-        ...template,
+        name: cleanedTemplate.name || 'Untitled Template',
+        description: cleanedTemplate.description || '',
+        version: cleanedTemplate.version || 1,
+        templateType: cleanedTemplate.templateType || 'form',
+        category: cleanedTemplate.category || 'general',
+        status: cleanedTemplate.status || 'draft',
+        fields: cleanedTemplate.fields || [],
+        ...cleanedTemplate,
         createdBy: currentUser.uid,
         lastModifiedBy: currentUser.uid,
         createdAt: new Date(),
@@ -183,8 +225,8 @@ export class FormTemplateService {
         timestamp: new Date(),
         userId: currentUser.uid,
         templateId: docRef.id,
-        templateName: template.name,
-        studyId: template.studyId,
+        templateName: cleanedTemplate.name || 'Untitled Template',
+        studyId: cleanedTemplate.studyId,
         createdBy: currentUser.uid,
         templateData: templateData
       });
@@ -230,8 +272,11 @@ export class FormTemplateService {
       // Remove id field from updates to avoid conflicts
       const { id, ...updatesWithoutId } = updates;
       
+      // Clean undefined values before sending to Firestore
+      const cleanedUpdates = this.cleanForFirestore(updatesWithoutId);
+      
       const updateData = {
-        ...updatesWithoutId,
+        ...cleanedUpdates,
         lastModifiedBy: currentUser.uid,
         updatedAt: serverTimestamp(),
         changeHistory: [

@@ -728,13 +728,19 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
 
   // Save template
   async saveTemplate(): Promise<void> {
+    // Prevent multiple simultaneous saves
+    if (this.isSaving) {
+      console.log('Save already in progress, ignoring duplicate request');
+      return;
+    }
+
     if (!this.builderForm.valid) {
-      // Log validation errors
       console.error('Form validation failed:', this.builderForm.errors);
-      Object.keys(this.builderForm.controls).forEach(key => {
-        const control = this.builderForm.get(key);
-        if (control && control.errors) {
-          console.error(`Field '${key}' has errors:`, control.errors);
+      // Log field-specific errors
+      const fieldsArray = this.builderForm.get('fields') as FormArray;
+      fieldsArray.controls.forEach((field, index) => {
+        if (field.invalid) {
+          console.error(`Field ${index} errors:`, field.errors);
         }
       });
       this.showSaveMessage('Please fill in all required fields', 'error');
@@ -744,16 +750,19 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.isSaving = true;
     try {
       const templateData = this.getCurrentTemplateData();
-      console.log('Template data being saved:', templateData);
+      
+      // Clean and validate field data
+      templateData.fields = this.cleanFieldData(templateData.fields);
       
       if (this.templateId) {
         // Update existing template
         await this.formTemplateService.updateTemplate(this.templateId, templateData);
         this.showSaveMessage('Template updated successfully', 'success');
       } else {
-        // Create new template
+        // Create new template - prevent duplicate creation
         const newTemplate = await this.formTemplateService.createTemplate(templateData);
-        this.templateId = newTemplate.id;
+        this.templateId = newTemplate.id; // Set ID to prevent duplicate creation
+        this.currentTemplate = newTemplate; // Update current template reference
         this.showSaveMessage('Template created successfully', 'success');
       }
       
@@ -761,12 +770,109 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       this.templateSaved.emit(templateData);
     } catch (error: any) {
       console.error('Error saving template:', error);
-      // Show the actual error message
       const errorMessage = error?.message || 'Failed to save template. Please try again.';
       this.showSaveMessage(errorMessage, 'error');
     } finally {
       this.isSaving = false;
     }
+  }
+
+  // Clean and validate field data based on field type
+  private cleanFieldData(fields: FormField[]): FormField[] {
+    return fields.map(field => {
+      const cleanedField = { ...field };
+      
+      // Clean based on field type
+      switch (field.type) {
+        case 'phone':
+          // Ensure phone fields have proper validation
+          if (!cleanedField.validationRules) {
+            cleanedField.validationRules = [];
+          }
+          // Add phone validation if not present
+          if (!cleanedField.validationRules.some(r => r.type === 'phone')) {
+            cleanedField.validationRules.push({
+              type: 'phone',
+              message: 'Please enter a valid phone number'
+            });
+          }
+          // Set placeholder if not present
+          if (!cleanedField.placeholder) {
+            cleanedField.placeholder = '(123) 456-7890';
+          }
+          break;
+          
+        case 'email':
+          // Ensure email fields have proper validation
+          if (!cleanedField.validationRules) {
+            cleanedField.validationRules = [];
+          }
+          if (!cleanedField.validationRules.some(r => r.type === 'email')) {
+            cleanedField.validationRules.push({
+              type: 'email',
+              message: 'Please enter a valid email address'
+            });
+          }
+          if (!cleanedField.placeholder) {
+            cleanedField.placeholder = 'email@example.com';
+          }
+          break;
+          
+        case 'date':
+        case 'datetime':
+        case 'time':
+          // Ensure date/time fields have proper format
+          if (!cleanedField.format) {
+            cleanedField.format = field.type === 'date' ? 'YYYY-MM-DD' : 
+                                 field.type === 'datetime' ? 'YYYY-MM-DD HH:mm' : 
+                                 'HH:mm';
+          }
+          break;
+          
+        case 'number':
+        case 'height':
+        case 'weight':
+        case 'temperature':
+          // Ensure numeric fields have proper validation
+          if (cleanedField.min === undefined && cleanedField.max === undefined) {
+            // Set reasonable defaults for clinical fields
+            if (field.type === 'height') {
+              cleanedField.min = 0;
+              cleanedField.max = 300; // cm
+            } else if (field.type === 'weight') {
+              cleanedField.min = 0;
+              cleanedField.max = 500; // kg
+            } else if (field.type === 'temperature') {
+              cleanedField.min = 30;
+              cleanedField.max = 45; // Celsius
+            }
+          }
+          break;
+          
+        case 'select':
+        case 'multiselect':
+        case 'radio':
+        case 'checkbox':
+          // Ensure options are properly formatted
+          if (cleanedField.options && cleanedField.options.length > 0) {
+            cleanedField.options = cleanedField.options.map(opt => ({
+              value: opt.value || '',
+              label: opt.label || opt.value || '',
+              disabled: opt.disabled || false
+            }));
+          }
+          break;
+      }
+      
+      // Clean undefined values from field
+      Object.keys(cleanedField).forEach(key => {
+        if ((cleanedField as any)[key] === undefined) {
+          delete (cleanedField as any)[key];
+        }
+      });
+      
+      return cleanedField;
+    });
   }
 
   // Publish template
@@ -1016,61 +1122,66 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     // Get current user info from auth service if available
     const currentUserId = this.currentTemplate?.createdBy || 'system';
     
+    // Helper function to ensure no undefined values
+    const getValue = (value: any, defaultValue: any = '') => {
+      return value !== undefined && value !== null ? value : defaultValue;
+    };
+    
     return {
       id: this.currentTemplate?.id,
-      name: formValue.name || 'Untitled Template',
-      description: formValue.description || '',
-      version: formValue.version || 1,
-      templateType: formValue.templateType as TemplateType || 'form',
-      category: formValue.category || 'general',
-      status: this.currentTemplate?.status || 'draft',
-      fields: formValue.fields || [],
-      fieldGroups: formValue.fieldGroups || [],
-      conditionalLogic: formValue.conditionalLogic || [],
-      instructions: formValue.instructions || '',
+      name: getValue(formValue.name, 'Untitled Template'),
+      description: getValue(formValue.description, ''),
+      version: getValue(formValue.version, 1),
+      templateType: getValue(formValue.templateType, 'form') as TemplateType,
+      category: getValue(formValue.category, 'general'),
+      status: getValue(this.currentTemplate?.status, 'draft'),
+      fields: getValue(formValue.fields, []),
+      fieldGroups: getValue(formValue.fieldGroups, []),
+      conditionalLogic: getValue(formValue.conditionalLogic, []),
+      instructions: getValue(formValue.instructions, ''),
       // Fix field name mappings
-      allowSavePartial: formValue.allowPartialSave || false,
-      allowPartialSave: formValue.allowPartialSave || false, // Include both for compatibility
-      requiresReview: formValue.requiresSignature || false,
-      requiresSignature: formValue.requiresSignature || false, // Include both for compatibility
-      requiresElectronicSignature: formValue.requiresSignature || false,
+      allowSavePartial: getValue(formValue.allowPartialSave, false),
+      allowPartialSave: getValue(formValue.allowPartialSave, false), // Include both for compatibility
+      requiresReview: getValue(formValue.requiresSignature, false),
+      requiresSignature: getValue(formValue.requiresSignature, false), // Include both for compatibility
+      requiresElectronicSignature: getValue(formValue.requiresSignature, false),
       allowEditing: true,
-      maxSubmissions: formValue.maxSubmissions || 1,
-      expirationDate: formValue.expirationDate,
+      maxSubmissions: getValue(formValue.maxSubmissions, 1),
+      expirationDate: formValue.expirationDate || null,
       createdBy: this.currentTemplate?.createdBy || currentUserId,
       createdAt: this.currentTemplate?.createdAt || new Date(),
       updatedAt: new Date(),
       updatedBy: currentUserId,
       lastModifiedBy: currentUserId,
-      tags: formValue.tags || [],
-      changeHistory: this.currentTemplate?.changeHistory || [],
+      tags: getValue(formValue.tags, []),
+      changeHistory: getValue(this.currentTemplate?.changeHistory, []),
       // Template type flags - set based on templateType value
-      isPatientTemplate: formValue.templateType === 'patient_template' || formValue.isPatientTemplate || false,
-      isStudySubjectTemplate: formValue.templateType === 'study_subject' || formValue.isStudySubjectTemplate || false,
+      isPatientTemplate: formValue.templateType === 'patient_template' || getValue(formValue.isPatientTemplate, false),
+      isStudySubjectTemplate: formValue.templateType === 'study_subject' || getValue(formValue.isStudySubjectTemplate, false),
       // PHI and compliance fields
-      isPhiForm: formValue.isPhiForm || false,
-      phiDataFields: formValue.phiDataFields || [],
-      phiEncryptionEnabled: formValue.phiEncryptionEnabled || false,
-      phiAccessLogging: formValue.phiAccessLogging !== false, // Default true
-      phiDataMinimization: formValue.phiDataMinimization !== false, // Default true
-      phiRetentionPolicy: formValue.phiRetentionPolicy,
-      hipaaCompliant: formValue.hipaaCompliant || false,
-      gdprCompliant: formValue.gdprCompliant || false,
-      complianceRegions: formValue.complianceRegions || [],
-      // Healthcare API config
-      healthcareApiConfig: formValue.healthcareApiConfig,
-      fhirResourceType: formValue.fhirResourceType,
-      // Template linking
-      parentTemplateId: formValue.parentTemplateId,
-      childTemplateIds: formValue.childTemplateIds || [],
-      linkedTemplates: formValue.linkedTemplates || [],
-      parentFormId: formValue.parentFormId,
-      childFormIds: formValue.childFormIds || [],
+      isPhiForm: getValue(formValue.isPhiForm, false),
+      phiDataFields: getValue(formValue.phiDataFields, []),
+      phiEncryptionEnabled: getValue(formValue.phiEncryptionEnabled, false),
+      phiAccessLogging: getValue(formValue.phiAccessLogging, true),
+      phiDataMinimization: getValue(formValue.phiDataMinimization, true),
+      phiRetentionPolicy: formValue.phiRetentionPolicy || null,
+      hipaaCompliant: getValue(formValue.hipaaCompliant, false),
+      gdprCompliant: getValue(formValue.gdprCompliant, false),
+      complianceRegions: getValue(formValue.complianceRegions, []),
+      // Healthcare API config - these can be null/undefined
+      healthcareApiConfig: formValue.healthcareApiConfig || null,
+      fhirResourceType: formValue.fhirResourceType || null,
+      // Template linking - these can be null/undefined
+      parentTemplateId: formValue.parentTemplateId || null,
+      childTemplateIds: getValue(formValue.childTemplateIds, []),
+      linkedTemplates: getValue(formValue.linkedTemplates, []),
+      parentFormId: formValue.parentFormId || null,
+      childFormIds: getValue(formValue.childFormIds, []),
       // Sections
-      sections: formValue.sections || [],
-      // Metadata
-      metadata: formValue.metadata,
-      customCss: formValue.customCss
+      sections: getValue(formValue.sections, []),
+      // Metadata - these can be null/undefined
+      metadata: formValue.metadata || null,
+      customCss: formValue.customCss || null
     };
   }
 
