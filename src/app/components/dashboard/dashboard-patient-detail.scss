@@ -1,0 +1,351 @@
+// Patient Detail View Styles
+.patient-detail-view {
+  padding: 24px;
+  
+  .patient-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #e5e7eb;
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: all 0.2s;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      
+      &:hover {
+        background: #f3f4f6;
+        color: #374151;
+      }
+      
+      .material-icons {
+        font-size: 20px;
+      }
+    }
+    
+    .patient-info {
+      flex: 1;
+      
+      h2 {
+        margin: 0 0 12px 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: #111827;
+      }
+      
+      .patient-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        
+        .meta-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 14px;
+          color: #6b7280;
+          
+          .material-icons {
+            font-size: 18px;
+            color: #9ca3af;
+          }
+          
+          &.status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            
+            &.screening {
+              background: #fef3c7;
+              color: #92400e;
+            }
+            
+            &.enrolled {
+              background: #d1fae5;
+              color: #065f46;
+            }
+            
+            &.completed {
+              background: #dbeafe;
+              color: #1e40af;
+            }
+          }
+        }
+      }
+    }
+    
+    .patient-actions {
+      display: flex;
+      gap: 12px;
+    }
+  }
+  
+  .visit-timeline {
+    margin-bottom: 32px;
+    
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 20px;
+    }
+    
+    .timeline-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      
+      .phase-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s;
+        
+        &:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          transform: translateY(-2px);
+        }
+        
+        &.completed {
+          border-color: #10b981;
+          background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+        }
+        
+        &.current {
+          border-color: #3b82f6;
+          background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        &.upcoming {
+          opacity: 0.8;
+        }
+        
+        .phase-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 16px;
+          
+          .phase-number {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .phase-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            flex: 1;
+            margin: 0 12px;
+          }
+          
+          .phase-status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #6b7280;
+            
+            .material-icons {
+              font-size: 16px;
+            }
+          }
+        }
+        
+        .phase-dates {
+          display: flex;
+          gap: 16px;
+          margin-bottom: 16px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid #f3f4f6;
+          
+          .date-item {
+            font-size: 13px;
+            
+            .date-label {
+              color: #9ca3af;
+              margin-right: 4px;
+            }
+            
+            .date-value {
+              color: #374151;
+              font-weight: 500;
+            }
+          }
+        }
+        
+        .phase-forms {
+          margin-bottom: 16px;
+          
+          h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
+          }
+          
+          .form-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            
+            .form-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 8px;
+              border-radius: 6px;
+              background: #f9fafb;
+              transition: all 0.2s;
+              
+              &:hover {
+                background: #f3f4f6;
+              }
+              
+              &.completed {
+                background: #f0fdf4;
+                
+                .form-status {
+                  color: #10b981;
+                }
+              }
+              
+              &.required {
+                .form-badge {
+                  background: #fee2e2;
+                  color: #dc2626;
+                }
+              }
+              
+              .form-status {
+                font-size: 18px;
+                color: #9ca3af;
+                
+                .material-icons {
+                  font-size: 18px;
+                }
+              }
+              
+              .form-name {
+                flex: 1;
+                font-size: 14px;
+                color: #374151;
+              }
+              
+              .form-badge {
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                background: #e5e7eb;
+                color: #6b7280;
+              }
+              
+              button {
+                padding: 4px 12px;
+                font-size: 12px;
+              }
+            }
+          }
+        }
+        
+        .phase-progress {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          
+          .progress-bar {
+            flex: 1;
+            height: 8px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            overflow: hidden;
+            
+            .progress-fill {
+              height: 100%;
+              background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+              border-radius: 4px;
+              transition: width 0.3s ease;
+            }
+          }
+          
+          .progress-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            min-width: 45px;
+          }
+        }
+      }
+    }
+  }
+  
+  .patient-data-summary {
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 20px;
+    }
+    
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      
+      .summary-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: all 0.3s;
+        
+        &:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          transform: translateY(-2px);
+        }
+        
+        .material-icons {
+          font-size: 32px;
+          color: #6b7280;
+        }
+        
+        .summary-content {
+          flex: 1;
+          
+          .summary-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1;
+            margin-bottom: 4px;
+          }
+          
+          .summary-label {
+            font-size: 14px;
+            color: #6b7280;
+          }
+        }
+      }
+    }
+  }
+}

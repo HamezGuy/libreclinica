@@ -2,7 +2,7 @@ import { Component, inject, OnInit, OnDestroy, runInInjectionContext, Injector, 
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, takeUntil, Observable, combineLatest, map, of, withLatestFrom, firstValueFrom } from 'rxjs';
+import { Subject, takeUntil, Observable, Subscription, combineLatest, map, of, withLatestFrom, firstValueFrom } from 'rxjs';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatButtonModule } from '@angular/material/button';
@@ -160,7 +160,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
   templates$: Observable<FormTemplate[]> = this.templateService.templates$;
-  studies$: Observable<Study[]> = of([]);
+  studies$: Observable<Study[]> = this.studyService.getStudies();
 
   // Component state
   patients: PatientListItem[] = [];
@@ -194,7 +194,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   availableTemplates: FormTemplate[] = [];
   selectedTemplateForAssignment: FormTemplate | null = null;
 
-  selectedPatient: PatientListItem | null = null;
+  selectedPatient: any = null;
   selectedPatientForms: FormInstance[] = [];
   selectedPatientPhiData: Patient | null = null;
 
@@ -258,6 +258,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showPatientTemplateSelector = false;
   showTemplateQuickSetupModal = false;
   sidebarCollapsed = false;
+
+  patientPhases: any[] = [];
 
   ngOnInit(): void {
     // Initialize study creation form
@@ -495,8 +497,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return '?';
   }
 
-  async selectPatient(patient: PatientListItem) {
+  async selectPatient(patient: any) {
     this.selectedPatient = patient;
+    console.log('Selected patient:', patient);
+    
+    // Load patient phases when patient is selected
+    if (patient && patient.visitSubcomponents) {
+      this.patientPhases = patient.visitSubcomponents || [];
+      // Calculate completion percentages for each phase
+      this.patientPhases.forEach(phase => {
+        const totalForms = phase.formTemplates?.length || 0;
+        const completedForms = phase.formTemplates?.filter((f: any) => f.completed).length || 0;
+        phase.completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
+      });
+    }
 
     try {
       // Load patient forms using observable pattern
@@ -559,6 +573,72 @@ export class DashboardComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error in selectPatient:', error);
     }
+  }
+
+  clearSelectedPatient() {
+    this.selectedPatient = null;
+    this.patientPhases = [];
+  }
+
+  getStudyName(studyId: string): string {
+    const study = this.studies.find(s => s.id === studyId);
+    return study?.title || '';
+  }
+
+  getPhaseIcon(status: string): string {
+    switch (status) {
+      case 'completed': return 'check_circle';
+      case 'in_progress': return 'pending';
+      case 'scheduled': return 'schedule';
+      case 'overdue': return 'warning';
+      default: return 'radio_button_unchecked';
+    }
+  }
+
+  getCompletedFormsCount(phase: any): number {
+    if (!phase.formTemplates) return 0;
+    return phase.formTemplates.filter((f: any) => f.completed).length;
+  }
+
+  isFormCompleted(phase: any, form: any): boolean {
+    return form.completed === true;
+  }
+
+  getTotalFormsCount(): number {
+    if (!this.patientPhases) return 0;
+    return this.patientPhases.reduce((total, phase) => 
+      total + (phase.formTemplates?.length || 0), 0);
+  }
+
+  getCompletedFormsTotal(): number {
+    if (!this.patientPhases) return 0;
+    return this.patientPhases.reduce((total, phase) => 
+      total + (phase.formTemplates?.filter((f: any) => f.completed).length || 0), 0);
+  }
+
+  getPendingFormsTotal(): number {
+    if (!this.patientPhases) return 0;
+    return this.patientPhases.reduce((total, phase) => 
+      total + (phase.formTemplates?.filter((f: any) => !f.completed && f.isRequired).length || 0), 0);
+  }
+
+  getOverdueFormsTotal(): number {
+    if (!this.patientPhases) return 0;
+    const now = new Date();
+    return this.patientPhases.reduce((total, phase) => {
+      if (!phase.formTemplates) return total;
+      return total + phase.formTemplates.filter((f: any) => {
+        if (f.completed) return false;
+        if (!f.dueDate) return false;
+        return new Date(f.dueDate) < now;
+      }).length;
+    }, 0);
+  }
+
+  openForm(phase: any, form: any) {
+    console.log('Opening form:', form, 'for phase:', phase);
+    // TODO: Implement form opening logic
+    this.toastService.info('Form viewer will be implemented', 3000);
   }
 
   // Phase selection handler
@@ -1644,7 +1724,8 @@ getTreatmentArm(patient: any): string {
 
   // Load studies
   loadStudies(): void {
-    this.studyService.getStudies().pipe(takeUntil(this.destroy$)).subscribe();
+    // Studies are automatically loaded via the studies$ observable
+    // This method is kept for compatibility but doesn't need to do anything
   }
 
   onRefreshStudies(): void {
@@ -1798,67 +1879,69 @@ getTreatmentArm(patient: any): string {
   private async createDemoPatientForStudy(studyId: string): Promise<string | null> {
     try {
       const userProfile = await this.authService.getCurrentUserProfile();
-      const userId = userProfile?.uid || 'system';
       const now = new Date();
-      const patientNumber = `P${Date.now().toString(36).toUpperCase()}`;
-      const uniquePatientId = `patient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const userId = userProfile?.uid || 'system';
       
-      // Get the study to copy its phases and templates
+      // Get the study to access its protocol number
       const study = this.studies.find(s => s.id === studyId);
       if (!study) {
         console.error('Study not found:', studyId);
         return null;
       }
       
-      // Create visit subcomponents from study phases
-      const visitSubcomponents = this.createVisitSubcomponentsFromStudyPhases(study, uniquePatientId);
-      console.log('Created visitSubcomponents:', visitSubcomponents);
-      console.log('Number of visitSubcomponents:', visitSubcomponents.length);
+      // Generate a unique patient number
+      const patientNumber = `${study.protocolNumber}-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Math.random().toString(36).substr(2, 3).toUpperCase()}`;
       
-      const patientData = {
-        id: uniquePatientId,
-        studyId: studyId,
+      // Create patient data
+      const patientData: any = {
         patientNumber: patientNumber,
-        identifiers: [
-          {
-            type: 'study_id',
-            value: patientNumber,
-            system: 'EDC_SYSTEM'
-          }
-        ],
+        identifiers: [{
+          type: 'MRN',
+          value: `MRN-${Date.now()}`,
+          issuingAuthority: 'Demo Hospital'
+        }],
         demographics: {
-          firstName: 'Demo',
-          lastName: `Patient ${patientNumber}`,
-          dateOfBirth: new Date(1990, 0, 1),
-          gender: 'unknown' as 'male' | 'female' | 'other' | 'unknown'
+          firstName: this.getRandomName('first'),
+          lastName: this.getRandomName('last'),
+          dateOfBirth: this.getRandomBirthDate(),
+          gender: Math.random() > 0.5 ? 'male' : 'female' as any,
+          email: `patient${Date.now()}@demo.com`,
+          phone: this.getRandomPhone(),
+          address: {
+            street: '123 Demo Street',
+            city: 'Demo City',
+            state: 'CA',
+            zipCode: '12345',
+            country: 'USA'
+          }
         },
         enrollmentDate: now,
-        enrollmentStatus: 'screening' as 'screening' | 'enrolled' | 'completed' | 'withdrawn' | 'failed_screening',
-        consents: [],
-        visitSubcomponents: visitSubcomponents,
-        activeAlerts: [],
-        protocolDeviations: [],
-        changeHistory: [],
-        hasValidConsent: true,
-        studyProgress: {
-          totalVisits: visitSubcomponents.length,
-          completedVisits: 0,
-          missedVisits: 0,
-          upcomingVisits: visitSubcomponents.length,
-          overallCompletionPercentage: 0
-        },
-        createdBy: userId,
-        createdAt: now,
-        lastModifiedBy: userId,
-        lastModifiedAt: now
+        enrollmentStatus: 'screening' as any,
+        siteId: study.sites?.[0]?.id || 'default-site',
+        treatmentArm: (study as any).treatmentArms?.[0]?.id || 'default-arm',
+        consents: [{
+          type: 'main_study',
+          version: '1.0',
+          consentDate: now,
+          consentedBy: patientNumber,
+          witnessName: 'Demo Witness',
+          witnessSignature: 'Demo Witness',
+          isValid: true
+        }]
       };
 
-      // Create the patient in Firestore
-      const result = await this.createPatientDirectly(patientData);
+      // Use the PatientService to create the patient properly
+      // This will automatically copy phases and templates from studyPhases collection
+      // Note: createPatient expects (studyId, patientData) as parameters
+      const patientId = await this.patientService.createPatient(studyId, patientData);
       
-      if (result && result.id) {
-        console.log('Patient created successfully with ID:', result.id);
-        return result.id;
+      if (patientId) {
+        console.log('Patient created successfully with ID:', patientId);
+        
+        // Refresh the patients list to show the new patient
+        this.loadPatients();
+        
+        return patientId as string;
       }
       
       return null;
@@ -1866,6 +1949,36 @@ getTreatmentArm(patient: any): string {
       console.error('Error creating demo patient:', error);
       return null;
     }
+  }
+  
+  // Helper methods for generating random demo data
+  private getRandomName(type: 'first' | 'last'): string {
+    const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'Robert', 'Lisa', 'James', 'Mary'];
+    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
+    
+    if (type === 'first') {
+      return firstNames[Math.floor(Math.random() * firstNames.length)];
+    } else {
+      return lastNames[Math.floor(Math.random() * lastNames.length)];
+    }
+  }
+  
+  private getRandomBirthDate(): Date {
+    const minAge = 18;
+    const maxAge = 80;
+    const age = Math.floor(Math.random() * (maxAge - minAge + 1)) + minAge;
+    const birthDate = new Date();
+    birthDate.setFullYear(birthDate.getFullYear() - age);
+    birthDate.setMonth(Math.floor(Math.random() * 12));
+    birthDate.setDate(Math.floor(Math.random() * 28) + 1);
+    return birthDate;
+  }
+  
+  private getRandomPhone(): string {
+    const areaCode = Math.floor(Math.random() * 900) + 100;
+    const prefix = Math.floor(Math.random() * 900) + 100;
+    const lineNumber = Math.floor(Math.random() * 9000) + 1000;
+    return `(${areaCode}) ${prefix}-${lineNumber}`;
   }
   
   // Create visit subcomponents from study phases

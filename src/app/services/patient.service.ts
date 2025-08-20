@@ -197,6 +197,68 @@ export class PatientService {
       
       if (studyPhases.length > 0) {
         await this.createVisitSubcomponentsFromPhases(patientId, studyPhases, currentUser.uid);
+        
+        // Also update the patient document with the phases array
+        const phasesForPatient = studyPhases.map(phase => ({
+          id: phase.id,
+          phaseName: phase.phaseName || phase.name || `Phase ${phase.order}`,
+          phaseCode: phase.phaseCode,
+          order: phase.order || 0,
+          description: phase.description || '',
+          type: phase.type || 'treatment',
+          status: 'pending',
+          completionPercentage: 0,
+          windowStartDays: phase.windowStartDays || 0,
+          windowEndDays: phase.windowEndDays || 30,
+          daysToComplete: phase.daysToComplete || 7,
+          plannedDurationDays: phase.plannedDurationDays || 30,
+          templateAssignments: phase.templateAssignments || [],
+          allowParallel: phase.allowParallel || false,
+          allowSkip: phase.allowSkip || false,
+          isActive: phase.isActive !== false,
+          createdAt: new Date(),
+          createdBy: currentUser.uid,
+          lastModifiedAt: new Date(),
+          lastModifiedBy: currentUser.uid
+        }));
+        
+        // Extract all forms/templates from phases
+        const formsForPatient: any[] = [];
+        studyPhases.forEach(phase => {
+          if (phase.templateAssignments && Array.isArray(phase.templateAssignments)) {
+            phase.templateAssignments.forEach((assignment: any, index: number) => {
+              formsForPatient.push({
+                id: assignment.templateId,
+                templateId: assignment.templateId,
+                templateName: assignment.name || assignment.templateName || `Template ${index + 1}`,
+                templateVersion: assignment.templateVersion || '1.0',
+                phaseId: phase.id,
+                phaseName: phase.phaseName || phase.name,
+                type: assignment.type || 'form',
+                status: 'pending',
+                completionPercentage: 0,
+                isRequired: assignment.isRequired !== false,
+                order: assignment.order || index,
+                windowStartDays: assignment.windowStartDays || phase.windowStartDays || 0,
+                windowEndDays: assignment.windowEndDays || phase.windowEndDays || 30,
+                description: assignment.description || ''
+              });
+            });
+          }
+        });
+        
+        // Update the patient document with phases and forms
+        const { updateDoc } = await import('@angular/fire/firestore');
+        await runInInjectionContext(this.injector, async () => {
+          await updateDoc(patientRef, {
+            phases: phasesForPatient,
+            forms: formsForPatient,
+            lastModifiedAt: new Date(),
+            lastModifiedBy: currentUser.uid
+          });
+        });
+        
+        console.log(`[PatientService] Updated patient ${patientId} with ${phasesForPatient.length} phases and ${formsForPatient.length} forms`);
       } else {
         console.warn(`[PatientService] No phases found in studyPhases collection for study ${studyId}. Patient will have no phases.`);
       }

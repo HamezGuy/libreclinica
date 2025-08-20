@@ -82,7 +82,7 @@
   <!-- Main Content Area -->
   <div class="main-content">
     <!-- Dashboard Sidebar Widget -->
-    <app-dashboard-sidebar [activeSidebarItem]="activeSidebarItem" [studies]="studies" [patients]="patients" [permissions]="permissions" (activeSidebarItemChange)="selectSidebarItem($event)" (createTemplate)="createNewTemplate()" (createStudy)="createNewStudy()" (selectPatient)="selectPatientFromSidebar($event)" (deletePatient)="deletePatientFromStudy($event.patient, $event.studyId)" (viewPatientForms)="viewPatientForms($event)" (viewPatientHistory)="viewPatientHistory($event)">
+    <app-dashboard-sidebar [activeSidebarItem]="activeSidebarItem" [studies]="(studies$ | async) || []" [patients]="patients" [permissions]="permissions" (activeSidebarItemChange)="selectSidebarItem($event)" (createTemplate)="createNewTemplate()" (createStudy)="createNewStudy()" (selectPatient)="selectPatientFromSidebar($event)" (deletePatient)="deletePatientFromStudy($event.patient, $event.studyId)" (viewPatientForms)="viewPatientForms($event)" (viewPatientHistory)="viewPatientHistory($event)">
     </app-dashboard-sidebar>
     
     <!-- Main Panel -->
@@ -90,53 +90,181 @@
       
       <!-- Patients View -->
       <div class="content-section" *ngIf="activeSidebarItem === 'patients'">
-        <div class="section-header">
-          <h2>{{ 'dashboard.patients' | translate }}</h2>
-          <div class="section-actions">
-            <button class="btn btn-primary" [disabled]="!permissions.canAddPatients" [title]="permissions.canAddPatients ? ('dashboard.add_new_patient' | translate) : ('dashboard.insufficient_permissions_to_add_patients' | translate)" (click)="openPatientTemplateSelector()">
-              <i class="material-icons">person_add</i>
-              {{ 'dashboard.add_patient' | translate }}
-            </button>
+        <!-- Show patient list if no patient selected -->
+        <div *ngIf="!selectedPatient">
+          <div class="section-header">
+            <h2>{{ 'dashboard.patients' | translate }}</h2>
+            <div class="section-actions">
+              <button class="btn btn-primary" [disabled]="!permissions.canAddPatients" [title]="permissions.canAddPatients ? ('dashboard.add_new_patient' | translate) : ('dashboard.insufficient_permissions_to_add_patients' | translate)" (click)="openPatientTemplateSelector()">
+                <i class="material-icons">person_add</i>
+                {{ 'dashboard.add_patient' | translate }}
+              </button>
+            </div>
+          </div>
+          
+          <!-- Patient List -->
+          <div class="patient-list">
+            <div class="list-header">
+              <span>{{ 'dashboard.patient_id' | translate }}</span>
+              <span>{{ 'common.name' | translate }}</span>
+              <span>{{ 'dashboard.study' | translate }}</span>
+              <span>{{ 'dashboard.forms' | translate }}</span>
+              <span>{{ 'dashboard.last_visit' | translate }}</span>
+              <span>{{ 'dashboard.status' | translate }}</span>
+              <span>{{ 'dashboard.actions' | translate }}</span>
+            </div>
+            
+            <div *ngFor="let patient of filteredPatients" class="patient-item" [class.selected]="selectedPatient?.id === patient.id" (click)="selectPatient(patient)">
+              <span class="patient-id">{{ patient.identifier }}</span>
+              <span class="patient-name">
+                {{ patient.displayName }}
+                <i class="material-icons phi-icon" *ngIf="!patient.canViewPhi" title="PHI Restricted">lock</i>
+              </span>
+              <span class="patient-study">{{ patient.studyId || 'N/A' }}</span>
+              <span class="patient-forms">{{ patient.formsCount }}</span>
+              <span class="patient-visit">{{ patient.lastVisit ? (patient.lastVisit | date:'short') : 'N/A' }}</span>
+              <span class="patient-status">
+                <span class="status-badge" [class]="patient.status">{{ patient.status }}</span>
+              </span>
+              <span class="patient-actions">
+                <button class="btn btn-sm btn-link" [title]="'dashboard.view_details' | translate" (click)="selectPatient(patient)">
+                  <i class="material-icons">visibility</i>
+                </button>
+                <button class="btn btn-sm btn-link" [title]="'common.edit' | translate">
+                  <i class="material-icons">edit</i>
+                </button>
+              </span>
+            </div>
+            
+            <div *ngIf="filteredPatients.length === 0" class="empty-state">
+              <i class="material-icons">people_outline</i>
+              <p>{{ 'dashboard.no_patients_found' | translate }}</p>
+            </div>
           </div>
         </div>
         
-        <!-- Patient List -->
-        <div class="patient-list">
-          <div class="list-header">
-            <span>{{ 'dashboard.patient_id' | translate }}</span>
-            <span>{{ 'common.name' | translate }}</span>
-            <span>{{ 'dashboard.study' | translate }}</span>
-            <span>{{ 'dashboard.forms' | translate }}</span>
-            <span>{{ 'dashboard.last_visit' | translate }}</span>
-            <span>{{ 'dashboard.status' | translate }}</span>
-            <span>{{ 'dashboard.actions' | translate }}</span>
-          </div>
-          
-          <div *ngFor="let patient of filteredPatients" class="patient-item" [class.selected]="selectedPatient?.id === patient.id" (click)="selectPatient(patient)">
-            <span class="patient-id">{{ patient.identifier }}</span>
-            <span class="patient-name">
-              {{ patient.displayName }}
-              <i class="material-icons phi-icon" *ngIf="!patient.canViewPhi" title="PHI Restricted">lock</i>
-            </span>
-            <span class="patient-study">{{ patient.studyId || 'N/A' }}</span>
-            <span class="patient-forms">{{ patient.formsCount }}</span>
-            <span class="patient-visit">{{ patient.lastVisit ? (patient.lastVisit | date:'short') : 'N/A' }}</span>
-            <span class="patient-status">
-              <span class="status-badge" [class]="patient.status">{{ patient.status }}</span>
-            </span>
-            <span class="patient-actions">
-              <button class="btn btn-sm btn-link" [title]="'dashboard.view_details' | translate">
-                <i class="material-icons">visibility</i>
-              </button>
-              <button class="btn btn-sm btn-link" [title]="'common.edit' | translate">
+        <!-- Patient Detail View (when patient is selected) -->
+        <div *ngIf="selectedPatient" class="patient-detail-view">
+          <!-- Patient Header -->
+          <div class="patient-header">
+            <button class="btn btn-link back-btn" (click)="clearSelectedPatient()">
+              <i class="material-icons">arrow_back</i>
+              Back to Patient List
+            </button>
+            <div class="patient-info">
+              <h2>{{ selectedPatient.displayName }}</h2>
+              <div class="patient-meta">
+                <span class="meta-item">
+                  <i class="material-icons">badge</i>
+                  Patient ID: {{ selectedPatient.identifier }}
+                </span>
+                <span class="meta-item">
+                  <i class="material-icons">science</i>
+                  Study: {{ getStudyName(selectedPatient.studyId) || 'Not Enrolled' }}
+                </span>
+                <span class="meta-item">
+                  <i class="material-icons">calendar_today</i>
+                  Enrolled: {{ selectedPatient.enrollmentDate | date:'mediumDate' }}
+                </span>
+                <span class="meta-item status-badge" [class]="selectedPatient.status">
+                  {{ selectedPatient.status }}
+                </span>
+              </div>
+            </div>
+            <div class="patient-actions">
+              <button class="btn btn-secondary">
                 <i class="material-icons">edit</i>
+                Edit Patient
               </button>
-            </span>
+              <button class="btn btn-secondary">
+                <i class="material-icons">print</i>
+                Print Summary
+              </button>
+            </div>
           </div>
           
-          <div *ngIf="filteredPatients.length === 0" class="empty-state">
-            <i class="material-icons">people_outline</i>
-            <p>{{ 'dashboard.no_patients_found' | translate }}</p>
+          <!-- Visit Timeline / Phases -->
+          <div class="visit-timeline">
+            <h3>Study Visits & Phases</h3>
+            <div class="timeline-container">
+              <div *ngFor="let phase of patientPhases; let i = index" class="phase-card" [class.completed]="phase.status === 'completed'" [class.current]="phase.status === 'in_progress'" [class.upcoming]="phase.status === 'scheduled'">
+                <div class="phase-header">
+                  <div class="phase-number">Phase {{ i + 1 }}</div>
+                  <div class="phase-name">{{ phase.name }}</div>
+                  <div class="phase-status">
+                    <i class="material-icons">{{ getPhaseIcon(phase.status) }}</i>
+                    {{ phase.status }}
+                  </div>
+                </div>
+                
+                <div class="phase-dates">
+                  <div class="date-item">
+                    <span class="date-label">Scheduled:</span>
+                    <span class="date-value">{{ phase.scheduledDate | date:'shortDate' }}</span>
+                  </div>
+                  <div class="date-item" *ngIf="phase.completedDate">
+                    <span class="date-label">Completed:</span>
+                    <span class="date-value">{{ phase.completedDate | date:'shortDate' }}</span>
+                  </div>
+                </div>
+                
+                <div class="phase-forms">
+                  <h4>Forms ({{ getCompletedFormsCount(phase) }}/{{ phase.formTemplates?.length || 0 }})</h4>
+                  <div class="form-list">
+                    <div *ngFor="let form of phase.formTemplates" class="form-item" [class.completed]="isFormCompleted(phase, form)" [class.required]="form.isRequired">
+                      <i class="material-icons form-status">{{ isFormCompleted(phase, form) ? 'check_circle' : (form.isRequired ? 'radio_button_unchecked' : 'circle') }}</i>
+                      <span class="form-name">{{ form.templateName }}</span>
+                      <span class="form-badge" *ngIf="form.isRequired">Required</span>
+                      <button class="btn btn-sm btn-link" (click)="openForm(phase, form)">
+                        {{ isFormCompleted(phase, form) ? 'View' : 'Complete' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="phase-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" [style.width.%]="phase.completionPercentage || 0"></div>
+                  </div>
+                  <span class="progress-text">{{ phase.completionPercentage || 0 }}% Complete</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Patient Data Summary -->
+          <div class="patient-data-summary">
+            <h3>Data Summary</h3>
+            <div class="summary-grid">
+              <div class="summary-card">
+                <i class="material-icons">assignment</i>
+                <div class="summary-content">
+                  <div class="summary-value">{{ getTotalFormsCount() }}</div>
+                  <div class="summary-label">Total Forms</div>
+                </div>
+              </div>
+              <div class="summary-card">
+                <i class="material-icons">check_circle</i>
+                <div class="summary-content">
+                  <div class="summary-value">{{ getCompletedFormsTotal() }}</div>
+                  <div class="summary-label">Completed</div>
+                </div>
+              </div>
+              <div class="summary-card">
+                <i class="material-icons">pending</i>
+                <div class="summary-content">
+                  <div class="summary-value">{{ getPendingFormsTotal() }}</div>
+                  <div class="summary-label">Pending</div>
+                </div>
+              </div>
+              <div class="summary-card">
+                <i class="material-icons">warning</i>
+                <div class="summary-content">
+                  <div class="summary-value">{{ getOverdueFormsTotal() }}</div>
+                  <div class="summary-label">Overdue</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
