@@ -38,6 +38,7 @@ export class TranslatePipe implements PipeTransform {
     'create-study-widget',
     'dashboard-sidebar',
     'edc-auth',
+    'excel-conversion',
     'form-assignment-modal',
     'form-builder',
     'form-preview',

@@ -179,6 +179,9 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     // Identify metadata columns vs data fields
     this.identifyFieldTypes();
+    
+    // Check for unique names
+    this.checkUniqueNames();
   }
   
   /**
@@ -234,8 +237,13 @@ export class ExcelConversionDialogComponent implements OnInit {
     this.parseExcelFile();
   }
 
+
   async convertExcelToTemplate(): Promise<void> {
     if (!this.selectedFile || !this.excelData) return;
+    
+    // Ensure field types are identified and uniqueness is checked
+    this.identifyFieldTypes();
+    this.checkUniqueNames();
     
     // Check for unique names first
     if (!this.hasUniqueNames) {
@@ -247,72 +255,77 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     try {
       const templateName = this.form.get('templateName')?.value;
-      const selectedTemplateId = this.form.get('selectedTemplate')?.value;
+      const templateDescription = this.form.get('templateDescription')?.value;
       
-      // Get existing template if selected
-      let existingTemplate: FormTemplate | undefined;
-      if (selectedTemplateId) {
-        const template = await this.templateService.getTemplate(selectedTemplateId);
-        existingTemplate = template || undefined;
-      }
+      // Filter out metadata columns and only keep data fields
+      const dataFields = this.filteredFieldNames;
       
-      // Convert Excel to template - create partial template for form builder
-      const template: any = {
-        id: '',
-        name: templateName,
-        description: this.form.get('templateDescription')?.value || '',
+      // Create the template structure
+      const template: FormTemplate = {
+        name: templateName || 'Imported Template',
+        description: templateDescription || 'Template imported from Excel',
         version: 1.0,
         status: 'draft',
-        fields: this.filteredFieldNames.map((fieldName, index) => ({
-          id: this.generateFieldId(),
-          name: fieldName,
+        templateType: 'form',
+        isPatientTemplate: false,
+        isStudySubjectTemplate: false,
+        fields: dataFields.map((fieldName, index) => ({
+          id: this.sanitizeFieldName(fieldName),
+          name: this.sanitizeFieldName(fieldName),
           label: fieldName,
-          type: 'text',
+          type: this.inferFieldType(fieldName) as any,
           required: false,
           readonly: false,
-          placeholder: '',
+          hidden: false,
+          auditRequired: false,
+          order: index,
+          placeholder: `Enter ${fieldName}`,
           helpText: '',
           validationRules: [],
           options: [],
-          conditionalLogic: undefined,
-          hidden: false,
-          isPhiField: false,
-          auditRequired: false,
-          order: index
+          isPhiField: this.checkIfPhiField(fieldName)
         })),
         sections: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        childTemplateIds: [],
+        linkedTemplates: [],
+        phiDataFields: dataFields.filter(f => this.checkIfPhiField(f)).map(f => this.sanitizeFieldName(f)),
+        hipaaCompliant: false,
+        gdprCompliant: false,
         createdBy: '',
-        phiDataFields: [],
-        category: 'general',
-        templateType: 'form',
-        isPatientTemplate: false,
-        isStudySubjectTemplate: false
+        lastModifiedBy: '',
+        requiresElectronicSignature: false,
+        complianceRegions: [],
+        phiEncryptionEnabled: false,
+        phiAccessLogging: false,
+        phiDataMinimization: false,
+        allowSavePartial: true,
+        requiresReview: false,
+        allowEditing: true,
+        childFormIds: [],
+        tags: ['imported', 'excel'],
+        category: 'imported',
+        estimatedCompletionTime: 10,
+        changeHistory: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
       
+      // Store the conversion result
       this.conversionResult = {
         success: true,
         template: template,
         errors: [],
-        warnings: []
+        warnings: [],
+        fieldCount: template.fields.length,
+        phiFieldCount: template.phiDataFields?.length || 0
       };
+      
+      // Also set the template in data for the preview to display
+      this.data.template = template;
       
       if (this.conversionResult.success) {
         // Create field mappings for preview
-        this.createFieldMappings();
-        
-        // Check for errors and warnings
-        if (this.conversionResult.errors.length > 0) {
-          // Show blocking errors
-          this.showErrors(this.conversionResult.errors);
-          return;
-        }
-        
-        if (this.conversionResult.warnings.length > 0) {
-          // Show warnings but allow to proceed
-          this.showWarnings(this.conversionResult.warnings);
-        }
+        this.createFieldMappingsForNewTemplate();
         
         // Move to preview step
         this.currentStep = 'preview';
@@ -484,41 +497,72 @@ export class ExcelConversionDialogComponent implements OnInit {
   /**
    * Check if field names are unique (excluding metadata columns)
    */
-  checkUniqueNames(): void {
-    // Only check uniqueness for actual data fields, not metadata
+  private checkUniqueNames(): void {
+    if (!this.filteredFieldNames) return;
+    
     const names = this.filteredFieldNames;
-    const nameCount = new Map<string, number>();
+    const uniqueNames = new Set(names);
     
-    names.forEach(name => {
-      const count = nameCount.get(name) || 0;
-      nameCount.set(name, count + 1);
-    });
+    this.hasUniqueNames = names.length === uniqueNames.size;
     
-    this.duplicateNames = [];
-    nameCount.forEach((count, name) => {
-      if (count > 1) {
-        this.duplicateNames.push(name);
-      }
-    });
-    
-    this.hasUniqueNames = this.duplicateNames.length === 0;
-    
-    if (!this.hasUniqueNames && this.conversionResult) {
-      this.conversionResult.errors.push({
-        field: 'Field Names',
-        message: `Duplicate field names found: ${this.duplicateNames.join(', ')}. Each field must have a unique name.`,
-        severity: 'error'
+    if (!this.hasUniqueNames) {
+      const duplicates: string[] = [];
+      const seen = new Set<string>();
+      
+      names.forEach(name => {
+        if (seen.has(name) && !duplicates.includes(name)) {
+          duplicates.push(name);
+        }
+        seen.add(name);
       });
+      
+      this.duplicateNames = duplicates;
+    } else {
+      this.duplicateNames = [];
     }
+  }
+
+  private sanitizeFieldName(fieldName: string): string {
+    // Remove special characters and replace spaces with underscores
+    return fieldName
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  private inferFieldType(fieldName: string): string {
+    const lowerName = fieldName.toLowerCase();
     
-    // Show info about filtered columns
-    if (this.metadataColumns.length > 0) {
-      this.showToast(
-        `Detected ${this.metadataColumns.length} patient metadata column(s) that will be excluded from template. ` +
-        `Template will use ${this.filteredFieldNames.length} unique field(s).`,
-        'info'
-      );
-    }
+    // Check for specific field types based on name patterns
+    if (lowerName.includes('email')) return 'email';
+    if (lowerName.includes('phone') || lowerName.includes('tel')) return 'phone';
+    if (lowerName.includes('date') || lowerName.includes('dob')) return 'date';
+    if (lowerName.includes('time')) return 'time';
+    if (lowerName.includes('number') || lowerName.includes('count') || lowerName.includes('age')) return 'number';
+    if (lowerName.includes('weight')) return 'weight';
+    if (lowerName.includes('height')) return 'height';
+    if (lowerName.includes('temperature') || lowerName.includes('temp')) return 'temperature';
+    if (lowerName.includes('blood') && lowerName.includes('pressure')) return 'blood_pressure';
+    if (lowerName.includes('medication') || lowerName.includes('drug')) return 'medication';
+    if (lowerName.includes('diagnosis') || lowerName.includes('condition')) return 'diagnosis';
+    if (lowerName.includes('yes') || lowerName.includes('no') || lowerName.includes('boolean')) return 'boolean';
+    if (lowerName.includes('description') || lowerName.includes('notes') || lowerName.includes('comments')) return 'textarea';
+    
+    // Default to text
+    return 'text';
+  }
+
+  private checkIfPhiField(fieldName: string): boolean {
+    const lowerName = fieldName.toLowerCase();
+    const phiKeywords = [
+      'patient', 'name', 'dob', 'birth', 'ssn', 'social',
+      'address', 'phone', 'email', 'mrn', 'medical record',
+      'insurance', 'emergency', 'contact', 'genetic', 'biometric',
+      'passport', 'driver\'s license', 'state id'
+    ];
+    
+    return phiKeywords.some(keyword => lowerName.includes(keyword));
   }
 
   /**
@@ -535,11 +579,11 @@ export class ExcelConversionDialogComponent implements OnInit {
     this.data.templates.forEach((template: FormTemplate) => {
       if (!template.fields) return;
       
-      const templateFields = new Set(template.fields.map(f => f.name.toLowerCase().trim()));
+      const templateFields = new Set(template.fields.map((f: FormField) => f.name.toLowerCase().trim()));
       
       // Calculate match score
       let matchCount = 0;
-      templateFields.forEach(field => {
+      templateFields.forEach((field: string) => {
         if (excelFields.has(field)) {
           matchCount++;
         }
@@ -585,6 +629,28 @@ export class ExcelConversionDialogComponent implements OnInit {
   }
 
   /**
+   * Create field mappings for new template from Excel
+   */
+  private createFieldMappingsForNewTemplate(): void {
+    if (!this.conversionResult?.template || !this.filteredFieldNames) return;
+    
+    this.fieldMappings = [];
+    const template = this.conversionResult.template;
+    
+    // Map all Excel fields as new template fields
+    this.filteredFieldNames.forEach(fieldName => {
+      const templateField = template.fields.find((f: FormField) => f.name === fieldName);
+      
+      this.fieldMappings.push({
+        excelField: fieldName,
+        templateField: templateField?.name || fieldName,
+        fieldType: templateField?.type || 'text',
+        matched: true
+      });
+    });
+  }
+  
+  /**
    * Create field mappings between Excel and selected template
    */
   private createFieldMappings(): void {
@@ -595,15 +661,15 @@ export class ExcelConversionDialogComponent implements OnInit {
     const excelFieldsLower = new Set(this.filteredFieldNames.map(h => h.toLowerCase().trim()));
     
     // Map template fields to Excel fields
-    this.selectedTemplate.fields.forEach(templateField => {
+    this.selectedTemplate.fields.forEach((templateField: FormField) => {
       const fieldNameLower = templateField.name.toLowerCase().trim();
       const matched = excelFieldsLower.has(fieldNameLower);
       
       this.fieldMappings.push({
         templateField: templateField.name,
-        excelField: matched ? this.previewHeaders.find(h => h.toLowerCase().trim() === fieldNameLower) : null,
+        excelField: matched ? this.filteredFieldNames.find(h => h.toLowerCase().trim() === fieldNameLower) : null,
         matched: matched,
-        type: templateField.type
+        fieldType: templateField.type
       });
     });
     
