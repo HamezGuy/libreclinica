@@ -2,26 +2,20 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
+import * as XLSX from 'xlsx';
+import { FormTemplate, FormField } from '../../models/form-template.model';
+import { FormTemplateService } from '../../services/form-template.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatRadioModule } from '@angular/material/radio';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatCardModule } from '@angular/material/card';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatTooltipModule } from '@angular/material/tooltip';
-
-import { ExcelConversionService, ExcelData, ConversionResult, ExcelParseOptions } from '../../services/excel-conversion.service';
-import { FormTemplateService } from '../../services/form-template.service';
-import { FormTemplate, FormField } from '../../models/form-template.model';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatCardModule } from '@angular/material/card';
 
 export interface ExcelConversionDialogData {
   mode: 'import' | 'export';
@@ -45,20 +39,15 @@ interface FieldMapping {
     FormsModule,
     TranslatePipe,
     MatDialogModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatSelectModule,
     MatTableModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatRadioModule,
-    MatCheckboxModule,
-    MatCardModule,
-    MatExpansionModule,
     MatDividerModule,
-    MatTooltipModule
+    MatRadioModule,
+    MatExpansionModule,
+    MatCardModule
   ],
   templateUrl: './excel-conversion-dialog.component.html',
   styleUrls: ['./excel-conversion-dialog.component.scss']
@@ -72,7 +61,7 @@ export class ExcelConversionDialogComponent implements OnInit {
   
   // File handling
   selectedFile: File | null = null;
-  excelData: ExcelData | null = null;
+  excelData: any = null;
   
   // Conversion
   conversionResult: any = null;
@@ -85,9 +74,11 @@ export class ExcelConversionDialogComponent implements OnInit {
   showTemplateSelector: boolean = false;
   exportOrientation: 'row' | 'column' = 'row';
   includeData = false;
+  filteredFieldNames: string[] = [];
+  metadataColumns: string[] = [];
   
   // Parse options
-  parseOptions: ExcelParseOptions = {
+  parseOptions: any = {
     orientation: 'auto',
     headerRow: 0,
     headerColumn: 0,
@@ -101,11 +92,11 @@ export class ExcelConversionDialogComponent implements OnInit {
   
   constructor(
     public dialogRef: MatDialogRef<ExcelConversionDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: ExcelConversionDialogData,
+    @Inject(MAT_DIALOG_DATA) public data: any,
     private fb: FormBuilder,
-    private excelService: ExcelConversionService,
     private templateService: FormTemplateService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {
     this.form = this.fb.group({
       templateName: ['', Validators.required],
@@ -143,10 +134,28 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     try {
       // Parse with current options
-      this.excelData = await this.excelService.parseExcelFile(
-        this.selectedFile,
-        this.parseOptions
-      );
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length > 0) {
+          this.excelData = {
+            headers: jsonData[0] as string[],
+            rows: jsonData.slice(1)
+          };
+          
+          // Update preview
+          this.updatePreview();
+          
+          // Move to configure step
+          this.currentStep = 'configure';
+        }
+      };
+      reader.readAsArrayBuffer(this.selectedFile);
       
       // Update preview
       this.updatePreview();
@@ -167,6 +176,41 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     this.previewHeaders = this.excelData.headers;
     this.previewRows = this.excelData.rows.slice(0, 10); // Show first 10 rows
+    
+    // Identify metadata columns vs data fields
+    this.identifyFieldTypes();
+  }
+  
+  /**
+   * Identify which columns are metadata vs actual data fields
+   */
+  private identifyFieldTypes(): void {
+    const patientMetadataColumns = [
+      'Patient Number', 'Patient Name', 'Patient ID', 'Subject ID',
+      'Date of Birth', 'DOB', 'Age', 'Gender', 'Sex',
+      'Study ID', 'Site ID', 'Site Name', 'Investigator',
+      'Form Status', 'Completed Date', 'Completion Date',
+      'Visit Date', 'Visit Number', 'Visit Name',
+      'Created Date', 'Modified Date', 'Last Updated',
+      'Entered By', 'Modified By', 'Reviewed By',
+      'Row Number', 'Record ID', 'Sequence Number'
+    ];
+    
+    this.metadataColumns = [];
+    this.filteredFieldNames = [];
+    
+    this.previewHeaders.forEach(header => {
+      const headerLower = header.toLowerCase().trim();
+      const isMetadata = patientMetadataColumns.some(metaCol => 
+        metaCol.toLowerCase() === headerLower
+      );
+      
+      if (isMetadata) {
+        this.metadataColumns.push(header);
+      } else {
+        this.filteredFieldNames.push(header);
+      }
+    });
   }
 
   onOrientationChange(): void {
@@ -212,12 +256,47 @@ export class ExcelConversionDialogComponent implements OnInit {
         existingTemplate = template || undefined;
       }
       
-      // Convert Excel to template
-      this.conversionResult = await this.excelService.convertExcelToTemplate(
-        this.excelData,
-        templateName,
-        existingTemplate
-      );
+      // Convert Excel to template - create partial template for form builder
+      const template: any = {
+        id: '',
+        name: templateName,
+        description: this.form.get('templateDescription')?.value || '',
+        version: 1.0,
+        status: 'draft',
+        fields: this.filteredFieldNames.map((fieldName, index) => ({
+          id: this.generateFieldId(),
+          name: fieldName,
+          label: fieldName,
+          type: 'text',
+          required: false,
+          readonly: false,
+          placeholder: '',
+          helpText: '',
+          validationRules: [],
+          options: [],
+          conditionalLogic: undefined,
+          hidden: false,
+          isPhiField: false,
+          auditRequired: false,
+          order: index
+        })),
+        sections: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: '',
+        phiDataFields: [],
+        category: 'general',
+        templateType: 'form',
+        isPatientTemplate: false,
+        isStudySubjectTemplate: false
+      };
+      
+      this.conversionResult = {
+        success: true,
+        template: template,
+        errors: [],
+        warnings: []
+      };
       
       if (this.conversionResult.success) {
         // Create field mappings for preview
@@ -249,13 +328,17 @@ export class ExcelConversionDialogComponent implements OnInit {
     }
   }
 
+  private generateFieldId(): string {
+    return 'field_' + Math.random().toString(36).substr(2, 9);
+  }
+
   private createFieldMappingsOld(): void {
     if (!this.conversionResult?.template || !this.excelData) return;
     
     this.fieldMappings = [];
     
     const template = this.conversionResult.template;
-    const excelFieldNames = this.excelData.fieldNames || [];
+    const excelFieldNames = this.excelData.headers;
     
     // Create mappings
     for (const excelField of excelFieldNames) {
@@ -289,11 +372,10 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     try {
       // Export template to Excel
-      await this.excelService.templateToExcel(
-        this.data.template,
-        undefined, // No data for now
-        this.exportOrientation
-      );
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(this.data.template.fields);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+      XLSX.writeFile(workbook, 'template.xlsx');
       
       // Close dialog
       this.dialogRef.close({ success: true });
@@ -400,10 +482,11 @@ export class ExcelConversionDialogComponent implements OnInit {
   }
 
   /**
-   * Check if field names are unique
+   * Check if field names are unique (excluding metadata columns)
    */
   checkUniqueNames(): void {
-    const names = this.previewHeaders;
+    // Only check uniqueness for actual data fields, not metadata
+    const names = this.filteredFieldNames;
     const nameCount = new Map<string, number>();
     
     names.forEach(name => {
@@ -420,12 +503,21 @@ export class ExcelConversionDialogComponent implements OnInit {
     
     this.hasUniqueNames = this.duplicateNames.length === 0;
     
-    if (!this.hasUniqueNames) {
+    if (!this.hasUniqueNames && this.conversionResult) {
       this.conversionResult.errors.push({
         field: 'Field Names',
         message: `Duplicate field names found: ${this.duplicateNames.join(', ')}. Each field must have a unique name.`,
         severity: 'error'
       });
+    }
+    
+    // Show info about filtered columns
+    if (this.metadataColumns.length > 0) {
+      this.showToast(
+        `Detected ${this.metadataColumns.length} patient metadata column(s) that will be excluded from template. ` +
+        `Template will use ${this.filteredFieldNames.length} unique field(s).`,
+        'info'
+      );
     }
   }
 
@@ -435,7 +527,8 @@ export class ExcelConversionDialogComponent implements OnInit {
   findMatchingTemplate(): void {
     if (!this.data.templates || this.data.templates.length === 0) return;
     
-    const excelFields = new Set(this.previewHeaders.map(h => h.toLowerCase().trim()));
+    // Use filtered field names only (exclude metadata)
+    const excelFields = new Set(this.filteredFieldNames.map(h => h.toLowerCase().trim()));
     let bestMatch: FormTemplate | null = null;
     let bestScore = 0;
     
@@ -494,11 +587,12 @@ export class ExcelConversionDialogComponent implements OnInit {
   /**
    * Create field mappings between Excel and selected template
    */
-  createFieldMappings(): void {
-    if (!this.selectedTemplate || !this.previewHeaders) return;
+  private createFieldMappings(): void {
+    if (!this.selectedTemplate || !this.filteredFieldNames) return;
     
     this.fieldMappings = [];
-    const excelFieldsLower = new Set(this.previewHeaders.map(h => h.toLowerCase().trim()));
+    // Only use filtered field names for mapping
+    const excelFieldsLower = new Set(this.filteredFieldNames.map(h => h.toLowerCase().trim()));
     
     // Map template fields to Excel fields
     this.selectedTemplate.fields.forEach(templateField => {
@@ -513,8 +607,8 @@ export class ExcelConversionDialogComponent implements OnInit {
       });
     });
     
-    // Add unmapped Excel fields
-    this.previewHeaders.forEach(excelField => {
+    // Add unmapped Excel fields (only data fields, not metadata)
+    this.filteredFieldNames.forEach(excelField => {
       const fieldLower = excelField.toLowerCase().trim();
       const alreadyMapped = this.fieldMappings.some(m => 
         m.excelField && m.excelField.toLowerCase().trim() === fieldLower
@@ -531,20 +625,35 @@ export class ExcelConversionDialogComponent implements OnInit {
     });
   }
 
-  /**
-   * Create a new template from Excel data
-   */
-  createNewTemplateFromExcel(): void {
-    if (!this.hasUniqueNames) {
-      this.showToast('Cannot create template: Field names must be unique', 'error');
+  createNewTemplate(): void {
+    if (!this.conversionResult?.template) {
+      this.showToast('No template data available', 'error');
       return;
     }
+
+    // Store the template data
+    const templateData = this.conversionResult.template;
     
-    // Use the conversion result template if available
-    if (this.conversionResult && this.conversionResult.template) {
-      this.selectedTemplate = this.conversionResult.template;
-      this.showToast('New template created from Excel data', 'success');
+    // Close the Excel conversion dialog
+    this.dialogRef.close({
+      action: 'create',
+      template: templateData,
+      openFormBuilder: true
+    });
+    
+    // Show success message with metadata filtering info
+    if (this.filteredFieldNames.length > 0) {
+      const msg = `Template generated with ${this.filteredFieldNames.length} field(s). ` +
+                  `${this.metadataColumns.length} patient metadata column(s) were excluded. Opening form builder...`;
+      this.showToast(msg, 'success');
     }
+  }
+
+  /**
+   * Create new template from Excel data
+   */
+  createNewTemplateFromExcel(): void {
+    this.createNewTemplate();
   }
 
   /**

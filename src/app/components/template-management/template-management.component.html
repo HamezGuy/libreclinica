@@ -1,12 +1,12 @@
 <!-- Enhanced Template Management Modal --><div class="modal-overlay template-management-modal" *ngIf="isVisible" (click)="onClose()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2><i class="material-icons">{{ 'common.description' | translate }}</i>{{ 'template.form_templates' | translate }}</h2>
+      <h2><i class="material-icons">description</i>{{ 'template.form_templates' | translate }}</h2>
       <div class="header-actions">
         <button class="btn btn-primary" (click)="onCreateTemplate()" *ngIf="permissions.canCreate">
-          <i class="material-icons">{{ 'common.add' | translate }}</i>{{ 'template.create_template' | translate }}</button>
+          <i class="material-icons">add</i>{{ 'template.create_template' | translate }}</button>
         <button class="close-btn" (click)="onClose()">
-          <i class="material-icons">{{ 'common.close' | translate }}</i>
+          <i class="material-icons">close</i>
         </button>
       </div>
     </div>
@@ -16,7 +16,7 @@
         <div class="templates-sidebar">
           <div class="sidebar-header">
             <div class="search-container">
-              <i class="material-icons">{{ 'common.search' | translate }}</i>
+              <i class="material-icons">search</i>
               <input type="text" [(ngModel)]="templateSearchTerm" (ngModelChange)="filterTemplates()" class="search-input" [placeholder]="'template.search_templates' | translate">
             </div>
             
@@ -44,15 +44,15 @@
               
               <div class="template-stats">
                 <div class="stat">
-                  <i class="material-icons">{{ 'template.input' | translate }}</i>
+                  <i class="material-icons">input</i>
                   <span>{{ template.fields.length || 0 }} {{ 'template.fields' | translate }}</span>
                 </div>
                 <div class="stat">
-                  <i class="material-icons">{{ 'template.folder' | translate }}</i>
+                  <i class="material-icons">folder</i>
                   <span>{{ template.category || ('template.general' | translate) }}</span>
                 </div>
                 <div class="stat">
-                  <i class="material-icons">{{ 'template.schedule' | translate }}</i>
+                  <i class="material-icons">schedule</i>
                   <span>{{ convertTimestampToDate(template.updatedAt) | date:'short' }}</span>
                 </div>
               </div>
@@ -69,7 +69,7 @@
           </div>
           
           <div *ngIf="filteredTemplates.length === 0" class="empty-state">
-            <i class="material-icons">{{ 'common.description' | translate }}</i>
+            <i class="material-icons">description</i>
             <h3>{{ 'template.no_templates_found' | translate }}</h3>
             <p>{{ templateSearchTerm ? ('template.try_adjusting_search' | translate) : ('template.create_first_template' | translate) }}</p>
           </div>
@@ -94,7 +94,7 @@
                 <div class="info-item" *ngIf="selectedTemplate.isPhiForm">
                   <span class="label">{{ 'template.phi_form' | translate }}</span>
                   <span class="value phi-badge">
-                    <i class="material-icons">{{ 'template.security' | translate }}</i>{{ 'template.contains_phi' | translate }}</span>
+                    <i class="material-icons">security</i>{{ 'template.contains_phi' | translate }}</span>
                 </div>
               </div>
             </div>
@@ -119,7 +119,7 @@
         <!-- Right Panel - Always Show Preview -->
         <div class="template-preview-panel">
           <div *ngIf="!selectedTemplate" class="no-selection">
-            <i class="material-icons">{{ 'template.visibility' | translate }}</i>
+            <i class="material-icons">visibility</i>
             <h3>{{ 'template.select_a_template_to_preview' | translate }}</h3>
             <p>{{ 'template.choose_a_template_from_the_list_to_see_its_details' | translate }}</p>
           </div>

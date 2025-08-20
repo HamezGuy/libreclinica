@@ -702,10 +702,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.formBuilderTemplateId = templateId;
     if (templateId) {
       const templates = await firstValueFrom(this.templates$);
-      this.selectedTemplateForEdit = templates.find((t: FormTemplate) => t.id === templateId) || null;
+      const template = templates.find(t => t.id === templateId);
+      this.selectedTemplateForEdit = template || null;
     } else {
       this.selectedTemplateForEdit = null;
     }
+    this.showFormBuilderModal = true;
+  }
+
+  openFormBuilderWithTemplate(template: any): void {
+    // Set the template for editing (even though it's new)
+    this.selectedTemplateForEdit = template;
+    this.editingTemplateId = undefined; // No ID yet since it's a new template
     this.showFormBuilderModal = true;
   }
 
@@ -944,302 +952,302 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return field.id || index.toString();
   }
 
-trackSite(index: number, site: any): string {
-return site.siteId || index.toString();
-}
+  trackSite(index: number, site: any): string {
+    return site.siteId || index.toString();
+  }
 
-trackPatient(index: number, patient: any): string {
-  return patient.id || patient.patientNumber || index.toString();
-}
+  trackPatient(index: number, patient: any): string {
+    return patient.id || patient.patientNumber || index.toString();
+  }
 
-getFieldIcon(fieldType: string): string {
-const iconMap: { [key: string]: string } = {
-  'text': 'text_fields',
-  'email': 'email',
-  'number': 'numbers',
-  'textarea': 'notes',
-  'select': 'arrow_drop_down',
-  'radio': 'radio_button_checked',
-  'checkbox': 'check_box',
-  'date': 'calendar_today',
-  'time': 'access_time',
-  'file': 'attach_file',
-  'signature': 'draw'
-};
+  getFieldIcon(fieldType: string): string {
+    const iconMap: { [key: string]: string } = {
+      'text': 'text_fields',
+      'email': 'email',
+      'number': 'numbers',
+      'textarea': 'notes',
+      'select': 'arrow_drop_down',
+      'radio': 'radio_button_checked',
+      'checkbox': 'check_box',
+      'date': 'calendar_today',
+      'time': 'access_time',
+      'file': 'attach_file',
+      'signature': 'draw'
+    };
 
-return iconMap[fieldType] || 'text_fields';
-}
+    return iconMap[fieldType] || 'text_fields';
+  }
 
-// Profile edit methods
-openProfileEditModal(): void {
-this.showProfileEditModal = true;
-}
+  // Profile edit methods
+  openProfileEditModal(): void {
+    this.showProfileEditModal = true;
+  }
 
-closeProfileEditModal(): void {
-this.showProfileEditModal = false;
-}
+  closeProfileEditModal(): void {
+    this.showProfileEditModal = false;
+  }
 
-onProfileUpdated(updatedProfile: UserProfile): void {
-// Update the current user profile reference
-this.currentUserProfile = updatedProfile;
-// The userProfile$ observable will automatically update through the auth service
-console.log('Profile updated successfully:', updatedProfile);
+  onProfileUpdated(updatedProfile: UserProfile): void {
+    // Update the current user profile reference
+    this.currentUserProfile = updatedProfile;
+    // The userProfile$ observable will automatically update through the auth service
+    console.log('Profile updated successfully:', updatedProfile);
 
-// Ensure language is synchronized with the dashboard
-const currentLang = this.languageService.getCurrentLanguage();
-if (currentLang) {
-  // Force a refresh of translations if needed
-  this.languageService.setLanguage(currentLang.code);
-}
-}
+    // Ensure language is synchronized with the dashboard
+    const currentLang = this.languageService.getCurrentLanguage();
+    if (currentLang) {
+      // Force a refresh of translations if needed
+      this.languageService.setLanguage(currentLang.code);
+    }
+  }
 
-async signOut() {
-try {
-  await this.authService.signOut();
-  this.router.navigate(['/login']);
-} catch (error) {
-  console.error('Error signing out:', error);
-}
-}
+  async signOut() {
+    try {
+      await this.authService.signOut();
+      this.router.navigate(['/login']);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  }
 
-// Form preview event handlers
-onPreviewFormDataChanged(formData: any): void {
-// Handle form data changes if needed
-console.log('Preview form data changed:', formData);
-}
+  // Form preview event handlers
+  onPreviewFormDataChanged(formData: any): void {
+    // Handle form data changes if needed
+    console.log('Preview form data changed:', formData);
+  }
 
-onPreviewFormSaved(formInstance: TemplateFormInstance): void {
-// Handle form instance save
-console.log('Preview form saved:', formInstance);
-// Could show a success message or refresh data
-}
+  onPreviewFormSaved(formInstance: TemplateFormInstance): void {
+    // Handle form instance save
+    console.log('Preview form saved:', formInstance);
+    // Could show a success message or refresh data
+  }
 
-onPreviewFormSubmitted(formInstance: TemplateFormInstance): void {
-// Handle form instance submission
-console.log('Preview form submitted:', formInstance);
-// Could show success message or navigate somewhere
-}
+  onPreviewFormSubmitted(formInstance: TemplateFormInstance): void {
+    // Handle form instance submission
+    console.log('Preview form submitted:', formInstance);
+    // Could show success message or navigate somewhere
+  }
 
-// Study Management Methods
-selectStudy(study: Study): void {
-this.selectedStudy = study;
-if (study.id) {
-  this.loadStudyEnrollments(study.id);
-}
-}
+  // Study Management Methods
+  selectStudy(study: Study): void {
+    this.selectedStudy = study;
+    if (study.id) {
+      this.loadStudyEnrollments(study.id);
+    }
+  }
 
-async loadStudyEnrollments(studyId: string): Promise<void> {
-  try {
-    // Use the new getStudyPatients method that retrieves patients by their IDs
-    const patients = await this.studyService.getStudyPatients(studyId);
+  async loadStudyEnrollments(studyId: string): Promise<void> {
+    try {
+      // Use the new getStudyPatients method that retrieves patients by their IDs
+      const patients = await this.studyService.getStudyPatients(studyId);
 
-    // Convert patient data to enrollment format for compatibility
-    this.studyEnrollments = patients.map(patient => ({
-      id: patient.id || '',
-      studyId: studyId,
-      patientId: patient.id || '',
-      enrollmentDate: patient.enrollmentDate || new Date(),
-      enrollmentNumber: patient.patientNumber || '',
-      status: patient.enrollmentStatus || 'enrolled',
-      currentSection: patient.currentVisitId || undefined,
-      completedSections: [],
-      sectionsInProgress: [],
-      overdueSections: [],
-      careIndicators: patient.activeAlerts?.map((alert: any) => ({
-        id: alert.id,
-        type: alert.type as any,
-        severity: alert.severity as any,
-        title: alert.message,
-        description: alert.message,
+      // Convert patient data to enrollment format for compatibility
+      this.studyEnrollments = patients.map(patient => ({
+        id: patient.id || '',
         studyId: studyId,
-        patientId: patient.id,
-        status: alert.resolvedDate ? 'resolved' : 'open',
-        createdAt: alert.createdDate,
-        createdBy: 'system',
-        escalationLevel: alert.severity === 'critical' ? 3 : alert.severity === 'high' ? 2 : 1
-      })) || [],
-      enrolledBy: patient.createdBy || '',
-      lastModifiedBy: patient.lastModifiedBy || '',
-      lastModifiedAt: patient.lastModifiedAt || new Date(),
-      changeHistory: []
-    }));
-  } catch (error) {
-    console.error('Error loading study enrollments:', error);
-  }
-}
-
-async createNewStudy(): Promise<void> {
-  console.log('createNewStudy called');
-  if (!this.permissions.canCreate) {
-    alert('You do not have permission to create studies');
-    return;
-  }
-
-  console.log('Permissions check passed, opening modal');
-  // Open the Create Study widget modal
-  this.showStudyCreationModal = true;
-  console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
-}
-
-async editStudy(study: Study): Promise<void> {
-  if (!this.permissions.canEdit) {
-    alert('You do not have permission to edit studies');
-    return;
+        patientId: patient.id || '',
+        enrollmentDate: patient.enrollmentDate || new Date(),
+        enrollmentNumber: patient.patientNumber || '',
+        status: patient.enrollmentStatus || 'enrolled',
+        currentSection: patient.currentVisitId || undefined,
+        completedSections: [],
+        sectionsInProgress: [],
+        overdueSections: [],
+        careIndicators: patient.activeAlerts?.map((alert: any) => ({
+          id: alert.id,
+          type: alert.type as any,
+          severity: alert.severity as any,
+          title: alert.message,
+          description: alert.message,
+          studyId: studyId,
+          patientId: patient.id,
+          status: alert.resolvedDate ? 'resolved' : 'open',
+          createdAt: alert.createdDate,
+          createdBy: 'system',
+          escalationLevel: alert.severity === 'critical' ? 3 : alert.severity === 'high' ? 2 : 1
+        })) || [],
+        enrolledBy: patient.createdBy || '',
+        lastModifiedBy: patient.lastModifiedBy || '',
+        lastModifiedAt: patient.lastModifiedAt || new Date(),
+        changeHistory: []
+      }));
+    } catch (error) {
+      console.error('Error loading study enrollments:', error);
+    }
   }
 
-  // TODO: Open study edit modal
-  console.log('Edit study modal would open here:', study);
-}
+  async createNewStudy(): Promise<void> {
+    console.log('createNewStudy called');
+    if (!this.permissions.canCreate) {
+      alert('You do not have permission to create studies');
+      return;
+    }
 
-// Phase Management Methods
-getStudyPhases(study: Study): any[] {
-  return study.phases || [];
-}
-
-getPhaseStatus(studyId: string, phase: any): string {
-  const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
-  if (patientsInPhase.length === 0) {
-    return 'not_started';
+    console.log('Permissions check passed, opening modal');
+    // Open the Create Study widget modal
+    this.showStudyCreationModal = true;
+    console.log('showStudyCreationModal set to:', this.showStudyCreationModal);
   }
-  
-  const hasCompleted = patientsInPhase.some(p => p.phaseProgress?.[phase.id]?.status === 'completed');
-  if (hasCompleted) {
-    const allCompleted = patientsInPhase.every(p => p.phaseProgress?.[phase.id]?.status === 'completed');
-    return allCompleted ? 'completed' : 'in_progress';
+
+  async editStudy(study: Study): Promise<void> {
+    if (!this.permissions.canEdit) {
+      alert('You do not have permission to edit studies');
+      return;
+    }
+
+    // TODO: Open study edit modal
+    console.log('Edit study modal would open here:', study);
   }
-  
-  return 'in_progress';
-}
 
-getPhaseProgress(studyId: string, phase: any): number {
-  const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
-  if (patientsInPhase.length === 0) return 0;
-  
-  const completedCount = patientsInPhase.filter(
-    p => p.phaseProgress?.[phase.id]?.status === 'completed'
-  ).length;
-  
-  return Math.round((completedCount / patientsInPhase.length) * 100);
-}
-
-// Phase UI Helper Methods
-getPhaseStatusIcon(studyId: string, phase: any): string {
-  const status = this.getPhaseStatus(studyId, phase);
-  switch (status) {
-    case 'completed': return 'check_circle';
-    case 'in_progress': return 'pending';
-    case 'not_started': return 'radio_button_unchecked';
-    default: return 'help';
+  // Phase Management Methods
+  getStudyPhases(study: Study): any[] {
+    return study.phases || [];
   }
-}
 
-getPhaseStatusText(studyId: string, phase: any): string {
-  const status = this.getPhaseStatus(studyId, phase);
-  switch (status) {
-    case 'completed': return 'Completed';
-    case 'in_progress': return 'In Progress';
-    case 'not_started': return 'Not Started';
-    default: return 'Unknown';
+  getPhaseStatus(studyId: string, phase: any): string {
+    const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
+    if (patientsInPhase.length === 0) {
+      return 'not_started';
+    }
+    
+    const hasCompleted = patientsInPhase.some(p => p.phaseProgress?.[phase.id]?.status === 'completed');
+    if (hasCompleted) {
+      const allCompleted = patientsInPhase.every(p => p.phaseProgress?.[phase.id]?.status === 'completed');
+      return allCompleted ? 'completed' : 'in_progress';
+    }
+    
+    return 'in_progress';
   }
-}
 
-getPhaseProgressColor(studyId: string, phase: any): string {
-  const progress = this.getPhaseProgress(studyId, phase);
-  if (progress >= 75) return '#4caf50';
-  if (progress >= 50) return '#2196f3';
-  if (progress >= 25) return '#ff9800';
-  return '#9e9e9e';
-}
-
-getPhaseProgressDasharray(studyId: string, phase: any): string {
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  return `${circumference} ${circumference}`;
-}
-
-getPhaseProgressDashoffset(studyId: string, phase: any): string {
-  const progress = this.getPhaseProgress(studyId, phase);
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-  return offset.toString();
-}
-
-// Phase Expansion Methods
-togglePhaseExpansion(phaseId: string): void {
-  if (this.expandedPhases.has(phaseId)) {
-    this.expandedPhases.delete(phaseId);
-  } else {
-    this.expandedPhases.add(phaseId);
+  getPhaseProgress(studyId: string, phase: any): number {
+    const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
+    if (patientsInPhase.length === 0) return 0;
+    
+    const completedCount = patientsInPhase.filter(
+      p => p.phaseProgress?.[phase.id]?.status === 'completed'
+    ).length;
+    
+    return Math.round((completedCount / patientsInPhase.length) * 100);
   }
-}
 
-isPhaseExpanded(phaseId: string): boolean {
-  return this.expandedPhases.has(phaseId);
-}
-
-// Patient Phase Methods
-getPatientsInPhase(studyId: string, phaseId: string): PatientStudyEnrollment[] {
-  return this.studyEnrollments.filter(enrollment => {
-    return enrollment.studyId === studyId && 
-           (enrollment.currentPhase === phaseId || 
-            enrollment.phaseProgress?.[phaseId]?.status === 'in_progress' ||
-            enrollment.phaseProgress?.[phaseId]?.status === 'completed');
-  });
-}
-
-getCurrentPatientPhase(patient: PatientStudyEnrollment): string {
-  return patient.currentPhase || 'screening';
-}
-
-// Study Patients Methods
-async loadStudyPatients(studyId: string): Promise<void> {
-  try {
-    const patients = await this.studyService.getStudyPatients(studyId);
-    this.studyPatients = patients.map(patient => ({
-      id: patient.id || '',
-      studyId: studyId,
-      patientId: patient.id || '',
-      enrollmentDate: patient.enrollmentDate || new Date(),
-      enrollmentNumber: patient.patientNumber || '',
-      status: patient.enrollmentStatus || 'enrolled',
-      currentPhase: patient.currentPhase,
-      phaseProgress: patient.phaseProgress || {},
-      completedSections: [],
-      sectionsInProgress: [],
-      overdueSections: [],
-      careIndicators: [],
-      enrolledBy: patient.createdBy || '',
-      lastModifiedBy: patient.lastModifiedBy || '',
-      lastModifiedAt: patient.lastModifiedAt || new Date(),
-      changeHistory: []
-    }));
-  } catch (error) {
-    console.error('Error loading study patients:', error);
-    this.studyPatients = [];
+  // Phase UI Helper Methods
+  getPhaseStatusIcon(studyId: string, phase: any): string {
+    const status = this.getPhaseStatus(studyId, phase);
+    switch (status) {
+      case 'completed': return 'check_circle';
+      case 'in_progress': return 'pending';
+      case 'not_started': return 'radio_button_unchecked';
+      default: return 'help';
+    }
   }
-}
 
-// Study Progress Methods
-getStudyOverallProgress(study: Study): number {
-  if (!study.phases || study.phases.length === 0) return 0;
-  
-  const totalProgress = study.phases.reduce((sum, phase) => {
-    return sum + this.getPhaseProgress(study.id!, phase);
-  }, 0);
-  
-  return Math.round(totalProgress / study.phases.length);
-}
+  getPhaseStatusText(studyId: string, phase: any): string {
+    const status = this.getPhaseStatus(studyId, phase);
+    switch (status) {
+      case 'completed': return 'Completed';
+      case 'in_progress': return 'In Progress';
+      case 'not_started': return 'Not Started';
+      default: return 'Unknown';
+    }
+  }
 
-// Helper for enrollment status display
-getEnrollmentStatus(patient: any): string {
-  return patient?.enrollmentStatus || patient?.status || 'active';
-}
+  getPhaseProgressColor(studyId: string, phase: any): string {
+    const progress = this.getPhaseProgress(studyId, phase);
+    if (progress >= 75) return '#4caf50';
+    if (progress >= 50) return '#2196f3';
+    if (progress >= 25) return '#ff9800';
+    return '#9e9e9e';
+  }
 
-// Helper for treatment arm display
-getTreatmentArm(patient: any): string {
-  return patient?.treatmentArm || 'Unassigned';
-}
+  getPhaseProgressDasharray(studyId: string, phase: any): string {
+    const radius = 18;
+    const circumference = 2 * Math.PI * radius;
+    return `${circumference} ${circumference}`;
+  }
+
+  getPhaseProgressDashoffset(studyId: string, phase: any): string {
+    const progress = this.getPhaseProgress(studyId, phase);
+    const radius = 18;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (progress / 100) * circumference;
+    return offset.toString();
+  }
+
+  // Phase Expansion Methods
+  togglePhaseExpansion(phaseId: string): void {
+    if (this.expandedPhases.has(phaseId)) {
+      this.expandedPhases.delete(phaseId);
+    } else {
+      this.expandedPhases.add(phaseId);
+    }
+  }
+
+  isPhaseExpanded(phaseId: string): boolean {
+    return this.expandedPhases.has(phaseId);
+  }
+
+  // Patient Phase Methods
+  getPatientsInPhase(studyId: string, phaseId: string): PatientStudyEnrollment[] {
+    return this.studyEnrollments.filter(enrollment => {
+      return enrollment.studyId === studyId && 
+             (enrollment.currentPhase === phaseId || 
+              enrollment.phaseProgress?.[phaseId]?.status === 'in_progress' ||
+              enrollment.phaseProgress?.[phaseId]?.status === 'completed');
+    });
+  }
+
+  getCurrentPatientPhase(patient: PatientStudyEnrollment): string {
+    return patient.currentPhase || 'screening';
+  }
+
+  // Study Patients Methods
+  async loadStudyPatients(studyId: string): Promise<void> {
+    try {
+      const patients = await this.studyService.getStudyPatients(studyId);
+      this.studyPatients = patients.map(patient => ({
+        id: patient.id || '',
+        studyId: studyId,
+        patientId: patient.id || '',
+        enrollmentDate: patient.enrollmentDate || new Date(),
+        enrollmentNumber: patient.patientNumber || '',
+        status: patient.enrollmentStatus || 'enrolled',
+        currentPhase: patient.currentPhase,
+        phaseProgress: patient.phaseProgress || {},
+        completedSections: [],
+        sectionsInProgress: [],
+        overdueSections: [],
+        careIndicators: [],
+        enrolledBy: patient.createdBy || '',
+        lastModifiedBy: patient.lastModifiedBy || '',
+        lastModifiedAt: patient.lastModifiedAt || new Date(),
+        changeHistory: []
+      }));
+    } catch (error) {
+      console.error('Error loading study patients:', error);
+      this.studyPatients = [];
+    }
+  }
+
+  // Study Progress Methods
+  getStudyOverallProgress(study: Study): number {
+    if (!study.phases || study.phases.length === 0) return 0;
+    
+    const totalProgress = study.phases.reduce((sum, phase) => {
+      return sum + this.getPhaseProgress(study.id!, phase);
+    }, 0);
+    
+    return Math.round(totalProgress / study.phases.length);
+  }
+
+  // Helper for enrollment status display
+  getEnrollmentStatus(patient: any): string {
+    return patient?.enrollmentStatus || patient?.status || 'active';
+  }
+
+  // Helper for treatment arm display
+  getTreatmentArm(patient: any): string {
+    return patient?.treatmentArm || 'Unassigned';
+  }
 
   // Track Methods for ngFor
   trackPhase(index: number, phase: any): string {

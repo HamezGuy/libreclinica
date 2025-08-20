@@ -184,13 +184,32 @@ export class ExcelConversionService {
       return { success: false, errors, warnings };
     }
     
-    // Use field names directly from headers - these ARE the unique identifiers
+    // Define patient-specific metadata columns to exclude
+    const patientMetadataColumns = [
+      'Patient Number', 'Patient Name', 'Patient ID', 'Subject ID',
+      'Date of Birth', 'DOB', 'Age', 'Gender', 'Sex',
+      'Study ID', 'Site ID', 'Site Name', 'Investigator',
+      'Form Status', 'Completed Date', 'Completion Date',
+      'Visit Date', 'Visit Number', 'Visit Name',
+      'Created Date', 'Modified Date', 'Last Updated',
+      'Entered By', 'Modified By', 'Reviewed By',
+      'Row Number', 'Record ID', 'Sequence Number'
+    ];
+    
+    // Filter out patient-specific columns (case-insensitive)
     const fieldNames = excelData.headers.filter(header => {
-      // Skip common metadata columns
-      const skipColumns = ['Patient Number', 'Patient Name', 'Date of Birth', 
-                          'Study ID', 'Site ID', 'Form Status', 'Completed Date'];
-      return !skipColumns.includes(header);
+      const headerLower = header.toLowerCase().trim();
+      return !patientMetadataColumns.some(metaCol => 
+        metaCol.toLowerCase() === headerLower
+      );
     });
+    
+    // Check if any fields remain after filtering
+    if (fieldNames.length === 0) {
+      errors.push('No data fields found after filtering patient metadata. Only patient-specific columns were detected.');
+      warnings.push('Ensure your Excel file contains actual form fields, not just patient tracking data.');
+      return { success: false, errors, warnings };
+    }
     
     // Check for duplicate field names
     const duplicates = fieldNames.filter((name, index) => 
@@ -198,7 +217,14 @@ export class ExcelConversionService {
     );
     if (duplicates.length > 0) {
       errors.push(`Duplicate field names found: ${duplicates.join(', ')}`);
+      warnings.push('Each field must have a unique name for proper template generation.');
       return { success: false, errors, warnings };
+    }
+    
+    // Warn if many columns were filtered
+    const filteredCount = excelData.headers.length - fieldNames.length;
+    if (filteredCount > 0) {
+      warnings.push(`Filtered out ${filteredCount} patient-specific columns. Template will use ${fieldNames.length} unique field(s).`);
     }
     
     // Create form fields using field names as both ID and name
@@ -209,8 +235,11 @@ export class ExcelConversionService {
       const colIndex = excelData.headers.indexOf(fieldName);
       const columnData = excelData.rows.map(row => row[colIndex]);
       
-      // Infer field type from actual data values
-      const fieldType = this.inferFieldType(columnData);
+      // Get unique values only (remove patient-specific duplicates)
+      const uniqueData = this.getUniqueValues(columnData);
+      
+      // Infer field type from unique values only
+      const fieldType = this.inferFieldType(uniqueData);
       
       // Use field name as the unique identifier
       const field: FormField = {
@@ -230,14 +259,17 @@ export class ExcelConversionService {
       };
       
       // Add options for select fields if we can detect them
-      const uniqueValues = this.getUniqueValues(columnData);
-      if (uniqueValues.length > 0 && uniqueValues.length <= 20 && fieldType === 'text') {
-        // Might be a select field
+      if (uniqueData.length > 1 && uniqueData.length <= 20 && fieldType === 'text') {
+        // Likely a select/dropdown field with limited options
         field.type = 'select';
-        field.options = uniqueValues.map(val => ({
+        field.options = uniqueData.map(val => ({
           value: val,
           label: String(val)
         }));
+        warnings.push(`Field '${fieldName}' detected as dropdown with ${uniqueData.length} options.`);
+      } else if (uniqueData.length === 1) {
+        // Only one unique value across all patients - might be a default
+        warnings.push(`Field '${fieldName}' has only one unique value: '${uniqueData[0]}'. Consider if this should be a default value.`);
       }
       
       fields.push(field);

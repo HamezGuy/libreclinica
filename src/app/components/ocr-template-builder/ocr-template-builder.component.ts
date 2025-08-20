@@ -1,11 +1,12 @@
 import { Component, OnInit, ViewChild, ElementRef, Inject, Optional, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -14,7 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { IOcrService, OcrProcessingResult, OcrProcessingConfig, OcrFormElement } from '../../interfaces/ocr-interfaces';
@@ -29,22 +30,22 @@ import { LanguageService } from '../../services/language.service';
   standalone: true,
   imports: [
     CommonModule,
-    HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressSpinnerModule,
-    MatTabsModule,
-    MatSnackBarModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
     MatCheckboxModule,
+    MatProgressSpinnerModule,
     MatTooltipModule,
     MatTableModule,
+    MatTabsModule,
+    MatSnackBarModule,
     DragDropModule,
+    HttpClientModule,
     TranslatePipe
   ],
   templateUrl: './ocr-template-builder.component.html',
@@ -57,7 +58,7 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   detectedElementsByPage = new Map<number, OcrFormElement[]>();
   detectedElements: OcrFormElement[] = [];
   fieldGroups = new Map<string, any[]>();
-  generatedFields: FormField[] = [];
+  generatedFields: any[] = [];
   detectedSections: { [key: string]: FormField[] } = {};
   
   // Raw view properties
@@ -67,6 +68,11 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   dragStartPoint = { x: 0, y: 0 };
   lastPanPoint = { x: 0, y: 0 };
   imagePreviewUrl: string | null = null;
+  // Drawing properties for canvas selection
+  isDrawing = false;
+  drawStartX = 0;
+  drawStartY = 0;
+  
   // Common medical form field translations
   private fieldLabelTranslations: { [key: string]: { [lang: string]: string } } = {
     'patient name': { en: 'Patient Name', hi: 'रोगी का नाम', ja: '患者名' },
@@ -130,12 +136,12 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
 
   // State management
   viewMode: 'upload' | 'processing' | 'review' | 'fields' = 'upload';
-  isProcessing = false;
-  ocrResult: OcrProcessingResult | null = null;
-  generatedTemplate: FormTemplate | null = null;
+  activeTab: 'template' | 'raw' = 'template';
   selectedFile: File | null = null;
-  selectedProvider: OcrProvider = OcrProvider.AMAZON_TEXTRACT;
+  ocrResult: any = null;
+  selectedProvider: OcrProvider = 'google-vision' as OcrProvider;
   ocrService: IOcrService | null = null;
+  isProcessing = false;
   processingProgress = 0;
   documentPreviewUrl: string | null = null;
   detectedFields: FormField[] = [];
@@ -144,21 +150,23 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   showProviderSettings = false;
   imagePreviewUrls: string[] = []; // For multi-page PDFs
   totalPages: number = 1;
-  currentPageIndex: number = 0;
-  activeTab: 'template' | 'raw' = 'template'; // Tab for switching between template and raw OCR view
+  currentPageIndex: number = 0; 
   selectedTab = 0; // Tab index for mat-tab-group
 
   // Canvas and drawing properties
-  canvasContext: CanvasRenderingContext2D | null = null;
+  canvas: HTMLCanvasElement | null = null;
+  ctx: CanvasRenderingContext2D | null = null;
+  currentImage: HTMLImageElement | null = null;
   currentImageNaturalSize = { width: 0, height: 0 };
   imageScale = 1;
   imageOffset = { x: 0, y: 0 };
   showBoundingBoxes = true;
   showConfidenceScores = true;
-  selectedElement: OcrFormElement | null = null;
+  selectedElement: any = null;
+  editingFieldIndex: number | null = null;
+  zoomLevel: number = 1;
 
   // Field editing
-  editingFieldIndex: number | null = null;
   selectedField: FormField | null = null;
 
   // Form and state
@@ -208,12 +216,22 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     // Initialize providers
     this.availableProviders = this.ocrProviderFactory.getAvailableProviders();
 
-    // Initialize canvas after view is ready
-    setTimeout(() => {
-      if (this.imageCanvas && this.documentPreviewUrl) {
-        this.loadImageToCanvas();
-      }
-    }, 100);
+    // Initialize canvas for review mode
+    if (this.viewMode === 'review' && this.imageCanvas) {
+      setTimeout(() => {
+        if (this.imageCanvas && this.imageCanvas.nativeElement) {
+          this.initializeCanvas();
+          // this.loadImageToCanvas(); // Method to be implemented if needed
+        }
+      }, 100);
+    }
+    if (this.documentPreviewUrl) {
+      setTimeout(() => {
+        if (this.imageCanvas && this.imageCanvas.nativeElement) {
+          this.loadCurrentPageToCanvas();
+        }
+      }, 100);
+    }
   }
 
   ngOnDestroy(): void {
@@ -224,6 +242,36 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     }
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        this.snackBar.open('File size must be less than 5MB', 'Close', { duration: 3000 });
+        return;
+      }
+      
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/bmp'];
+      if (!allowedTypes.includes(file.type)) {
+        this.snackBar.open('Invalid file type. Please upload PDF, PNG, JPG, JPEG, TIFF, or BMP files.', 'Close', { duration: 3000 });
+        return;
+      }
+      
+      this.selectedFile = file;
+      
+      // Create preview URL for images
+      if (file.type.startsWith('image/')) {
+        if (this.documentPreviewUrl) {
+          URL.revokeObjectURL(this.documentPreviewUrl);
+        }
+        this.documentPreviewUrl = URL.createObjectURL(file);
+      }
+    }
   }
 
   private async fileToBase64(file: File): Promise<string> {
@@ -314,14 +362,25 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       }
       
       this.ocrResult = result;
+      this.generatedFields = this.convertOcrToFields(result);
+      // Enhance fields with better labels and types if needed
+      // Additional processing can be added here
       this.processOcrResult(result);
       this.detectedFields = this.convertOcrToFields(result);
       this.viewMode = 'review';
 
       // Initialize canvas after view change
       setTimeout(() => {
-        this.initializeCanvas();
-        this.loadImageToCanvas();
+        if (this.imageCanvas && this.imageCanvas.nativeElement) {
+          this.initializeCanvas();
+          this.loadCurrentPageToCanvas();
+        }
+        // Draw OCR elements after canvas is ready
+        if (this.ocrResult && this.ctx) {
+          setTimeout(() => {
+            // this.drawOcrElements(); // Method to be implemented if needed
+          }, 200);
+        }
       }, 100);
 
       // Show success message with provider name
@@ -336,6 +395,133 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       this.isProcessing = false;
       this.processingProgress = 0;
     }
+  }
+
+  // Convert OCR result to form fields
+  private convertOcrToFields(result: OcrProcessingResult): FormField[] {
+    const fields: FormField[] = [];
+    const resultWithPages = result as any;
+    
+    if (resultWithPages.pages && resultWithPages.pages.length > 0) {
+      resultWithPages.pages.forEach((page: any, pageIndex: number) => {
+        if (page.elements) {
+          page.elements.forEach((element: any, index: number) => {
+            const field = this.createFieldFromOcrElement(element, pageIndex, index);
+            if (field) {
+              fields.push(field);
+            }
+          });
+        }
+      });
+    } else if (result.elements) {
+      result.elements.forEach((element: any, index: number) => {
+        const field = this.createFieldFromOcrElement(element, 0, index);
+        if (field) {
+          fields.push(field);
+        }
+      });
+    }
+    
+    return fields;
+  }
+
+  // Create a form field from an OCR element
+  private createFieldFromOcrElement(element: OcrFormElement, pageIndex: number, index: number): FormField {
+    if (!element || !element.text) {
+      // Return a default field if element is invalid
+      return {
+        id: `field_${index}`,
+        type: 'text',
+        label: 'Unknown Field',
+        name: `field_${index}`,
+        placeholder: '',
+        helpText: '',
+        required: false,
+        readonly: false,
+        hidden: false,
+        options: [],
+        validationRules: [],
+        order: index,
+        isPhiField: false,
+        auditRequired: false,
+        customAttributes: {
+          pageNumber: pageIndex + 1,
+          confidence: 0,
+          boundingBox: null
+        }
+      };
+    }
+
+    const fieldType = this.inferFieldType(element.text);
+    return {
+      id: `field_${index}`,
+      type: fieldType as any,
+      label: this.generateLabel(element.text),
+      name: this.sanitizeName(element.text),
+      placeholder: this.generatePlaceholder(element.text),
+      helpText: '',
+      required: false,
+      readonly: false,
+      hidden: false,
+      options: [],
+      validationRules: [],
+      order: index,
+      isPhiField: this.isPHIField(element.text),
+      auditRequired: this.isPHIField(element.text),
+      customAttributes: {
+        pageNumber: pageIndex + 1,
+        confidence: element.confidence,
+        boundingBox: element.boundingBox
+      }
+    };
+  }
+
+  // Generate label from text
+  private generateLabel(text: string): string {
+    // Clean up the text and make it more readable
+    return text
+      .replace(/_/g, ' ')
+      .replace(/([A-Z])/g, ' $1')
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  // Helper methods for field generation
+  private inferFieldType(text: string): string {
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('email')) return 'email';
+    if (lowerText.includes('phone') || lowerText.includes('tel')) return 'phone';
+    if (lowerText.includes('date')) return 'date';
+    if (lowerText.includes('time')) return 'time';
+    if (lowerText.includes('number') || lowerText.includes('#')) return 'number';
+    if (lowerText.includes('yes') || lowerText.includes('no')) return 'yes_no';
+    if (text.length > 50) return 'textarea';
+    return 'text';
+  }
+
+  private generateFieldLabel(text: string): string {
+    // Clean up the text and make it a proper label
+    return text.replace(/[:?]/g, '').trim();
+  }
+
+  private sanitizeName(label: string): string {
+    return label.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+  }
+
+  private generatePlaceholder(label: string): string {
+    return `Enter ${label.toLowerCase()}`;
+  }
+
+  private inferRequired(text: string): boolean {
+    return text.includes('*') || text.toLowerCase().includes('required');
+  }
+
+  private isPHIField(text: string): boolean {
+    const phiKeywords = ['name', 'dob', 'birth', 'ssn', 'social', 'address', 'phone', 'email', 'medical', 'diagnosis', 'medication'];
+    const lowerText = text.toLowerCase();
+    return phiKeywords.some(keyword => lowerText.includes(keyword));
   }
 
   processOcrResult(result: OcrProcessingResult): void {
@@ -456,964 +642,139 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
           const closestInput = this.findClosestElement(label, inputs);
 
           if (closestInput) {
-            fields.push(this.createFieldFromElements(label, closestInput, fieldIndex++));
+            fields.push(this.createFieldFromOcrElement(label, 0, fieldIndex++));
           } else {
             // Create field from label alone
-            fields.push(this.createFieldFromElement(label, fieldIndex++));
+            fields.push(this.createFieldFromOcrElement(label, 0, fieldIndex++));
           }
         });
 
         // Handle remaining inputs without labels
         inputs.filter((input: OcrFormElement) => !fields.some((f: FormField) => f.id === input.id)).forEach((input: OcrFormElement) => {
-          fields.push(this.createFieldFromElement(input, fieldIndex++));
+          fields.push(this.createFieldFromOcrElement(input, 0, fieldIndex++));
         });
       } else {
         // Single element in row
         groupElements.forEach((element: OcrFormElement) => {
-          fields.push(this.createFieldFromElement(element, fieldIndex++));
+          fields.push(this.createFieldFromOcrElement(element, 0, fieldIndex++));
         });
       }
     });
-
     // Process ungrouped elements
     this.detectedElements.filter((el: OcrFormElement) =>
       !Array.from(this.fieldGroups.values()).flat().includes(el)
     ).forEach((element: OcrFormElement) => {
-      fields.push(this.createFieldFromElement(element, fieldIndex++));
+      fields.push(this.createFieldFromOcrElement(element, 0, fieldIndex++));
     });
-
-    this.generatedFields = this.enhanceGeneratedFields(fields);
-    this.detectAndGroupSections();
   }
 
   private findClosestElement(reference: OcrFormElement, candidates: OcrFormElement[]): OcrFormElement | null {
     if (!candidates.length) return null;
-
-    let closest = candidates[0];
-    let minDistance = this.calculateDistance(reference, closest);
-
-    candidates.forEach((candidate: OcrFormElement) => {
-      const distance = this.calculateDistance(reference, candidate);
+    
+    let closest: OcrFormElement | null = null;
+    let minDistance = Infinity;
+    
+    candidates.forEach(candidate => {
+      const distance = Math.sqrt(
+        Math.pow(candidate.boundingBox.left - reference.boundingBox.left, 2) +
+        Math.pow(candidate.boundingBox.top - reference.boundingBox.top, 2)
+      );
+      
       if (distance < minDistance) {
         minDistance = distance;
         closest = candidate;
       }
     });
-
-    // Only return if reasonably close (within 200 pixels)
-    return minDistance < 200 ? closest : null;
-  }
-
-  private calculateDistance(el1: OcrFormElement, el2: OcrFormElement): number {
-    const dx = el1.boundingBox.left - el2.boundingBox.left;
-    const dy = el1.boundingBox.top - el2.boundingBox.top;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  private createFieldFromElements(label: OcrFormElement, input: OcrFormElement, index: number): FormField {
-    const field = this.createFieldFromElement(label, index);
-    // Store value in defaultValue instead of non-existent value property
-    if (input.value) {
-      field.defaultValue = input.value;
-    }
-    field.placeholder = this.translateFieldLabel(input.text) || field.placeholder;
-
-    // Mark as uncertain if either element has low confidence
-    if (label.confidence < 80 || input.confidence < 80) {
-      field.validationRules.push({
-        type: 'custom',
-        message: `OCR confidence: ${Math.min(label.confidence, input.confidence).toFixed(0)}% - Please verify`
-      });
-    }
-
-    return field;
-  }
-
-  private createFieldFromElement(element: OcrFormElement, index: number): FormField {
-    const fieldType = this.inferFieldType(element) as FormField['type'];
-
-    // Translate the label based on current language
-    const translatedLabel = this.translateFieldLabel(element.text);
-
-    const field: FormField = {
-      id: `field_${index + 1}`,
-      name: this.sanitizeName(element.text),
-      label: translatedLabel,
-      type: fieldType,
-      required: this.inferRequired(element.text),
-      readonly: false,
-      hidden: false,
-      placeholder: this.generatePlaceholder({ type: fieldType, label: translatedLabel } as FormField),
-      helpText: element.confidence < 80 ? `Low confidence (${element.confidence.toFixed(0)}%) - Please verify` : '',
-      order: index,
-      validationRules: [],
-      isPhiField: this.isPHIField(element.text),
-      auditRequired: this.isPHIField(element.text),
-      options: element.options ? element.options.map((opt: any) => ({ label: this.translateFieldLabel(opt), value: opt })) : [],
-      defaultValue: element.value || ''
-    };
-
-    // Store page number for multi-page support in custom attributes
-    if ((element as any).pageNumber) {
-      field.customAttributes = field.customAttributes || {};
-      field.customAttributes['pageNumber'] = (element as any).pageNumber;
-    }
-
-    return field;
-  }
-
-  private translateFieldLabel(text: string): string {
-    if (!text) return text;
-
-    // Get current language code
-    const currentLang = this.languageService.getCurrentLanguage().code;
-
-    // If already in English (source language), return as is
-    if (currentLang === 'en') return text;
-
-    // Look up translation
-    const lowerText = text.toLowerCase().trim();
-    const translation = this.fieldLabelTranslations[lowerText];
-
-    if (translation && translation[currentLang]) {
-      // Preserve original casing style (all caps, title case, etc.)
-      const translatedText = translation[currentLang];
-
-      // If original was all caps, make translation all caps
-      if (text === text.toUpperCase()) {
-        return translatedText.toUpperCase();
-      }
-
-      return translatedText;
-    }
-
-    // No translation found, return original
-    return text;
-  }
-
-  private inferFieldType(element: OcrFormElement): FormField['type'] {
-    const text = element.text.toLowerCase();
-
-    // Improved field type detection
-    if (element.type === 'checkbox') return 'checkbox';
-    if (element.type === 'radio') return 'radio';
-    if (element.type === 'select') return 'select';
-
-    // Text-based inference
-    if (text.includes('email')) return 'email';
-    if (text.includes('phone') || text.includes('tel')) return 'phone';
-    if (text.includes('date') || text.includes('dob')) return 'date';
-
-    // Default to text field
-    return 'text';
-  }
-
-  // File handling
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-
-      // Validate file
-      if (!this.validateFile(file)) {
-        return;
-      }
-
-      this.selectedFile = file;
-      this.loadImagePreview(file);
-    }
-  }
-
-  private validateFile(file: File): boolean {
-    this.ocrService = this.ocrProviderFactory.getOcrService(this.selectedProvider);
-    const ocrService = this.ocrService;
-    const supportedTypes = ocrService.getSupportedFileTypes();
-    const maxSize = ocrService.getMaxFileSize();
-
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!supportedTypes.includes(fileExtension)) {
-      this.showError(`Unsupported file type. Supported types: ${supportedTypes.join(', ')}`);
-      return false;
-    }
-
-    if (file.size > maxSize) {
-      this.showError(`File too large. Maximum size: ${(maxSize / 1024 / 1024).toFixed(1)}MB`);
-      return false;
-    }
-
-    return true;
-  }
-
-  private async loadImagePreview(file: File): Promise<void> {
-    // Handle PDFs with multiple pages
-    if (file.type === 'application/pdf') {
-      await this.loadPdfPages(file);
-    } else {
-      // Handle single image files
-      const reader = new FileReader();
-      // Clean up previous URL if exists
-      if (this.documentPreviewUrl) {
-        URL.revokeObjectURL(this.documentPreviewUrl);
-      }
-      // Create object URL for preview
-      this.documentPreviewUrl = URL.createObjectURL(file);
-      this.imagePreviewUrls = [this.documentPreviewUrl];
-      this.totalPages = 1;
-      this.currentPageIndex = 0;
-      if (this.documentPreviewUrl && this.imageCanvas) {
-        this.loadImageToCanvas();
-      }
-    }
-  }
-
-  private async loadPdfPages(file: File): Promise<void> {
-    // This would use a PDF.js library to extract pages
-    // For now, we'll simulate multi-page support
-    try {
-      // Ensure PDF.js is present (handles timing when script isn't ready yet)
-      await this.ensurePdfJsLoaded();
-      // Use PDF.js to render each page
-      const pdfjsLib = (window as any).pdfjsLib;
-      if (pdfjsLib) {
-        // Ensure worker is configured when loaded via CDN
-        if (pdfjsLib.GlobalWorkerOptions) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        }
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        this.totalPages = pdf.numPages;
-        this.imagePreviewUrls = [];
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 });
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-
-          await page.render({
-            canvasContext: context,
-            viewport: viewport
-          }).promise;
-
-          this.imagePreviewUrls.push(canvas.toDataURL());
-        }
-
-        this.documentPreviewUrl = this.imagePreviewUrls[0];
-        this.currentPageIndex = 0;
-        if (this.imageCanvas) {
-          this.loadImageToCanvas();
-        }
-      } else {
-        console.error('PDF.js library not loaded - cannot render PDF preview');
-        this.showError('PDF preview unavailable. Please check your internet connection and reload.');
-      }
-    } catch (error) {
-      console.error('Error loading PDF pages:', error);
-      this.showError('Failed to load PDF pages. Please try a different file.');
-    }
-  }
-
-  // Dynamically ensure PDF.js is available (useful if CDN script not yet evaluated)
-  private pdfJsLoadPromise: Promise<void> | null = null;
-  private async ensurePdfJsLoaded(): Promise<void> {
-    if ((window as any).pdfjsLib) return;
-    if (this.pdfJsLoadPromise) return this.pdfJsLoadPromise;
-    this.pdfJsLoadPromise = new Promise<void>(async (resolve, reject) => {
-      const scriptId = 'pdfjs-cdn-script';
-      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
-      if (!script) {
-        script = document.createElement('script');
-        script.id = scriptId;
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        script.crossOrigin = 'anonymous';
-        script.referrerPolicy = 'no-referrer';
-        document.head.appendChild(script);
-      }
-      const start = performance.now();
-      const timeoutMs = 10000;
-      const check = () => (window as any).pdfjsLib;
-      while (!check()) {
-        await new Promise(r => setTimeout(r, 50));
-        if (performance.now() - start > timeoutMs) {
-          reject(new Error('Timed out waiting for PDF.js to load'));
-          return;
-        }
-      }
-      resolve();
-    });
-    return this.pdfJsLoadPromise;
-  }
-
-  // Ensure preview images are available before entering review mode
-  private async ensurePreviewAvailable(): Promise<void> {
-    if (!this.selectedFile) return;
-    if (this.selectedFile.type === 'application/pdf') {
-      if (!this.imagePreviewUrls || this.imagePreviewUrls.length === 0) {
-        await this.loadPdfPages(this.selectedFile);
-      }
-    } else {
-      if (!this.documentPreviewUrl) {
-        await new Promise<void>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            this.documentPreviewUrl = e.target?.result as string;
-            this.imagePreviewUrls = [this.documentPreviewUrl];
-            this.totalPages = 1;
-            this.currentPageIndex = 0;
-            resolve();
-          };
-          reader.readAsDataURL(this.selectedFile as File);
-        });
-      }
-    }
-  }
-
-  private loadImageToCanvas(): void {
-    if (!this.documentPreviewUrl || !this.imageCanvas) return;
-
-    const canvas = this.imageCanvas.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    this.canvasContext = ctx;
-    const img = new Image();
-
-    img.onload = () => {
-      // Cache natural size for hit-testing and normalized coordinate conversion
-      this.currentImageNaturalSize = { width: img.width, height: img.height };
-      // Set canvas size
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-
-      // Calculate scale to fit image
-      const scaleX = canvas.width / img.width;
-      const scaleY = canvas.height / img.height;
-      this.imageScale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave some margin
-
-      // Center image
-      const scaledWidth = img.width * this.imageScale;
-      const scaledHeight = img.height * this.imageScale;
-      this.imageOffset.x = (canvas.width - scaledWidth) / 2;
-      this.imageOffset.y = (canvas.height - scaledHeight) / 2;
-
-      this.drawCanvas();
-    };
-
-    img.src = this.documentPreviewUrl;
-  }
-
-  // Convert OCR result to form fields
-  private convertOcrToFields(result: OcrProcessingResult): FormField[] {
-    const fields: FormField[] = [];
     
-    if (result.elements) {
-      result.elements.forEach((element, index) => {
-        fields.push(this.createFieldFromElement(element, index));
-      });
-    }
-    
-    return this.enhanceGeneratedFields(fields);
-  }
-
-
-  private sanitizeName(text: string): string {
-    return text.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-  }
-
-  private inferRequired(text: string): boolean {
-    return text.includes('*') || text.toLowerCase().includes('required');
-  }
-
-  private isPHIField(text: string): boolean {
-    const phiKeywords = ['name', 'dob', 'birth', 'ssn', 'social', 'address', 'phone', 'email', 'mrn', 'patient', 'medical record'];
-    const lowerText = text.toLowerCase();
-    return phiKeywords.some((keyword: string) => lowerText.includes(keyword));
-  }
-
-  private enhanceGeneratedFields(fields: FormField[]): FormField[] {
-    return fields.map((field: FormField, index: number) => {
-      // Enhance field with better defaults
-      const enhanced = { ...field };
-
-      // Auto-detect PHI fields
-      const phiKeywords = ['name', 'dob', 'ssn', 'address', 'phone', 'email', 'mrn', 'patient'];
-      enhanced.isPhiField = phiKeywords.some((keyword: string) =>
-        field.label.toLowerCase().includes(keyword) ||
-        field.name.toLowerCase().includes(keyword)
-      );
-
-      // Set audit requirements for PHI fields
-      enhanced.auditRequired = enhanced.isPhiField;
-
-      // Add better placeholders based on field type
-      if (!enhanced.placeholder) {
-        enhanced.placeholder = this.generatePlaceholder(field);
-      }
-
-      // Add help text for complex fields
-      if (!enhanced.helpText && this.needsHelpText(field)) {
-        enhanced.helpText = this.generateHelpText(field);
-      }
-
-      // Ensure proper ordering
-      enhanced.order = index;
-
-      return enhanced;
-    });
-  }
-
-  private detectAndGroupSections(): void {
-    // Group fields by vertical proximity to create logical sections
-    // This helps organize complex forms into manageable sections
-    const sections: { [key: string]: FormField[] } = {};
-    let currentSection = 'section_1';
-    let lastY = 0;
-
-    this.detectedElements.forEach((element: any, index: number) => {
-      const field = this.generatedFields.find((f: FormField) => f.id === `field_${index + 1}`);
-      if (!field) return;
-
-      // If there's a large vertical gap, start a new section
-      if (element.boundingBox.top - lastY > 100) {
-        currentSection = `section_${Object.keys(sections).length + 1}`;
-      }
-
-      if (!sections[currentSection]) {
-        sections[currentSection] = [];
-      }
-      sections[currentSection].push(field);
-      lastY = element.boundingBox.top;
-    });
-
-    // Store sections for template creation
-    this.detectedSections = sections;
-  }
-
-  private generatePlaceholder(field: FormField): string {
-    const placeholders: Record<string, string> = {
-      email: 'example@email.com',
-      tel: '(555) 123-4567',
-      date: 'MM/DD/YYYY',
-      time: 'HH:MM',
-      number: 'Enter number',
-      text: `Enter ${field.label.toLowerCase()}`,
-      textarea: `Enter ${field.label.toLowerCase()} details...`
-    };
-    return placeholders[field.type] || `Enter ${field.label.toLowerCase()}`;
-  }
-
-  private generateHelpText(field: FormField): string {
-    if (field.validationRules.some((r: any) => r.type === 'pattern')) {
-      return 'Please enter in the correct format';
-    }
-    if (field.type === 'date') {
-      return 'Select or enter a date';
-    }
-    if (field.type === 'file') {
-      return 'Click to upload a file';
-    }
-    return '';
-  }
-
-  private needsHelpText(field: FormField): boolean {
-    return field.type === 'date' ||
-      field.type === 'file' ||
-      field.validationRules.some((r: any) => r.type === 'pattern');
-  }
-
-  // Detected sections already declared above
-
-  // Draw OCR elements on the template builder canvas
-  drawOcrElements(): void {
-    if (!this.canvasContext || !this.ocrResult) return;
-    
-    const currentPageElements = this.detectedElementsByPage.get(this.currentPageIndex) || [];
-    const naturalWidth = this.currentImageNaturalSize.width;
-    const naturalHeight = this.currentImageNaturalSize.height;
-    
-    if (naturalWidth === 0 || naturalHeight === 0) return;
-
-    currentPageElements.forEach(element => {
-      if (!this.showBoundingBoxes && element !== this.selectedElement) return;
-      
-      // Convert normalized coordinates to canvas coordinates
-      const x = (element.boundingBox.left * naturalWidth * this.imageScale) + this.imageOffset.x;
-      const y = (element.boundingBox.top * naturalHeight * this.imageScale) + this.imageOffset.y;
-      const width = element.boundingBox.width * naturalWidth * this.imageScale;
-      const height = element.boundingBox.height * naturalHeight * this.imageScale;
-      
-      // Draw bounding box
-      this.canvasContext!.strokeStyle = element === this.selectedElement ? '#3b82f6' : '#10b981';
-      this.canvasContext!.lineWidth = element === this.selectedElement ? 3 : 2;
-      this.canvasContext!.strokeRect(x, y, width, height);
-      
-      // Draw confidence score if enabled
-      if (this.showConfidenceScores && element.confidence) {
-        this.canvasContext!.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.canvasContext!.fillRect(x, y - 20, 60, 20);
-        this.canvasContext!.fillStyle = '#ffffff';
-        this.canvasContext!.font = '12px Arial';
-        this.canvasContext!.fillText(`${(element.confidence * 100).toFixed(1)}%`, x + 5, y - 5);
-      }
-    });
-  }
-
-  // Initialize canvas after layout is complete
-  private initializeCanvas(): void {
-    if (!this.imageCanvas || !this.imageCanvas.nativeElement) {
-      console.error('Canvas element not found');
-      return;
-    }
-
-    const canvas = this.imageCanvas.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('Could not get canvas context');
-      return;
-    }
-
-    this.canvasContext = ctx;
-
-    // Set canvas size to match container
-    const container = canvas.parentElement;
-    if (container) {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-    }
-
-    // Load the current page image
-    this.loadCurrentPageToCanvas();
-  }
-
-
-  // Load current page image to canvas
-  private loadCurrentPageToCanvas(): void {
-    const imageUrl = this.imagePreviewUrls && this.imagePreviewUrls.length > 0
-      ? this.imagePreviewUrls[this.currentPageIndex]
-      : this.imagePreviewUrl;
-
-    if (!imageUrl) {
-      console.error('No image URL available');
-      this.showError('No preview image available yet. If this is a PDF, please wait for pages to render or reselect the file.');
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      if (!this.canvasContext || !this.imageCanvas) return;
-
-      const canvas = this.imageCanvas.nativeElement;
-
-      // Cache natural size for hit-testing and normalized coordinate conversion
-      this.currentImageNaturalSize = { width: img.width, height: img.height };
-
-      // Calculate scale to fit image in canvas
-      const scaleX = canvas.width / img.width;
-      const scaleY = canvas.height / img.height;
-      this.imageScale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave margin
-
-      // Center the image
-      const scaledWidth = img.width * this.imageScale;
-      const scaledHeight = img.height * this.imageScale;
-      this.imageOffset.x = (canvas.width - scaledWidth) / 2;
-      this.imageOffset.y = (canvas.height - scaledHeight) / 2;
-
-      // Draw the image
-      this.drawCanvas();
-    };
-
-    img.onerror = () => {
-      console.error('Failed to load image:', imageUrl);
-      this.showError('Failed to load document image');
-    };
-
-    img.src = imageUrl;
-  }
-
-  // Canvas drawing
-  private drawCanvas(): void {
-    if (!this.canvasContext || !this.imagePreviewUrl) return;
-
-    const canvas = this.imageCanvas?.nativeElement;
-    if (!canvas) return;
-
-    const ctx = this.canvasContext;
-    const img = new Image();
-
-    img.onload = () => {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw image
-      const scaledWidth = img.width * this.imageScale;
-      const scaledHeight = img.height * this.imageScale;
-      ctx.drawImage(img, this.imageOffset.x, this.imageOffset.y, scaledWidth, scaledHeight);
-
-      // Draw OCR elements if in review mode
-      if (this.viewMode === 'review' && this.ocrResult && this.selectedTab === 0) {
-        this.drawOcrElements();
-      }
-    };
-
-    img.src = this.imagePreviewUrl;
-  }
-
-  // Raw view canvas drawing
-  private drawRawCanvas(canvas: HTMLCanvasElement): void {
-    const ctx = canvas.getContext('2d');
-    if (!ctx || !this.imagePreviewUrl) return;
-
-    const img = new Image();
-    img.onload = () => {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Apply zoom and pan transformations
-      ctx.save();
-      ctx.translate(this.rawViewPan.x, this.rawViewPan.y);
-      ctx.scale(this.rawViewZoom, this.rawViewZoom);
-
-      // Draw image
-      const scaledWidth = img.width;
-      const scaledHeight = img.height;
-      ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
-
-      // Draw raw OCR bounding boxes
-      if (this.ocrResult && this.showBoundingBoxes) {
-        this.drawRawOcrBoundingBoxes(ctx, img.width, img.height);
-      }
-
-      ctx.restore();
-    };
-
-    img.src = this.imagePreviewUrl;
-  }
-
-  // Draw raw OCR bounding boxes
-  private drawRawOcrBoundingBoxes(ctx: CanvasRenderingContext2D, imgWidth: number, imgHeight: number): void {
-    if (!this.ocrResult) return;
-
-    const currentPageElements = this.getCurrentPageElements();
-    
-    currentPageElements.forEach(element => {
-      // Convert normalized coordinates to pixel coordinates
-      const x = element.boundingBox.left * imgWidth;
-      const y = element.boundingBox.top * imgHeight;
-      const width = element.boundingBox.width * imgWidth;
-      const height = element.boundingBox.height * imgHeight;
-
-      // Set style based on element type
-      ctx.strokeStyle = this.getElementColor(element.type);
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
-
-      // Draw confidence score if enabled
-      if (this.showConfidenceScores) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 20, 50, 20);
-        ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
-        ctx.fillText(`${element.confidence}%`, x + 5, y - 5);
-      }
-    });
-  }
-
-  // Get color for element type
-  private getElementColor(type: string): string {
-    switch (type) {
-      case 'label': return '#10b981';
-      case 'input': return '#3b82f6';
-      case 'select': return '#8b5cf6';
-      case 'checkbox':
-      case 'radio': return '#f97316';
-      default: return '#6b7280';
-    }
-  }
-
-  // Switch between tabs
-  switchTab(tab: 'template' | 'raw'): void {
-    this.activeTab = tab;
-    if (tab === 'raw') {
-      // Switching to raw OCR tab - initialize canvas after DOM update
-      setTimeout(() => {
-        this.updateRawCanvas();
-      }, 100);
-    } else if (tab === 'template' && this.viewMode === 'review') {
-      // Redraw canvas when switching back to template tab
-      setTimeout(() => {
-        this.initializeCanvas();
-        this.loadImageToCanvas();
-      }, 100);
-    }
-  }
-
-  getRawOcrText(): string {
-    if (!this.ocrResult) return 'No OCR result available';
-    const resultWithPages = this.ocrResult as any;
-    if (resultWithPages.pages && resultWithPages.pages[this.currentPageIndex]) {
-      return resultWithPages.pages[this.currentPageIndex].rawText || 'No text extracted';
-    }
-    
-    // Try to get text from detected elements
-    const elements = this.detectedElementsByPage.get(this.currentPageIndex) || [];
-    if (elements.length > 0) {
-      return elements.map(el => el.text).join('\n');
-    }
-    
-    return 'No text extracted';
-  }
-
-  getCurrentPageData(): any {
-    if (!this.ocrResult) return null;
-    const resultWithPages = this.ocrResult as any;
-    if (!resultWithPages.pages || resultWithPages.pages.length === 0) {
-      return null;
-    }
-    return resultWithPages.pages[this.currentPageIndex];
-  }
-
-  getCurrentPageRawText(): string {
-    const pageData = this.getCurrentPageData();
-    if (pageData && pageData.rawText) {
-      return pageData.rawText;
-    }
-    return this.getRawOcrText();
-  }
-
-  // Raw view zoom controls
-  zoomInRaw(): void {
-    this.rawViewZoom = Math.min(this.rawViewZoom * 1.2, 5);
-    this.updateRawCanvas();
-  }
-
-  zoomOutRaw(): void {
-    this.rawViewZoom = Math.max(this.rawViewZoom / 1.2, 0.5);
-    this.updateRawCanvas();
-  }
-
-  resetRawView(): void {
-    this.rawViewZoom = 1;
-    this.rawViewPan = { x: 0, y: 0 };
-    this.updateRawCanvas();
-  }
-
-  // Page navigation methods
-  previousPage(): void {
-    if (this.currentPageIndex > 0) {
-      this.currentPageIndex--;
-      this.loadCurrentPage();
-    }
-  }
-
-  nextPage(): void {
-    if (this.currentPageIndex < this.totalPages - 1) {
-      this.currentPageIndex++;
-      this.loadCurrentPage();
-    }
-  }
-
-  // Load current page image and OCR data
-  private loadCurrentPage(): void {
-    if (this.imagePreviewUrls && this.imagePreviewUrls[this.currentPageIndex]) {
-      this.imagePreviewUrl = this.imagePreviewUrls[this.currentPageIndex];
-      this.loadImageToCanvas();
-      this.updateRawCanvas();
-    }
-  }
-
-  fitToScreenRaw(): void {
-    if (!this.rawCanvas?.nativeElement) return;
-    
-    const canvas = this.rawCanvas.nativeElement;
-    const containerWidth = canvas.parentElement?.clientWidth || 800;
-    const containerHeight = canvas.parentElement?.clientHeight || 600;
-    
-    const imageWidth = this.currentImageNaturalSize.width;
-    const imageHeight = this.currentImageNaturalSize.height;
-    
-    if (imageWidth > 0 && imageHeight > 0) {
-      const scaleX = containerWidth / imageWidth;
-      const scaleY = containerHeight / imageHeight;
-      this.rawViewZoom = Math.min(scaleX, scaleY) * 0.9; // 90% to leave some margin
-      this.rawViewPan = { x: 0, y: 0 };
-      this.updateRawCanvas();
-    }
-  }
-
-  onRawCanvasMouseDown(event: MouseEvent): void {
-    this.isDraggingRawView = true;
-    this.dragStartPoint = { x: event.clientX, y: event.clientY };
-    this.lastPanPoint = { ...this.rawViewPan };
-    event.preventDefault();
-  }
-
-  onRawCanvasMouseMove(event: MouseEvent): void {
-    if (!this.isDraggingRawView) return;
-    
-    const deltaX = event.clientX - this.dragStartPoint.x;
-    const deltaY = event.clientY - this.dragStartPoint.y;
-    
-    this.rawViewPan = {
-      x: this.lastPanPoint.x + deltaX,
-      y: this.lastPanPoint.y + deltaY
-    };
-    
-    this.updateRawCanvas();
-    event.preventDefault();
-  }
-
-  onRawCanvasMouseUp(event: MouseEvent): void {
-    this.isDraggingRawView = false;
-    event.preventDefault();
-  }
-
-  onRawCanvasWheel(event: WheelEvent): void {
-    event.preventDefault();
-    const delta = event.deltaY > 0 ? 0.9 : 1.1;
-    this.rawViewZoom = Math.max(0.5, Math.min(5, this.rawViewZoom * delta));
-    this.updateRawCanvas();
-  }
-
-  updateRawCanvas(): void {
-    if (!this.rawCanvas?.nativeElement) return;
-    
-    const canvas = this.rawCanvas.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const container = canvas.parentElement;
-    if (container) {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-    }
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw the image if available
-    if (this.imagePreviewUrl) {
-      const img = new Image();
-      img.onload = () => {
-        // Store natural size
-        this.currentImageNaturalSize = { width: img.width, height: img.height };
-        
-        // Calculate scaled dimensions
-        const scaledWidth = img.width * this.rawViewZoom;
-        const scaledHeight = img.height * this.rawViewZoom;
-        
-        // Center the image with pan offset
-        const x = (canvas.width - scaledWidth) / 2 + this.rawViewPan.x;
-        const y = (canvas.height - scaledHeight) / 2 + this.rawViewPan.y;
-        
-        // Draw image
-        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
-        
-        // Draw bounding boxes if enabled
-        if (this.showBoundingBoxes && this.ocrResult) {
-          this.drawRawBoundingBoxes(ctx, x, y, scaledWidth, scaledHeight, img.width, img.height);
-        }
-      };
-      img.src = this.imagePreviewUrl;
-    }
-  }
-
-  private drawRawBoundingBoxes(ctx: CanvasRenderingContext2D, imgX: number, imgY: number, imgWidth: number, imgHeight: number, naturalWidth: number, naturalHeight: number): void {
-    const elements = this.detectedElementsByPage.get(this.currentPageIndex) || [];
-    
-    elements.forEach(element => {
-      // Calculate bounding box position relative to the image
-      const x = imgX + (element.boundingBox.left * imgWidth);
-      const y = imgY + (element.boundingBox.top * imgHeight);
-      const width = element.boundingBox.width * imgWidth;
-      const height = element.boundingBox.height * imgHeight;
-      
-      // Set style based on element type
-      ctx.strokeStyle = this.getElementColor(element.type);
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
-      
-      // Draw confidence score if enabled
-      if (this.showConfidenceScores && element.confidence) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y - 20, 60, 20);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '12px Arial';
-        ctx.fillText(`${element.confidence}%`, x + 5, y - 5);
-      }
-    });
-  }
-
-  // Element selection and editing
-  onCanvasClick(event: MouseEvent): void {
-    if (this.viewMode !== 'review') return;
-
-    const canvas = this.imageCanvas.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    const mx = event.clientX - rect.left;
-    const my = event.clientY - rect.top;
-
-    // Convert mouse position to normalized image coordinates (0-1)
-    const imgW = this.currentImageNaturalSize.width || 1;
-    const imgH = this.currentImageNaturalSize.height || 1;
-    const xNorm = (mx - this.imageOffset.x) / (this.imageScale * imgW);
-    const yNorm = (my - this.imageOffset.y) / (this.imageScale * imgH);
-
-    // Restrict hit-test to elements on the current page
-    const elementsOnPage = this.detectedElementsByPage.get(this.currentPageIndex) ||
-      this.detectedElements.filter((el: any) => {
-        const pn = (el as any).pageNumber;
-        return this.totalPages <= 1 ? true : pn === this.currentPageIndex + 1;
-      });
-
-    // Find clicked element using normalized coordinates
-    const clickedElement = elementsOnPage.find((element: any) => {
-      const box = element.boundingBox;
-      return xNorm >= box.left && xNorm <= box.left + box.width &&
-        yNorm >= box.top && yNorm <= box.top + box.height;
-    });
-
-    this.selectedElement = clickedElement || null;
-    this.drawCanvas();
-  }
-
-  // Element type change
-  changeElementType(element: any, newType: string): void {
-    element.type = newType as any;
-    this.generateFieldsFromOcr();
-    this.drawCanvas();
-  }
-
-  // Field management
-  onFieldDrop(event: CdkDragDrop<FormField[]>): void {
-    // Reorder using indices mapped from the visible (current page) subset to the full list
-    const dragged: FormField = (event.item as any).data as FormField;
-    const visible = this.getVisibleFields();
-    const toField = visible[event.currentIndex];
-    if (!dragged || !toField) return;
-    const fromIndex = this.generatedFields.findIndex((f: FormField) => f.id === dragged.id);
-    const toIndex = this.generatedFields.findIndex((f: FormField) => f.id === toField.id);
-    if (fromIndex < 0 || toIndex < 0) return;
-    moveItemInArray(this.generatedFields, fromIndex, toIndex);
+    return closest;
   }
 
   removeField(index: number): void {
     this.generatedFields.splice(index, 1);
   }
 
+  deleteField(fieldToDelete: FormField): void {
+    const index = this.generatedFields.findIndex((f: FormField) => f.id === fieldToDelete.id);
+    if (index >= 0) {
+      this.removeField(index);
+    }
+  }
+  
   removeFieldItem(field: FormField): void {
-    const idx = this.generatedFields.findIndex((f: FormField) => f.id === field.id);
-    if (idx >= 0) {
-      this.removeField(idx);
+    this.deleteField(field);
+  }
+  
+  getCurrentPageRawText(): string {
+    if (!this.ocrResult || !this.ocrResult.elements) {
+      return '';
+    }
+    
+    // Return the text from all elements
+    return this.ocrResult.elements
+      .map((element: any) => element.text)
+      .join(' ');
+  }
+
+  private redrawCanvas(): void {
+    if (!this.canvas || !this.ctx || !this.currentImage) {
+      return;
+    }
+
+    // Clear canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Save context state
+    this.ctx.save();
+
+    // Apply zoom transformation
+    this.ctx.scale(this.zoomLevel, this.zoomLevel);
+
+    // Draw the image
+    this.ctx.drawImage(this.currentImage, 0, 0);
+
+    // Draw OCR elements
+    if (this.showBoundingBoxes && this.ocrResult && this.ocrResult.elements) {
+      this.ocrResult.elements.forEach((element: any) => {
+        if (element.boundingBox) {
+          this.drawBoundingBox(element.boundingBox, element.confidence);
+        }
+      });
+    }
+
+    // Restore context state
+    this.ctx.restore();
+  }
+
+  private drawBoundingBox(boundingBox: any, confidence: number): void {
+    if (!this.ctx) return;
+
+    // Set style based on confidence
+    const alpha = Math.min(0.3 + (confidence * 0.5), 0.8);
+    this.ctx.strokeStyle = `rgba(0, 123, 255, ${alpha})`;
+    this.ctx.lineWidth = 2 / this.zoomLevel; // Adjust line width for zoom
+
+    // Draw rectangle
+    this.ctx.strokeRect(
+      boundingBox.left,
+      boundingBox.top,
+      boundingBox.width,
+      boundingBox.height
+    );
+  }
+
+  onRawCanvasWheel(event: WheelEvent): void {
+    event.preventDefault();
+    // Handle zoom with mouse wheel
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    this.zoomLevel = Math.max(0.5, Math.min(3, this.zoomLevel + delta));
+    // Redraw canvas with new zoom level
+    if (this.canvas && this.ctx && this.currentImage) {
+      this.redrawCanvas();
     }
   }
 
   editField(field: FormField, index?: number): void {
-    this.selectedField = field;
+    // Store the field being edited
     const idx = (typeof index === 'number') ? index : this.generatedFields.findIndex((f: FormField) => f.id === field.id);
     this.editingFieldIndex = idx >= 0 ? idx : null;
 
@@ -1423,11 +784,10 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       name: field.name,
       type: field.type,
       required: field.required,
-      placeholder: field.placeholder || '',
-      helpText: field.helpText || '',
-      isPhiField: field.isPhiField || false,
-      auditRequired: field.auditRequired || false
+      auditRequired: field.auditRequired,
+      helpText: field.helpText
     });
+    // Show the edit panel if it exists
   }
 
   saveFieldEdit(): void {
@@ -1441,11 +801,11 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       label: updatedValues.label,
       name: updatedValues.name,
       type: updatedValues.type,
-      required: updatedValues.required,
-      placeholder: updatedValues.placeholder,
-      helpText: updatedValues.helpText,
-      isPhiField: updatedValues.isPhiField,
-      auditRequired: updatedValues.auditRequired
+    required: updatedValues.required,
+    placeholder: updatedValues.placeholder,
+    helpText: updatedValues.helpText,
+    isPhiField: updatedValues.isPhiField,
+    auditRequired: updatedValues.auditRequired
     });
 
     // Update validation rules based on field type
@@ -1474,24 +834,24 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     // Add type-specific validation
     switch (field.type) {
       case 'email':
-        if (!existingRules.some((r: any) => r.type === 'pattern')) {
-          existingRules.push({
-            type: 'pattern',
-            value: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
-            message: 'Please enter a valid email address'
-          });
-        }
-        break;
-      case 'phone':
-        if (!existingRules.some((r: any) => r.type === 'pattern')) {
-          existingRules.push({
-            type: 'pattern',
-            value: '^[\\+]?[(]?[0-9]{3}[)]?[-\\s\\.]?[0-9]{3}[-\\s\\.]?[0-9]{4,6}$',
-            message: 'Please enter a valid phone number'
-          });
-        }
-        break;
-    }
+      if (!existingRules.some((r: any) => r.type === 'pattern')) {
+        existingRules.push({
+          type: 'pattern',
+          value: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+          message: 'Please enter a valid email address'
+        });
+      }
+      break;
+    case 'phone':
+      if (!existingRules.some((r: any) => r.type === 'pattern')) {
+        existingRules.push({
+          type: 'pattern',
+          value: '^[\\+]?[(]?[0-9]{3}[)]?[-\\s\\.]?[0-9]{3}[-\\s\\.]?[0-9]{4,6}$',
+          message: 'Please enter a valid phone number'
+        });
+      }
+      break;
+  }
 
     field.validationRules = existingRules;
   }
@@ -1499,12 +859,134 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   // View controls
   toggleBoundingBoxes(): void {
     this.showBoundingBoxes = !this.showBoundingBoxes;
-    this.drawCanvas();
+    if (this.ctx) {
+      this.redrawCanvas();
+    }
   }
 
   toggleConfidenceScores(): void {
     this.showConfidenceScores = !this.showConfidenceScores;
-    this.drawCanvas();
+    if (this.ctx) {
+      this.redrawCanvas();
+    }
+  }
+
+  // Initialize canvas and set up context
+  private initializeCanvas(): void {
+    if (!this.imageCanvas || !this.imageCanvas.nativeElement) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const container = canvas.parentElement;
+    
+    if (!container) return;
+    
+    // Set canvas size to match container
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    
+    // Get 2D context
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    
+    if (!this.ctx) {
+      console.error('Failed to get canvas context');
+      return;
+    }
+    
+    // Set default styles
+    this.ctx.strokeStyle = '#007bff';
+    this.ctx.lineWidth = 2;
+    this.ctx.font = '12px Arial';
+  }
+
+  // Load current page image to canvas
+  private loadCurrentPageToCanvas(): void {
+    if (!this.ctx || !this.imageCanvas) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const ctx = this.ctx;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // If we have a document preview URL, load it as an image
+    if (this.documentPreviewUrl) {
+      const img = new Image();
+      img.onload = () => {
+        this.currentImage = img;
+        // Scale image to fit canvas
+        const scale = Math.min(
+          canvas.width / img.width,
+          canvas.height / img.height
+        );
+        const x = (canvas.width - img.width * scale) / 2;
+        const y = (canvas.height - img.height * scale) / 2;
+        
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        ctx.restore();
+        
+        // Draw OCR elements if available
+        if (this.showBoundingBoxes && this.ocrResult) {
+          this.drawOcrElements();
+        }
+      };
+      img.src = this.documentPreviewUrl;
+    }
+  }
+  
+  // Draw OCR elements on canvas
+  private drawOcrElements(): void {
+    if (!this.ctx || !this.ocrResult || !this.ocrResult.elements) return;
+    
+    const ctx = this.ctx;
+    ctx.save();
+    
+    // Draw bounding boxes for each OCR element
+    this.ocrResult.elements.forEach((element: any) => {
+      if (element.boundingBox) {
+        this.drawBoundingBox(element.boundingBox, element.confidence);
+        
+        // Draw confidence scores if enabled
+        if (this.showConfidenceScores && element.confidence !== undefined) {
+          ctx.fillStyle = 'rgba(0, 123, 255, 0.8)';
+          ctx.font = '10px Arial';
+          const text = `${Math.round(element.confidence * 100)}%`;
+          ctx.fillText(text, element.boundingBox.left, element.boundingBox.top - 5);
+        }
+      }
+    });
+    
+    ctx.restore();
+  }
+
+  // Draw the canvas with image and OCR elements
+  private drawCanvas(): void {
+    if (!this.ctx || !this.currentImage) return;
+
+    const canvas = this.imageCanvas.nativeElement;
+    const canvasContext = this.ctx;
+
+    // Clear canvas
+    canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Save context state
+    canvasContext.save();
+
+    // Apply zoom transformation
+    canvasContext.scale(this.zoomLevel, this.zoomLevel);
+
+    // Draw the image
+    canvasContext.drawImage(this.currentImage, 0, 0);
+
+    // Draw OCR elements if available
+    if (this.showBoundingBoxes && this.ocrResult) {
+      this.drawOcrElements();
+    }
+
+    // Restore context state
+    canvasContext.restore();
   }
 
   // Fields view helpers for per-page filtering
@@ -1527,13 +1009,15 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   }
 
   switchToFieldsView(): void {
-    this.viewMode = 'review'; // Changed from 'fields' to 'review' as 'fields' is not in the type union
+    this.viewMode = 'review';
   }
 
   switchToReviewView(): void {
     this.viewMode = 'review';
     setTimeout(() => {
-      this.initializeCanvas();
+      if (this.imageCanvas && this.imageCanvas.nativeElement) {
+        this.initializeCanvas();
+      }
     }, 100);
   }
 
@@ -1545,7 +1029,7 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     this.imagePreviewUrl = this.imagePreviewUrls[pageIndex];
 
     // Reload canvas with new page
-    if (this.viewMode === 'review') {
+    if (this.viewMode === 'review' && this.imageCanvas && this.imageCanvas.nativeElement) {
       this.initializeCanvas();
       this.loadCurrentPageToCanvas();
     }
@@ -1719,5 +1203,155 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
 
   cancel(): void {
     this.dialogRef.close();
+  }
+
+  // Tab switching method
+  switchTab(tab: 'template' | 'raw'): void {
+    this.activeTab = tab;
+  }
+
+  // Canvas click handler
+  onCanvasClick(event: MouseEvent): void {
+    if (!this.imageCanvas || !this.ctx) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Handle click on OCR elements if needed
+    if (this.ocrResult && this.ocrResult.elements) {
+      // Check if click is on any bounding box
+      this.ocrResult.elements.forEach((element: any) => {
+        if (element.boundingBox) {
+          const box = element.boundingBox;
+          if (x >= box.left && x <= box.left + box.width &&
+              y >= box.top && y <= box.top + box.height) {
+            // Handle element selection
+            console.log('Clicked on OCR element:', element);
+          }
+        }
+      });
+    }
+  }
+
+  // Navigation methods
+  previousPage(): void {
+    if (this.currentPageIndex > 0) {
+      this.currentPageIndex--;
+      this.loadCurrentPageToCanvas();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPageIndex < this.totalPages - 1) {
+      this.currentPageIndex++;
+      this.loadCurrentPageToCanvas();
+    }
+  }
+
+  // Raw view zoom methods
+  zoomOutRaw(): void {
+    this.zoomLevel = Math.max(0.25, this.zoomLevel - 0.25);
+    this.redrawCanvas();
+  }
+
+  zoomInRaw(): void {
+    this.zoomLevel = Math.min(3, this.zoomLevel + 0.25);
+    this.redrawCanvas();
+  }
+
+  resetRawView(): void {
+    this.zoomLevel = 1;
+    this.redrawCanvas();
+  }
+
+  fitToScreenRaw(): void {
+    if (!this.currentImage || !this.imageCanvas) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const scaleX = canvas.width / this.currentImage.width;
+    const scaleY = canvas.height / this.currentImage.height;
+    this.zoomLevel = Math.min(scaleX, scaleY);
+    this.redrawCanvas();
+  }
+
+  // Update raw canvas
+  updateRawCanvas(): void {
+    this.redrawCanvas();
+  }
+
+  // Raw canvas mouse event handlers
+  onRawCanvasMouseDown(event: MouseEvent): void {
+    if (!this.imageCanvas) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Start drawing or selection
+    this.isDrawing = true;
+    this.drawStartX = x;
+    this.drawStartY = y;
+  }
+
+  onRawCanvasMouseMove(event: MouseEvent): void {
+    if (!this.isDrawing || !this.imageCanvas || !this.ctx) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Redraw canvas and show selection rectangle
+    this.redrawCanvas();
+    
+    // Draw selection rectangle
+    this.ctx.strokeStyle = 'rgba(33, 150, 243, 0.5)';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.strokeRect(
+      this.drawStartX,
+      this.drawStartY,
+      x - this.drawStartX,
+      y - this.drawStartY
+    );
+    this.ctx.setLineDash([]);
+  }
+
+  onRawCanvasMouseUp(event: MouseEvent): void {
+    if (!this.isDrawing || !this.imageCanvas) return;
+    
+    const canvas = this.imageCanvas.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // End drawing
+    this.isDrawing = false;
+    
+    // Create bounding box from selection
+    if (Math.abs(x - this.drawStartX) > 10 && Math.abs(y - this.drawStartY) > 10) {
+      const boundingBox = {
+        left: Math.min(this.drawStartX, x),
+        top: Math.min(this.drawStartY, y),
+        width: Math.abs(x - this.drawStartX),
+        height: Math.abs(y - this.drawStartY)
+      };
+      
+      // Add to detected elements
+      console.log('Created bounding box:', boundingBox);
+    }
+    
+    this.redrawCanvas();
+  }
+
+  // Field drop handler
+  onFieldDrop(event: CdkDragDrop<any>): void {
+    if (event.previousContainer === event.container) {
+      // Reorder within the same container
+      moveItemInArray(this.generatedFields, event.previousIndex, event.currentIndex);
+    }
   }
 }

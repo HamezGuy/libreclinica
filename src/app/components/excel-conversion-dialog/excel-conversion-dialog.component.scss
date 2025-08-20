@@ -188,10 +188,38 @@
         position: sticky;
         top: 0;
         z-index: 1;
+        
+        &.metadata-column {
+          background-color: #fff3e0;
+          color: #666;
+          opacity: 0.8;
+        }
+        
+        &.data-column {
+          background-color: #e8f5e9;
+          color: #2e7d32;
+        }
+        
+        .column-type-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          vertical-align: middle;
+          margin-left: 4px;
+        }
       }
 
       td {
         font-size: 13px;
+        
+        &.metadata-column {
+          background-color: rgba(255, 243, 224, 0.3);
+          color: #999;
+        }
+        
+        &.data-column {
+          background-color: rgba(232, 245, 233, 0.3);
+        }
       }
     }
   }
