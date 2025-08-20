@@ -22,13 +22,13 @@
             
             <div class="filter-buttons">
               <button class="filter-btn" [class.active]="templateFilter === 'all'" (click)="setTemplateFilter('all')">
-                All ({{ templates.length }})
+                {{ 'template.all' | translate }} ({{ templates.length }})
               </button>
               <button class="filter-btn" [class.active]="templateFilter === 'draft'" (click)="setTemplateFilter('draft')">
-                Draft ({{ getTemplateCountByStatus('draft') }})
+                {{ 'template.draft' | translate }} ({{ getTemplateCountByStatus('draft') }})
               </button>
               <button class="filter-btn" [class.active]="templateFilter === 'published'" (click)="setTemplateFilter('published')">
-                Published ({{ getTemplateCountByStatus('published') }})
+                {{ 'template.published' | translate }} ({{ getTemplateCountByStatus('published') }})
               </button>
             </div>
           </div>
@@ -40,16 +40,16 @@
                 <span class="status-badge" [class]="'status-' + template.status">{{ template.status }}</span>
               </div>
               
-              <p class="template-description">{{ template.description || 'No description' }}</p>
+              <p class="template-description">{{ template.description || ('template.no_description' | translate) }}</p>
               
               <div class="template-stats">
                 <div class="stat">
                   <i class="material-icons">{{ 'template.input' | translate }}</i>
-                  <span>{{ template.fields.length || 0 }} fields</span>
+                  <span>{{ template.fields.length || 0 }} {{ 'template.fields' | translate }}</span>
                 </div>
                 <div class="stat">
                   <i class="material-icons">{{ 'template.folder' | translate }}</i>
-                  <span>{{ template.category || 'General' }}</span>
+                  <span>{{ template.category || ('template.general' | translate) }}</span>
                 </div>
                 <div class="stat">
                   <i class="material-icons">{{ 'template.schedule' | translate }}</i>
@@ -58,10 +58,10 @@
               </div>
               
               <div class="template-actions-quick" (click)="$event.stopPropagation()">
-                <button class="btn-icon" (click)="onEditTemplate(template)" [disabled]="!permissions.canEdit || template.status === 'archived'" [title]="template.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
+                <button class="btn-icon" (click)="onEditTemplate(template)" [disabled]="!permissions.canEdit || template.status === 'archived'" [title]="template.status === 'archived' ? ('template.archived_cannot_edit' | translate) : ('template.edit_template' | translate)">
                   <i class="material-icons">edit</i>
                 </button>
-                <button class="btn-icon danger" (click)="onDeleteTemplate(template)" [disabled]="!permissions.canDelete || template.status === 'archived'" [title]="template.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
+                <button class="btn-icon danger" (click)="onDeleteTemplate(template)" [disabled]="!permissions.canDelete || template.status === 'archived'" [title]="template.status === 'archived' ? ('template.archived_cannot_delete' | translate) : ('template.delete_template' | translate)">
                   <i class="material-icons">delete</i>
                 </button>
               </div>
@@ -71,7 +71,7 @@
           <div *ngIf="filteredTemplates.length === 0" class="empty-state">
             <i class="material-icons">{{ 'common.description' | translate }}</i>
             <h3>{{ 'template.no_templates_found' | translate }}</h3>
-            <p>{{ templateSearchTerm ? 'Try adjusting your search terms' : 'Create your first template to get started' }}</p>
+            <p>{{ templateSearchTerm ? ('template.try_adjusting_search' | translate) : ('template.create_first_template' | translate) }}</p>
           </div>
           
           <!-- Template Details at Bottom of Sidebar -->
@@ -100,17 +100,17 @@
             </div>
             
             <div class="template-actions">
-              <button class="btn btn-sm btn-primary" (click)="onEditTemplate(selectedTemplate)" [disabled]="!permissions.canEdit || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be edited' : 'Edit Template'">
+              <button class="btn btn-sm btn-primary" (click)="onEditTemplate(selectedTemplate)" [disabled]="!permissions.canEdit || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? ('template.archived_cannot_edit' | translate) : ('template.edit_template' | translate)">
                 <i class="material-icons">edit</i>{{ 'template.edit_template' | translate }}</button>
-              <button class="btn btn-sm btn-success" (click)="onPublishTemplate(selectedTemplate)" [disabled]="!permissions.canPublish || selectedTemplate.status === 'published' || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be published' : 'Publish Template'">
+              <button class="btn btn-sm btn-success" (click)="onPublishTemplate(selectedTemplate)" [disabled]="!permissions.canPublish || selectedTemplate.status === 'published' || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? ('template.archived_cannot_publish' | translate) : ('template.publish_template' | translate)">
                 <i class="material-icons">publish</i>{{ 'template.publish' | translate }}</button>
-              <button class="btn btn-sm btn-info" (click)="onFillTemplate(selectedTemplate)" [title]="'Fill out this template for testing'">
+              <button class="btn btn-sm btn-info" (click)="onFillTemplate(selectedTemplate)" [title]="'template.fill_template_testing' | translate">
                 <i class="material-icons">assignment</i>{{ 'template.fill_template' | translate }}</button>
               <button class="btn btn-sm btn-secondary" (click)="onDuplicateTemplate(selectedTemplate)" [disabled]="!permissions.canCreate">
                 <i class="material-icons">content_copy</i>{{ 'template.duplicate' | translate }}</button>
               <button class="btn btn-sm btn-secondary" (click)="onExportTemplate(selectedTemplate)">
                 <i class="material-icons">download</i>{{ 'common.export' | translate }}</button>
-              <button class="btn btn-sm btn-danger" (click)="onDeleteTemplate(selectedTemplate)" [disabled]="!permissions.canDelete || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? 'Archived templates cannot be deleted' : 'Delete Template'">
+              <button class="btn btn-sm btn-danger" (click)="onDeleteTemplate(selectedTemplate)" [disabled]="!permissions.canDelete || selectedTemplate.status === 'archived'" [title]="selectedTemplate.status === 'archived' ? ('template.archived_cannot_delete' | translate) : ('template.delete_template' | translate)">
                 <i class="material-icons">delete</i>{{ 'common.delete' | translate }}</button>
             </div>
           </div>

@@ -46,6 +46,17 @@
     "checkcircle": "check_circle",
     "folderopen": "folder_open",
     "no_templates_available": "No templates available",
-    "add_to_phase": "Add to Phase"
+    "add_to_phase": "Add to Phase",
+    "all": "All",
+    "no_description": "No description",
+    "general": "General",
+    "archived_cannot_edit": "Archived templates cannot be edited",
+    "archived_cannot_delete": "Archived templates cannot be deleted",
+    "archived_cannot_publish": "Archived templates cannot be published",
+    "delete_template": "Delete Template",
+    "publish_template": "Publish Template",
+    "try_adjusting_search": "Try adjusting your search terms",
+    "create_first_template": "Create your first template to get started",
+    "fill_template_testing": "Fill out this template for testing"
   }
 }
