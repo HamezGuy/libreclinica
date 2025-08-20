@@ -213,6 +213,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       }),
       
       customCss: [''],
+      tags: this.fb.array([]), // Add missing tags field
       metadata: this.fb.group({
         studyPhase: [''],
         therapeuticArea: [''],
@@ -321,6 +322,13 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       instructions: template.instructions,
       customCss: template.customCss,
       metadata: template.metadata
+    });
+
+    // Populate tags array
+    const tagsArray = this.builderForm.get('tags') as FormArray;
+    tagsArray.clear();
+    template.tags?.forEach(tag => {
+      tagsArray.push(this.fb.control(tag));
     });
 
     // Populate fields
@@ -1002,33 +1010,52 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       category: formValue.category,
       status: this.currentTemplate?.status || 'draft',
       fields: formValue.fields,
+      fieldGroups: formValue.fieldGroups || [],
+      conditionalLogic: formValue.conditionalLogic || [],
       instructions: formValue.instructions,
+      // Fix field name mappings
       allowSavePartial: formValue.allowPartialSave || false,
+      allowPartialSave: formValue.allowPartialSave || false, // Include both for compatibility
       requiresReview: formValue.requiresSignature || false,
+      requiresSignature: formValue.requiresSignature || false, // Include both for compatibility
+      requiresElectronicSignature: formValue.requiresSignature || false,
       allowEditing: true,
-      maxSubmissions: formValue.maxSubmissions,
+      maxSubmissions: formValue.maxSubmissions || 0,
+      expirationDate: formValue.expirationDate,
       createdBy: this.currentTemplate?.createdBy || '',
       createdAt: this.currentTemplate?.createdAt || new Date(),
       updatedAt: new Date(),
       updatedBy: this.currentTemplate?.updatedBy || '',
+      lastModifiedBy: this.currentTemplate?.lastModifiedBy || '',
       tags: formValue.tags || [],
       changeHistory: this.currentTemplate?.changeHistory || [],
-      // Required fields from model
-      isPatientTemplate: formValue.templateType === 'patient_template' || formValue.isPatientTemplate,
-      isStudySubjectTemplate: formValue.templateType === 'study_subject' || formValue.isStudySubjectTemplate,
-      sections: [],
-      childTemplateIds: [],
-      childFormIds: [],
-      linkedTemplates: [],
-      phiDataFields: [],
-      hipaaCompliant: true,
-      gdprCompliant: true,
-      lastModifiedBy: '',
-      requiresElectronicSignature: false,
-      complianceRegions: [],
-      phiEncryptionEnabled: true,
-      phiAccessLogging: true,
-      phiDataMinimization: true
+      // Template type flags - set based on templateType value
+      isPatientTemplate: formValue.templateType === 'patient_template' || formValue.isPatientTemplate || false,
+      isStudySubjectTemplate: formValue.templateType === 'study_subject' || formValue.isStudySubjectTemplate || false,
+      // PHI and compliance fields
+      isPhiForm: formValue.isPhiForm || false,
+      phiDataFields: formValue.phiDataFields || [],
+      phiEncryptionEnabled: formValue.phiEncryptionEnabled || false,
+      phiAccessLogging: formValue.phiAccessLogging !== false, // Default true
+      phiDataMinimization: formValue.phiDataMinimization !== false, // Default true
+      phiRetentionPolicy: formValue.phiRetentionPolicy,
+      hipaaCompliant: formValue.hipaaCompliant || false,
+      gdprCompliant: formValue.gdprCompliant || false,
+      complianceRegions: formValue.complianceRegions || [],
+      // Healthcare API config
+      healthcareApiConfig: formValue.healthcareApiConfig,
+      fhirResourceType: formValue.fhirResourceType,
+      // Template linking
+      parentTemplateId: formValue.parentTemplateId,
+      childTemplateIds: formValue.childTemplateIds || [],
+      linkedTemplates: formValue.linkedTemplates || [],
+      parentFormId: formValue.parentFormId,
+      childFormIds: formValue.childFormIds || [],
+      // Sections
+      sections: formValue.sections || [],
+      // Metadata
+      metadata: formValue.metadata,
+      customCss: formValue.customCss
     };
   }
 
