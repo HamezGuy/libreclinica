@@ -29,7 +29,48 @@ export class PatientPhaseProgressComponent implements OnInit {
   
   private async loadPhaseProgress() {
     try {
-      this.phases = await this.studyPhaseService.getStudyPhases(this.studyId);
+      // Import required Firestore functions
+      const { doc, getDoc, getFirestore } = await import('@angular/fire/firestore');
+      const firestore = getFirestore();
+      
+      // First, get the patient document to retrieve phases from the patient itself
+      const patientRef = doc(firestore, 'patients', this.patientId);
+      const patientDoc = await getDoc(patientRef);
+      
+      if (patientDoc.exists()) {
+        const patientData = patientDoc.data();
+        
+        // Use phases from patient document first, fallback to visitSubcomponents
+        const patientPhases = patientData['phases'] || patientData['visitSubcomponents'] || [];
+        
+        // If patient has phases, use those instead of querying study phases
+        if (patientPhases.length > 0) {
+          // Convert patient phases to StudyPhaseConfig format
+          this.phases = patientPhases.map((phase: any) => ({
+            id: phase.id || phase.phaseId || '',
+            phaseName: phase.name || phase.phaseName || '',
+            phaseCode: phase.phaseCode || '',
+            description: phase.description || '',
+            order: phase.order || 0,
+            duration: phase.duration || 0,
+            durationUnit: phase.durationUnit || 'days',
+            isRequired: phase.isRequired !== false,
+            templateAssignments: phase.templateAssignments || phase.formTemplates || [],
+            createdAt: phase.createdAt,
+            createdBy: phase.createdBy,
+            lastModifiedAt: phase.lastModifiedAt,
+            lastModifiedBy: phase.lastModifiedBy
+          }));
+        } else {
+          // Fallback to querying study phases if patient doesn't have phases
+          this.phases = await this.studyPhaseService.getStudyPhases(this.studyId);
+        }
+      } else {
+        // If patient document doesn't exist, fallback to study phases
+        this.phases = await this.studyPhaseService.getStudyPhases(this.studyId);
+      }
+      
+      // Get patient phase progress
       const progress = await this.studyPhaseService.getPatientPhaseProgress(this.patientId, this.studyId);
       
       // Combine phases with their progress

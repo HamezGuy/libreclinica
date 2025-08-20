@@ -213,9 +213,9 @@ export class StudyCreationModalComponent implements OnInit {
     // Ensure no undefined values exist
     const cleanedStudy = this.removeUndefinedFields(newStudy);
     
+    // Keep isCreatingStudy as true to prevent duplicate submissions
+    // The parent component should reset this flag after successful creation
     this.create.emit(cleanedStudy as Study);
-    this.isCreatingStudy = false;
-    // Don't reset form here - it causes data loss
   }
   
   // Helper method to remove undefined fields from an object

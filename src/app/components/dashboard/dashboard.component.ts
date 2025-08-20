@@ -157,6 +157,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private injector: Injector = inject(Injector);
   
+  // ViewChild reference to study creation modal
+  @ViewChild(StudyCreationModalComponent) studyCreationModal!: StudyCreationModalComponent;
+  
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
   templates$: Observable<FormTemplate[]> = this.templateService.templates$;
@@ -467,7 +470,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           status: patient.enrollmentStatus || 'active' as const,
           canViewPhi: this.permissions.canView,
           visitSubcomponents,
-          phases: patient.phases || visitSubcomponents
+          phases: patient.phases || visitSubcomponents,
+          forms: patient.forms || [],
+          demographics: patient.demographics || {},
+          // Include all patient data for proper phase display
+          ...patient
         };
       }));
 
@@ -502,14 +509,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
     console.log('Selected patient:', patient);
     
     // Load patient phases when patient is selected
-    if (patient && patient.visitSubcomponents) {
-      this.patientPhases = patient.visitSubcomponents || [];
-      // Calculate completion percentages for each phase
-      this.patientPhases.forEach(phase => {
-        const totalForms = phase.formTemplates?.length || 0;
-        const completedForms = phase.formTemplates?.filter((f: any) => f.completed).length || 0;
-        phase.completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
-      });
+    // First try to use phases array from patient document, then fall back to visitSubcomponents
+    if (patient) {
+      // Use phases if available, otherwise use visitSubcomponents
+      this.patientPhases = patient.phases || patient.visitSubcomponents || [];
+      
+      // If we still don't have phases, fetch the patient data to ensure we have the latest
+      if (this.patientPhases.length === 0 && patient.id) {
+        this.patientService.getPatientById(patient.id).then(fullPatient => {
+          if (fullPatient) {
+            this.patientPhases = fullPatient.phases || fullPatient.visitSubcomponents || [];
+            console.log('Loaded patient phases:', this.patientPhases);
+            
+            // Calculate completion percentages for each phase
+            this.patientPhases.forEach(phase => {
+              const totalForms = phase.formTemplates?.length || phase.templateAssignments?.length || 0;
+              const completedForms = phase.formTemplates?.filter((f: any) => f.completed).length || 0;
+              phase.completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
+            });
+          }
+        }).catch(error => {
+          console.error('Error loading patient phases:', error);
+        });
+      } else {
+        // Calculate completion percentages for existing phases
+        this.patientPhases.forEach(phase => {
+          const totalForms = phase.formTemplates?.length || phase.templateAssignments?.length || 0;
+          const completedForms = phase.formTemplates?.filter((f: any) => f.completed).length || 0;
+          phase.completionPercentage = totalForms > 0 ? Math.round((completedForms / totalForms) * 100) : 0;
+        });
+      }
     }
 
     try {
@@ -1655,7 +1684,7 @@ getTreatmentArm(patient: any): string {
     try {
       console.log('Creating study with data:', studyData);
 
-      // Create the study first
+      // Create the study - StudyService.createStudy already handles phase creation from sections
       const createdStudy = await this.studyService.createStudy(studyData);
       console.log('Study created:', createdStudy);
 
@@ -1663,42 +1692,8 @@ getTreatmentArm(patient: any): string {
         throw new Error('Study created but no ID returned');
       }
 
-      // If the study has sections/phases, create them as StudyPhaseConfig entries
-      if (studyData.sections && studyData.sections.length > 0) {
-        console.log('Creating study phases:', studyData.sections);
-
-        // Convert EnhancedStudySection to StudyPhaseConfig format
-        const phaseConfigs = studyData.sections.map((section, index) => ({
-          studyId: createdStudy.id!,
-          phaseName: section.name,
-          phaseCode: this.generatePhaseCode(section.type),
-          description: section.description,
-          order: index + 1,
-          plannedDurationDays: section.scheduledDay,
-          windowStartDays: section.windowStart,
-          windowEndDays: section.windowEnd,
-          templateAssignments: section.formTemplates.map(template => ({
-            templateId: template.templateId,
-            templateName: template.templateName,
-            templateVersion: template.templateVersion,
-            order: template.order,
-            isRequired: template.isRequired,
-            completionRequired: template.completionRequired,
-            signatureRequired: template.signatureRequired || false,
-            reviewRequired: template.reviewRequired || false,
-            daysToComplete: template.daysToComplete
-          })),
-          entryRequirements: [], // Initialize as empty array instead of undefined
-          exitRequirements: [], // Initialize as empty array instead of undefined
-          isActive: true,
-          allowSkip: section.isOptional || false,
-          allowParallel: false
-        }));
-
-        // Create phases using the study phase service
-        await this.studyPhaseService.createStudyPhases(createdStudy.id, phaseConfigs);
-        console.log('Study phases created successfully');
-      }
+      // NOTE: StudyService.createStudy already creates phases from studyData.sections
+      // No need to create them again here - that was causing duplicate phases
 
       this.showStudyCreationModal = false;
       // Refresh the studies list
@@ -1707,6 +1702,11 @@ getTreatmentArm(patient: any): string {
     } catch (error) {
       console.error('Error creating study:', error);
       alert('Error creating study: ' + (error as Error).message);
+    } finally {
+      // Reset the modal's creating flag to allow future submissions
+      if (this.studyCreationModal) {
+        this.studyCreationModal.isCreatingStudy = false;
+      }
     }
   }
 
