@@ -439,6 +439,13 @@ export class StudyService implements IStudyService {
           const patientRef = doc(this.firestore, 'patients', patient.id);
           batch.delete(patientRef);
           
+          // Also delete patient's visitSubcomponents subcollection
+          const visitSubcomponentsRef = collection(this.firestore, `patients/${patient.id}/visitSubcomponents`);
+          const visitSubcomponentsSnapshot = await getDocs(visitSubcomponentsRef);
+          visitSubcomponentsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          
           // Log audit event for each patient deletion
           await this.auditService.logAuditEvent({
             action: 'patient_deleted_with_study',
@@ -453,6 +460,15 @@ export class StudyService implements IStudyService {
           });
         }
       }
+      
+      // Delete all studyPhases associated with the study
+      const studyPhasesRef = collection(this.firestore, 'studyPhases');
+      const studyPhasesQuery = query(studyPhasesRef, where('studyId', '==', studyId));
+      const studyPhasesSnapshot = await getDocs(studyPhasesQuery);
+      
+      studyPhasesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
       
       // Delete all study sections
       const sectionsRef = collection(this.firestore, 'study-sections');
@@ -497,7 +513,8 @@ export class StudyService implements IStudyService {
       // Commit the batch
       await batch.commit();
       
-      // Log audit event for study deletion
+      console.log(`Successfully deleted study ${studyId} with ${patients.length} patients and ${studyPhasesSnapshot.size} phases`);
+            // Log audit event for study deletion
       await this.auditService.logAuditEvent({
         action: 'study_deleted_with_patients',
         resourceType: 'study',
