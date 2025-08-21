@@ -31,7 +31,13 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:4200', 'http://localhost:4201'],
+  origin: [
+    'http://localhost:4200', 
+    'http://localhost:4201',
+    'https://electronic-data-capture-project.vercel.app',
+    'https://electronic-data-capture-project-*.vercel.app', // Preview deployments
+    process.env.FRONTEND_URL // Allow custom frontend URL from environment
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
