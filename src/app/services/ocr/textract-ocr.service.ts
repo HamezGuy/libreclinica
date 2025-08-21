@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, from, throwError, of } from 'rxjs';
+import { Observable, of, from, throwError } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
@@ -36,18 +36,27 @@ interface TextractConfig {
 export class TextractOcrService implements IOcrService {
   private API_ENDPOINT: string;
   private config: TextractConfig = {
-    region: 'us-east-1',
-    accessKeyId: '',
-    secretAccessKey: ''
+    region: environment.aws?.region || 'us-east-1',
+    accessKeyId: '', // Loaded from backend
+    secretAccessKey: '' // Loaded from backend
   };
-  private useMockData = true; // Toggle for development vs production
+  private useMockData = false; // Use real Textract by default
 
   constructor() {
-    // Use real API endpoint
-    this.API_ENDPOINT = 'http://localhost:3001/api/textract';
+    // Use backend proxy endpoint - credentials are handled server-side
+    this.API_ENDPOINT = environment.production 
+      ? '/api/textract' // Production uses relative path
+      : `${environment.api?.baseUrl || 'http://localhost:3001'}${environment.api?.textractEndpoint || '/api/textract'}`; // Development uses configured endpoint
     
-    // Disable mock data - use real Textract
+    // Don't use mock data - backend handles authentication
     this.useMockData = false;
+    
+    // Log configuration for debugging
+    console.log('TextractOcrService initialized:', {
+      endpoint: this.API_ENDPOINT,
+      region: this.config.region,
+      useMockData: this.useMockData
+    });
   }
 
   processDocument(
@@ -99,8 +108,9 @@ export class TextractOcrService implements IOcrService {
   }
 
   isAvailable(): Observable<boolean> {
-    // Check if AWS credentials are configured
-    return of(!!this.config && !!this.config.accessKeyId);
+    // Check if backend service is available
+    // Since credentials are handled server-side, we just check if the endpoint is configured
+    return of(!!this.API_ENDPOINT && !this.useMockData);
   }
 
   getSupportedFileTypes(): string[] {
@@ -124,16 +134,27 @@ export class TextractOcrService implements IOcrService {
   }
 
   private callTextractAPI(base64Data: string, config?: OcrProcessingConfig): Observable<any> {
-    // Call the real backend proxy server
+    // Call the backend proxy server which handles AWS credentials
     const headers = new Headers({
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
     });
+    
+    // Add any additional configuration from the processing config
+    const requestBody = {
+      base64: base64Data,
+      config: {
+        confidenceThreshold: config?.confidenceThreshold || environment.aws?.textract?.confidenceThreshold || 80,
+        extractTables: config?.extractTables !== false,
+        extractForms: config?.extractForms !== false
+      }
+    };
     
     return from(
       fetch(`${this.API_ENDPOINT}/analyze`, {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ base64: base64Data })
+        body: JSON.stringify(requestBody)
       })
     ).pipe(
       switchMap(response => {

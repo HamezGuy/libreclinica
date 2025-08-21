@@ -69,7 +69,9 @@ export interface OcrProcessingConfig {
   languages?: string[];
   enhanceImage?: boolean;
   extractTables?: boolean;
+  extractForms?: boolean;
   pageNumbers?: number[]; // Specific pages to process
+  confidenceThreshold?: number; // Minimum confidence level for extraction
 }
 
 // Main OCR service interface
