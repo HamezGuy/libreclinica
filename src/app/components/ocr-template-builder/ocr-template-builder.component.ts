@@ -139,7 +139,7 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   activeTab: 'template' | 'raw' = 'template';
   selectedFile: File | null = null;
   ocrResult: any = null;
-  selectedProvider: OcrProvider = 'google-vision' as OcrProvider;
+  selectedProvider: OcrProvider = OcrProvider.AMAZON_TEXTRACT;
   ocrService: IOcrService | null = null;
   isProcessing = false;
   processingProgress = 0;
@@ -430,10 +430,10 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     if (!element || !element.text) {
       // Return a default field if element is invalid
       return {
-        id: `field_${index}`,
+        id: `field_${pageIndex}_${index}`,
         type: 'text',
         label: 'Unknown Field',
-        name: `field_${index}`,
+        name: `field_${pageIndex}_${index}`,
         placeholder: '',
         helpText: '',
         required: false,
@@ -452,26 +452,41 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       };
     }
 
-    const fieldType = this.inferFieldType(element.text);
+    // Determine field type based on element type and text content
+    let fieldType = this.inferFieldType(element.text);
+    
+    // Override field type based on OCR element type if available
+    if (element.type === 'checkbox' || (element as any).type === 'selection') {
+      fieldType = 'checkbox';
+    } else if (element.type === 'radio') {
+      fieldType = 'radio';
+    }
+
+    // Generate unique field ID
+    const fieldId = element.id || `field_${pageIndex}_${index}`;
+    const fieldName = this.sanitizeName(element.text) || `field_${pageIndex}_${index}`;
+
     return {
-      id: `field_${index}`,
+      id: fieldId,
       type: fieldType as any,
       label: this.generateLabel(element.text),
-      name: this.sanitizeName(element.text),
+      name: fieldName,
       placeholder: this.generatePlaceholder(element.text),
       helpText: '',
-      required: false,
+      required: this.inferRequired(element.text),
       readonly: false,
       hidden: false,
-      options: [],
+      options: fieldType === 'radio' || fieldType === 'select' ? [] : undefined,
       validationRules: [],
       order: index,
       isPhiField: this.isPHIField(element.text),
       auditRequired: this.isPHIField(element.text),
       customAttributes: {
         pageNumber: pageIndex + 1,
-        confidence: element.confidence,
-        boundingBox: element.boundingBox
+        confidence: element.confidence || 0,
+        boundingBox: element.boundingBox,
+        ocrText: element.text,
+        ocrType: element.type
       }
     };
   }

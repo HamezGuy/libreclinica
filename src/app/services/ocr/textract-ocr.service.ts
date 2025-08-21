@@ -2,19 +2,33 @@ import { Injectable } from '@angular/core';
 import { Observable, from, throwError, of } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { 
-  IOcrService, 
-  OcrFormElement, 
-  OcrProcessingConfig, 
+import {
+  IOcrService,
+  OcrProcessingConfig,
   OcrProcessingResult,
-  TextractConfig,
+  OcrFormElement,
   OcrTable,
-  OcrMetadata,
   OcrBoundingBox
 } from '../../interfaces/ocr-interfaces';
-import { FormTemplate, FormField, FieldType, TemplateType } from '../../models/form-template.model';
-import { OcrTemplateBuilderService } from './ocr-template-builder.service';
-import { AwsConfigService } from '../aws-config.service';
+
+// Define OcrProvider enum locally
+export enum OcrProvider {
+  TEXTRACT = 'textract',
+  GOOGLE_VISION = 'google-vision',
+  MICROSOFT_FORM_RECOGNIZER = 'microsoft-form-recognizer',
+  TESSERACT = 'tesseract'
+}
+import { FormTemplate, TemplateType } from '../../models/form-template.model';
+
+// AWS SDK Types - will be used when backend proxy is implemented
+interface TextractConfig {
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+// For future AWS SDK integration
+// import { TextractClient, AnalyzeDocumentCommand } from '@aws-sdk/client-textract';
 
 @Injectable({
   providedIn: 'root'
@@ -26,23 +40,14 @@ export class TextractOcrService implements IOcrService {
     accessKeyId: '',
     secretAccessKey: ''
   };
+  private useMockData = true; // Toggle for development vs production
 
-  constructor(
-    private awsConfigService: AwsConfigService,
-    private templateBuilder: OcrTemplateBuilderService
-  ) {
-    // Initialize with environment configuration
-    this.API_ENDPOINT = 'https://textract.us-east-1.amazonaws.com';
+  constructor() {
+    // In production, this would be configured from environment
+    this.API_ENDPOINT = (environment as any).textractApiEndpoint || '/api/textract';
     
-    // Load AWS config
-    this.awsConfigService.loadConfig().subscribe(config => {
-      this.config = {
-        region: config.region,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey
-      };
-      this.API_ENDPOINT = config.textract.endpoint;
-    });
+    // Check if we should use mock data or real API
+    this.useMockData = !environment.production || !(environment as any).textractApiEndpoint;
   }
 
   processDocument(
@@ -110,30 +115,62 @@ export class TextractOcrService implements IOcrService {
     base64Document: string,
     config?: OcrProcessingConfig
   ): Promise<OcrProcessingResult> {
-    // Note: In production, this should be called through a backend service
-    // to protect AWS credentials. This is a simplified example.
-    
     const startTime = Date.now();
     
-    // Simulate Textract API response for development
-    // In production, replace with actual AWS SDK call
-    const mockResponse = this.getMockTextractResponse();
+    let response: any;
     
-    const elements = this.parseTextractResponse(mockResponse);
-    const tables = this.parseTextractTables(mockResponse);
+    if (this.useMockData) {
+      // Development mode - use mock data
+      response = this.getEnhancedMockTextractResponse();
+    } else {
+      // Production mode - call real API through backend proxy
+      response = await this.callTextractBackendProxy(base64Document, config);
+    }
+    
+    const elements = this.parseTextractResponse(response);
+    const tables = this.parseTextractTables(response);
+    const formFields = this.extractFormFields(response);
+    
+    // Merge form fields with elements for better field detection
+    const enhancedElements = this.mergeFormFieldsWithElements(elements, formFields);
     
     return {
-      elements,
+      elements: enhancedElements,
       tables,
       metadata: {
-        pageCount: 1,
+        pageCount: response.DocumentMetadata?.Pages || 1,
         processingTime: Date.now() - startTime,
         provider: 'Amazon Textract',
         documentType: 'FORM',
-        warnings: []
+        warnings: this.useMockData ? ['Using mock data for development'] : []
       },
-      rawData: mockResponse
+      rawData: response
     };
+  }
+
+  // Call backend proxy for real Textract API
+  private async callTextractBackendProxy(
+    base64Document: string,
+    config?: OcrProcessingConfig
+  ): Promise<any> {
+    // This would call your backend API that securely handles AWS credentials
+    const response = await fetch(this.API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        document: base64Document,
+        featureTypes: ['FORMS', 'TABLES'],
+        config: config
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Textract API error: ${response.statusText}`);
+    }
+    
+    return response.json();
   }
 
   private parseTextractResponse(response: any): OcrFormElement[] {
@@ -163,26 +200,36 @@ export class TextractOcrService implements IOcrService {
   private parseTextractTables(response: any): OcrTable[] {
     const tables: OcrTable[] = [];
     
-    // Parse table data from Textract response
-    // This is simplified - actual implementation would be more complex
+    // Parse table blocks if present
+    // This would extract table structure from Textract response
     
     return tables;
   }
 
-  private inferElementType(block: any): OcrFormElement['type'] {
-    const text = (block.Text || '').toLowerCase();
+  private inferElementType(text: string): 'label' | 'input' | 'checkbox' | 'radio' | 'select' | 'text' | 'table' {
+    const lowerText = text.toLowerCase();
     
-    // Simple heuristics to infer element type
-    if (text.includes('name') || text.includes('date') || text.includes('email')) {
+    // Check for checkbox indicators
+    if (lowerText.includes('☐') || lowerText.includes('☑') || lowerText.includes('[ ]') || lowerText.includes('[x]')) {
+      return 'checkbox';
+    }
+    
+    // Check for radio button indicators
+    if (lowerText.includes('○') || lowerText.includes('●') || lowerText.includes('( )') || lowerText.includes('(x)')) {
+      return 'radio';
+    }
+    
+    // Check for label patterns
+    if (text.endsWith(':') || lowerText.includes('name') || lowerText.includes('date') || lowerText.includes('address')) {
       return 'label';
     }
-    if (block.BlockType === 'SELECTION_ELEMENT') {
-      return block.SelectionStatus === 'SELECTED' ? 'checkbox' : 'checkbox';
-    }
-    if (text.includes('select') || text.includes('choose')) {
-      return 'select';
+    
+    // Check for input field patterns
+    if (text.includes('___') || text.includes('...')) {
+      return 'input';
     }
     
+    // Default to text
     return 'text';
   }
 
@@ -200,15 +247,17 @@ export class TextractOcrService implements IOcrService {
   }
 
   convertToFormTemplate(
-    ocrResult: OcrProcessingResult,
-    templateName: string
+    result: OcrProcessingResult
   ): FormTemplate {
-    const fields = this.templateBuilder.buildFields(ocrResult.elements);
+    // Build fields from OCR elements
+    const fields = this.buildFieldsFromElements(result.elements);
     
+    // Convert OCR result to form template
     const template: FormTemplate = {
       id: '',
-      name: templateName,
-      description: `Template created from OCR scan on ${new Date().toLocaleDateString()}`,
+      name: 'OCR Generated Template',
+      description: 'Template generated from OCR processing',
+      templateType: 'form' as TemplateType,
       category: 'ocr-generated',
       version: 1.0,
       status: 'draft',
@@ -216,13 +265,11 @@ export class TextractOcrService implements IOcrService {
       sections: [{
         id: 'main',
         name: 'Main Section',
-        fields: fields.map(f => f.id),
+        fields: fields.map((f: any) => f.id),
         order: 0,
         collapsible: false,
         defaultExpanded: true
       }],
-      // Template Type Configuration
-      templateType: 'form' as TemplateType,
       isPatientTemplate: false,
       isStudySubjectTemplate: false,
       // Template Linking
@@ -262,32 +309,289 @@ export class TextractOcrService implements IOcrService {
     return 'Amazon Textract';
   }
 
-  // Removed duplicate methods - already defined above
+  private extractFormFields(response: any): any[] {
+    const formFields: any[] = [];
+    const keyValuePairs = new Map<string, any>();
+    
+    // First pass: collect KEY_VALUE_SET blocks
+    response.Blocks?.forEach((block: any) => {
+      if (block.BlockType === 'KEY_VALUE_SET' && block.EntityTypes?.includes('KEY')) {
+        const keyText = this.getTextFromBlock(block, response.Blocks);
+        let valueText = '';
+        let valueBoundingBox = null;
+        let confidence = 0;
+        
+        if (block.Relationships) {
+          const valueRelation = block.Relationships.find((r: any) => r.Type === 'VALUE');
+          if (valueRelation && valueRelation.Ids) {
+            const valueBlock = response.Blocks.find((b: any) => 
+              valueRelation.Ids.includes(b.Id) && b.BlockType === 'KEY_VALUE_SET'
+            );
+            if (valueBlock) {
+              valueText = this.getTextFromBlock(valueBlock, response.Blocks);
+              valueBoundingBox = valueBlock.Geometry?.BoundingBox;
+              confidence = valueBlock.Confidence || 0;
+            }
+          }
+        }
+        
+        keyValuePairs.set(keyText, {
+          text: valueText,
+          keyBoundingBox: block.Geometry?.BoundingBox,
+          valueBoundingBox,
+          confidence
+        });
+      }
+    });
+    
+    // Second pass: build form fields from key-value pairs
+    keyValuePairs.forEach((value, key) => {
+      formFields.push({
+        key: key,
+        value: value.text || '',
+        keyBoundingBox: value.keyBoundingBox,
+        valueBoundingBox: value.valueBoundingBox,
+        confidence: value.confidence || 0
+      });
+    });
+    
+    // Also extract SELECTION_ELEMENT blocks (checkboxes, radio buttons)
+    response.Blocks?.forEach((block: any) => {
+      if (block.BlockType === 'SELECTION_ELEMENT') {
+        formFields.push({
+          key: '',
+          value: block.SelectionStatus === 'SELECTED' ? 'checked' : 'unchecked',
+          valueBoundingBox: block.Geometry?.BoundingBox,
+          confidence: block.Confidence || 0,
+          selectionElement: true
+        });
+      }
+    });
+    
+    return formFields;
+  }
 
-  // Mock response for development
-  private getMockTextractResponse(): any {
+  private buildFieldsFromElements(elements: OcrFormElement[]): any[] {
+    const fields: any[] = [];
+    const processedIds = new Set<string>();
+    
+    elements.forEach((element, index) => {
+      if (processedIds.has(element.id)) return;
+      
+      if (element.type === 'label' && element.relatedElements?.length) {
+        // Find related input element
+        const relatedInput = elements.find(e => 
+          element.relatedElements?.includes(e.id) && e.type === 'input'
+        );
+        
+        if (relatedInput) {
+          processedIds.add(element.id);
+          processedIds.add(relatedInput.id);
+          
+          fields.push({
+            id: `field-${index}`,
+            name: element.text.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(),
+            label: element.text,
+            type: 'text',
+            required: false,
+            value: relatedInput.text || '',
+            metadata: {
+              confidence: Math.min(element.confidence || 0, relatedInput.confidence || 0),
+              boundingBox: element.boundingBox
+            }
+          });
+        } else {
+          processedIds.add(element.id);
+          fields.push({
+            id: `field-${index}`,
+            name: element.text.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(),
+            label: element.text,
+            type: 'text',
+            required: false,
+            metadata: {
+              confidence: element.confidence || 0,
+              boundingBox: element.boundingBox
+            }
+          });
+        }
+      } else if (element.type === 'checkbox') {
+        processedIds.add(element.id);
+        fields.push({
+          id: `field-${index}`,
+          name: `checkbox_${index}`,
+          label: element.text,
+          type: 'checkbox',
+          required: false,
+          metadata: {
+            confidence: element.confidence || 0,
+            boundingBox: element.boundingBox
+          }
+        });
+      } else if (element.type === 'radio') {
+        processedIds.add(element.id);
+        fields.push({
+          id: `field-${index}`,
+          name: `radio_${index}`,
+          label: element.text,
+          type: 'radio',
+          required: false,
+          metadata: {
+            confidence: element.confidence || 0,
+            boundingBox: element.boundingBox
+          }
+        });
+      }
+    });
+    
+    return fields;
+  }
+  
+  private getTextFromBlock(block: any, allBlocks: any[]): string {
+    let text = '';
+    
+    if (block.Relationships) {
+      const childRelation = block.Relationships.find((r: any) => r.Type === 'CHILD');
+      if (childRelation && childRelation.Ids) {
+        const childBlocks = allBlocks.filter((b: any) => childRelation.Ids.includes(b.Id));
+        text = childBlocks
+          .filter((b: any) => b.BlockType === 'WORD' || b.BlockType === 'LINE')
+          .map((b: any) => b.Text || '')
+          .join(' ');
+      }
+    }
+    
+    return text || block.Text || '';
+  }
+  
+  private mergeFormFieldsWithElements(elements: OcrFormElement[], formFields: any[]): OcrFormElement[] {
+    const merged = [...elements];
+    
+    formFields.forEach((f: any) => {
+      if (f.key) {
+        // Check if we already have this as an element
+        const existingKey = merged.find(e => 
+          e.text.toLowerCase().trim() === f.key.toLowerCase().trim()
+        );
+        
+        if (!existingKey && f.keyBoundingBox) {
+          merged.push({
+            id: `form-key-${merged.length}`,
+            type: 'label',
+            text: f.key,
+            confidence: 95,
+            boundingBox: this.convertBoundingBox(f.keyBoundingBox),
+            relatedElements: f.value ? [`form-value-${merged.length}`] : []
+          });
+        }
+        
+        if (f.value && f.valueBoundingBox) {
+          merged.push({
+            id: `form-value-${merged.length}`,
+            type: 'input',
+            text: f.value,
+            confidence: 95,
+            boundingBox: this.convertBoundingBox(f.valueBoundingBox),
+            relatedElements: [`form-key-${merged.length - 1}`]
+          });
+        }
+      }
+    });
+    
+    return merged;
+  }
+  
+  // Enhanced mock response for development
+  private getEnhancedMockTextractResponse(): any {
     return {
       DocumentMetadata: {
         Pages: 1
       },
       Blocks: [
+        // Title
         {
+          Id: 'block-1',
           BlockType: 'LINE',
           Confidence: 99.5,
           Text: 'Patient Information Form',
+          Page: 1,
           Geometry: {
             BoundingBox: {
               Width: 0.5,
               Height: 0.05,
               Left: 0.25,
-              Top: 0.1
+              Top: 0.05
             }
           }
         },
+        // Patient Name Field - Key
         {
-          BlockType: 'LINE',
-          Confidence: 98.7,
+          Id: 'key-1',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['KEY'],
+          Confidence: 98.2,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.15,
+              Height: 0.03,
+              Left: 0.1,
+              Top: 0.15
+            }
+          },
+          Relationships: [
+            {
+              Type: 'VALUE',
+              Ids: ['value-1']
+            },
+            {
+              Type: 'CHILD',
+              Ids: ['word-1']
+            }
+          ]
+        },
+        {
+          Id: 'word-1',
+          BlockType: 'WORD',
           Text: 'Patient Name:',
+          Confidence: 98.2,
+          Page: 1
+        },
+        // Patient Name Field - Value
+        {
+          Id: 'value-1',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['VALUE'],
+          Confidence: 97.8,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.25,
+              Height: 0.03,
+              Left: 0.3,
+              Top: 0.15
+            }
+          },
+          Relationships: [
+            {
+              Type: 'CHILD',
+              Ids: ['word-2']
+            }
+          ]
+        },
+        {
+          Id: 'word-2',
+          BlockType: 'WORD',
+          Text: '',
+          Confidence: 0,
+          Page: 1
+        },
+        // Date of Birth Field - Key
+        {
+          Id: 'key-2',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['KEY'],
+          Confidence: 99.1,
+          Page: 1,
           Geometry: {
             BoundingBox: {
               Width: 0.15,
@@ -295,83 +599,221 @@ export class TextractOcrService implements IOcrService {
               Left: 0.1,
               Top: 0.2
             }
+          },
+          Relationships: [
+            {
+              Type: 'VALUE',
+              Ids: ['value-2']
+            },
+            {
+              Type: 'CHILD',
+              Ids: ['word-3']
+            }
+          ]
+        },
+        {
+          Id: 'word-3',
+          BlockType: 'WORD',
+          Text: 'Date of Birth:',
+          Confidence: 99.1,
+          Page: 1
+        },
+        // Date of Birth Field - Value
+        {
+          Id: 'value-2',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['VALUE'],
+          Confidence: 98.5,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.15,
+              Height: 0.03,
+              Left: 0.3,
+              Top: 0.2
+            }
+          },
+          Relationships: [
+            {
+              Type: 'CHILD',
+              Ids: ['word-4']
+            }
+          ]
+        },
+        {
+          Id: 'word-4',
+          BlockType: 'WORD',
+          Text: '',
+          Confidence: 0,
+          Page: 1
+        },
+        // Medical Record Number - Key
+        {
+          Id: 'key-3',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['KEY'],
+          Confidence: 97.5,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.2,
+              Height: 0.03,
+              Left: 0.1,
+              Top: 0.25
+            }
+          },
+          Relationships: [
+            {
+              Type: 'VALUE',
+              Ids: ['value-3']
+            },
+            {
+              Type: 'CHILD',
+              Ids: ['word-5']
+            }
+          ]
+        },
+        {
+          Id: 'word-5',
+          BlockType: 'WORD',
+          Text: 'Medical Record #:',
+          Confidence: 97.5,
+          Page: 1
+        },
+        // Medical Record Number - Value
+        {
+          Id: 'value-3',
+          BlockType: 'KEY_VALUE_SET',
+          EntityTypes: ['VALUE'],
+          Confidence: 96.8,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.15,
+              Height: 0.03,
+              Left: 0.35,
+              Top: 0.25
+            }
+          },
+          Relationships: [
+            {
+              Type: 'CHILD',
+              Ids: ['word-6']
+            }
+          ]
+        },
+        {
+          Id: 'word-6',
+          BlockType: 'WORD',
+          Text: '',
+          Confidence: 0,
+          Page: 1
+        },
+        // Checkbox for consent
+        {
+          Id: 'checkbox-1',
+          BlockType: 'SELECTION_ELEMENT',
+          SelectionStatus: 'NOT_SELECTED',
+          Confidence: 95.2,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.02,
+              Height: 0.02,
+              Left: 0.1,
+              Top: 0.35
+            }
           }
         },
         {
+          Id: 'line-consent',
           BlockType: 'LINE',
-          Confidence: 97.3,
-          Text: 'Date of Birth:',
+          Text: 'I consent to treatment',
+          Confidence: 98.7,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.25,
+              Height: 0.03,
+              Left: 0.13,
+              Top: 0.35
+            }
+          }
+        },
+        // Additional fields
+        {
+          Id: 'line-email',
+          BlockType: 'LINE',
+          Text: 'Email Address:',
+          Confidence: 97.9,
+          Page: 1,
           Geometry: {
             BoundingBox: {
               Width: 0.15,
               Height: 0.03,
               Left: 0.1,
-              Top: 0.3
+              Top: 0.4
             }
           }
         },
         {
+          Id: 'line-phone',
           BlockType: 'LINE',
-          Confidence: 98.1,
-          Text: 'Gender:',
+          Text: 'Phone Number:',
+          Confidence: 98.3,
+          Page: 1,
+          Geometry: {
+            BoundingBox: {
+              Width: 0.15,
+              Height: 0.03,
+              Left: 0.1,
+              Top: 0.45
+            }
+          }
+        },
+        {
+          Id: 'line-address',
+          BlockType: 'LINE',
+          Text: 'Address:',
+          Confidence: 99.0,
+          Page: 1,
           Geometry: {
             BoundingBox: {
               Width: 0.1,
               Height: 0.03,
               Left: 0.1,
-              Top: 0.4
+              Top: 0.5
             }
           }
         },
+        // Signature field
         {
-          BlockType: 'SELECTION_ELEMENT',
-          SelectionStatus: 'NOT_SELECTED',
-          Confidence: 95.2,
-          Geometry: {
-            BoundingBox: {
-              Width: 0.02,
-              Height: 0.02,
-              Left: 0.25,
-              Top: 0.4
-            }
-          }
-        },
-        {
+          Id: 'line-signature',
           BlockType: 'LINE',
-          Confidence: 96.8,
-          Text: 'Male',
+          Text: 'Patient Signature:',
+          Confidence: 96.5,
+          Page: 1,
           Geometry: {
             BoundingBox: {
-              Width: 0.05,
+              Width: 0.2,
               Height: 0.03,
-              Left: 0.28,
-              Top: 0.4
+              Left: 0.1,
+              Top: 0.6
             }
           }
         },
         {
-          BlockType: 'SELECTION_ELEMENT',
-          SelectionStatus: 'NOT_SELECTED',
-          Confidence: 95.5,
+          Id: 'line-signature-box',
+          BlockType: 'LINE',
+          Text: '_________________________',
+          Confidence: 85.0,
+          Page: 1,
           Geometry: {
             BoundingBox: {
-              Width: 0.02,
-              Height: 0.02,
+              Width: 0.3,
+              Height: 0.03,
               Left: 0.35,
-              Top: 0.4
-            }
-          }
-        },
-        {
-          BlockType: 'LINE',
-          Confidence: 97.1,
-          Text: 'Female',
-          Geometry: {
-            BoundingBox: {
-              Width: 0.07,
-              Height: 0.03,
-              Left: 0.38,
-              Top: 0.4
+              Top: 0.6
             }
           }
         }
