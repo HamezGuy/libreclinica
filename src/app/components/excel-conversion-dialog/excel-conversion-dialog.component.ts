@@ -140,12 +140,47 @@ export class ExcelConversionDialogComponent implements OnInit {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         
-        if (jsonData.length > 0) {
+        // Determine orientation and parse accordingly
+        const orientation = this.form.get('orientation')?.value || 'auto';
+        let headers: string[] = [];
+        let rows: any[][] = [];
+        
+        if (orientation === 'auto' || orientation === 'row') {
+          // Row-oriented: headers in first row
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          if (jsonData.length > 0) {
+            const headerRow = this.form.get('headerRow')?.value || 0;
+            const dataStartRow = this.form.get('dataStartRow')?.value || 1;
+            
+            headers = (jsonData[headerRow] as any[]).filter(h => h !== null && h !== undefined).map(h => String(h));
+            rows = jsonData.slice(dataStartRow);
+          }
+        } else if (orientation === 'column') {
+          // Column-oriented: headers in first column
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          if (jsonData.length > 0) {
+            const headerColumn = this.form.get('headerColumn')?.value || 0;
+            const dataStartColumn = this.form.get('dataStartColumn')?.value || 1;
+            
+            // Extract headers from first column
+            headers = jsonData.map((row: any[]) => row[headerColumn]).filter(h => h !== null && h !== undefined).map(h => String(h));
+            
+            // Transpose data starting from dataStartColumn
+            rows = [];
+            for (let colIdx = dataStartColumn; colIdx < (jsonData[0] as any[]).length; colIdx++) {
+              const row = jsonData.map((r: any[]) => r[colIdx]);
+              rows.push(row);
+            }
+          }
+        }
+        
+        if (headers.length > 0) {
           this.excelData = {
-            headers: jsonData[0] as string[],
-            rows: jsonData.slice(1)
+            headers: headers,
+            fieldNames: headers,  // Add fieldNames property
+            rows: rows,
+            orientation: orientation === 'auto' ? 'row' : orientation  // Add orientation property
           };
           
           // Update preview
@@ -153,20 +188,14 @@ export class ExcelConversionDialogComponent implements OnInit {
           
           // Move to configure step
           this.currentStep = 'configure';
+          this.isProcessing = false;
         }
       };
       reader.readAsArrayBuffer(this.selectedFile);
       
-      // Update preview
-      this.updatePreview();
-      
-      // Move to configure step
-      this.currentStep = 'configure';
-      
     } catch (error) {
       console.error('Error parsing Excel file:', error);
-      // Show error to user
-    } finally {
+      this.snackBar.open('Error parsing Excel file', 'Close', { duration: 3000 });
       this.isProcessing = false;
     }
   }
@@ -174,8 +203,8 @@ export class ExcelConversionDialogComponent implements OnInit {
   updatePreview(): void {
     if (!this.excelData) return;
     
-    this.previewHeaders = this.excelData.headers;
-    this.previewRows = this.excelData.rows.slice(0, 10); // Show first 10 rows
+    this.previewHeaders = this.excelData.headers || [];
+    this.previewRows = (this.excelData.rows || []).slice(0, 10); // Show first 10 rows
     
     // Identify metadata columns vs data fields
     this.identifyFieldTypes();
@@ -202,8 +231,13 @@ export class ExcelConversionDialogComponent implements OnInit {
     this.metadataColumns = [];
     this.filteredFieldNames = [];
     
+    if (!this.previewHeaders || this.previewHeaders.length === 0) {
+      return;
+    }
+    
     this.previewHeaders.forEach(header => {
-      const headerLower = header.toLowerCase().trim();
+      if (!header) return;
+      const headerLower = String(header).toLowerCase().trim();
       const isMetadata = patientMetadataColumns.some(metaCol => 
         metaCol.toLowerCase() === headerLower
       );
