@@ -54,8 +54,8 @@ export class TextractOcrService implements IOcrService {
   ) {
     // Use backend proxy endpoint - credentials are handled server-side
     this.API_ENDPOINT = environment.production 
-      ? '/api/textract' // Production uses relative path
-      : `${environment.api?.baseUrl || 'http://localhost:3001'}${environment.api?.textractEndpoint || '/api/textract'}`; // Development uses configured endpoint
+      ? `${(environment as any).functionsUrl}/analyzeDocument` 
+      : 'http://localhost:3001/api/textract';
     
     // Don't use mock data - backend handles authentication
     this.useMockData = false;
