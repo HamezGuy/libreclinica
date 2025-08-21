@@ -186,23 +186,73 @@ export class TextractOcrService implements IOcrService {
     
     // Parse Textract blocks into OcrFormElements
     if (response.Blocks) {
-      response.Blocks.forEach((block: any, index: number) => {
-        if (block.BlockType === 'LINE' || block.BlockType === 'WORD') {
-          const element: OcrFormElement = {
-            id: `element-${index}`,
-            type: this.inferElementType(block.Text || ''),
-            text: block.Text || '',
-            confidence: block.Confidence || 0,
-            boundingBox: this.convertBoundingBox(block.Geometry?.BoundingBox),
-            relatedElements: []
-          };
-          
-          elements.push(element);
+      // First pass: collect all LINE blocks
+      const lineBlocks = response.Blocks.filter((b: any) => b.BlockType === 'LINE');
+      
+      // Sort by vertical position (top to bottom) then horizontal (left to right)
+      lineBlocks.sort((a: any, b: any) => {
+        const aY = a.Geometry?.BoundingBox?.Top || 0;
+        const bY = b.Geometry?.BoundingBox?.Top || 0;
+        const aX = a.Geometry?.BoundingBox?.Left || 0;
+        const bX = b.Geometry?.BoundingBox?.Left || 0;
+        
+        // If lines are roughly on the same horizontal level (within 1% tolerance)
+        if (Math.abs(aY - bY) < 0.01) {
+          return aX - bX; // Sort by horizontal position
         }
+        return aY - bY; // Sort by vertical position
+      });
+      
+      lineBlocks.forEach((block: any, index: number) => {
+        const text = block.Text || '';
+        const element: OcrFormElement = {
+          id: block.Id || `element-${index}`,
+          type: this.inferElementType(text),
+          text: text,
+          confidence: block.Confidence || 0,
+          boundingBox: this.convertBoundingBox(block.Geometry?.BoundingBox)
+        };
+        
+        // Try to find related elements (e.g., label followed by input field)
+        if (element.type === 'label') {
+          element.relatedElements = this.findRelatedElements(block, lineBlocks, index);
+        }
+        
+        elements.push(element);
       });
     }
     
     return elements;
+  }
+
+  private findRelatedElements(labelBlock: any, allBlocks: any[], currentIndex: number): string[] {
+    const related: string[] = [];
+    const labelBox = labelBlock.Geometry?.BoundingBox;
+    
+    if (!labelBox) return related;
+    
+    // Look for elements to the right or below this label
+    for (let i = currentIndex + 1; i < allBlocks.length && i < currentIndex + 3; i++) {
+      const nextBlock = allBlocks[i];
+      const nextBox = nextBlock.Geometry?.BoundingBox;
+      
+      if (!nextBox) continue;
+      
+      // Check if next element is to the right (same line)
+      const sameLine = Math.abs(labelBox.Top - nextBox.Top) < 0.02;
+      const toTheRight = nextBox.Left > labelBox.Left + labelBox.Width;
+      
+      // Check if next element is below (next line)
+      const below = nextBox.Top > labelBox.Top + labelBox.Height;
+      const verticallyAligned = Math.abs(labelBox.Left - nextBox.Left) < 0.1;
+      
+      if ((sameLine && toTheRight) || (below && verticallyAligned)) {
+        related.push(nextBlock.Id || `element-${i}`);
+        break; // Only link to the first related element
+      }
+    }
+    
+    return related;
   }
 
   private parseTextractTables(response: any): OcrTable[] {
@@ -215,29 +265,42 @@ export class TextractOcrService implements IOcrService {
   }
 
   private inferElementType(text: string): 'label' | 'input' | 'checkbox' | 'radio' | 'text' {
-    const lowerText = text.toLowerCase();
+    const lowerText = text.toLowerCase().trim();
     
-    // Check for checkbox indicators
-    if (lowerText.includes('☐') || lowerText.includes('☑') || lowerText.includes('[ ]') || lowerText.includes('[x]')) {
+    // Check for checkbox patterns
+    const checkboxPatterns = ['☐', '☑', '☒', '□', '■', '[ ]', '[x]', '[X]', '( )', '(x)', '(X)'];
+    if (checkboxPatterns.some(pattern => text.includes(pattern))) {
       return 'checkbox';
     }
     
-    // Check for radio button indicators
-    if (lowerText.includes('○') || lowerText.includes('●') || lowerText.includes('( )') || lowerText.includes('(x)')) {
+    // Check for radio button patterns
+    const radioPatterns = ['○', '●', '◯', '◉', '⭕', '( )', '(•)', '(*)', '(o)', '(O)'];
+    if (radioPatterns.some(pattern => text.includes(pattern)) && !text.includes('[')) {
       return 'radio';
     }
     
-    // Check for label patterns
-    if (text.endsWith(':') || lowerText.includes('name') || lowerText.includes('date') || lowerText.includes('address')) {
-      return 'label';
-    }
-    
-    // Check for input field patterns
-    if (text.includes('___') || text.includes('...')) {
+    // Check for input field indicators (underscores, dots, blank spaces)
+    const inputPatterns = /^[_\.\s]{3,}$|^_{3,}|^\.{3,}/;
+    if (inputPatterns.test(text) || text === '') {
       return 'input';
     }
     
-    // Default to text
+    // Check for label patterns
+    const labelIndicators = [
+      text.endsWith(':'),
+      text.endsWith('?'),
+      /^(name|date|time|address|phone|email|age|gender|dob|mrn|id|subject)\b/i.test(lowerText),
+      /\b(first|last|middle|initial|street|city|state|zip|country)\s*(name)?\b/i.test(lowerText),
+      /^\d+\.\s+/.test(text), // Numbered items like "1. "
+      /^[A-Z][a-z]+\s+[A-Z][a-z]+:?$/.test(text), // Title case labels
+      /^(please|enter|provide|select|choose|specify)\b/i.test(lowerText)
+    ];
+    
+    if (labelIndicators.some(indicator => indicator === true)) {
+      return 'label';
+    }
+    
+    // Default to text for everything else
     return 'text';
   }
 
@@ -395,59 +458,64 @@ export class TextractOcrService implements IOcrService {
     return 'Amazon Textract';
   }
 
-  convertToFormTemplate(
-    result: OcrProcessingResult
-  ): FormTemplate {
-    // Build fields from OCR elements
-    const fields = this.buildFieldsFromElements(result.elements);
+  convertToFormTemplate(result: OcrProcessingResult): FormTemplate {
+    const fields: any[] = [];
+    const sections: any[] = [];
     
-    // Convert OCR result to form template
+    // Build fields from OCR elements with intelligent grouping
+    if (result.elements) {
+      const { extractedFields, extractedSections } = this.buildSmartFieldsFromElements(result.elements);
+      fields.push(...extractedFields);
+      sections.push(...extractedSections);
+    }
+    
+    // Add table fields if present
+    if (result.tables && result.tables.length > 0) {
+      fields.push(...this.buildFieldsFromTables(result.tables));
+    }
+    
+    // Clean up and validate fields
+    const cleanedFields = this.cleanupFields(fields);
+    
+    const isPatientForm = this.detectIfPatientForm(cleanedFields);
+    
     const template: FormTemplate = {
       id: '',
-      name: 'OCR Generated Template',
-      description: 'Template generated from OCR processing',
-      templateType: 'form' as TemplateType,
-      category: 'ocr-generated',
-      version: 1.0,
+      name: this.generateTemplateName(result),
+      description: 'Form template generated from OCR processing',
+      version: 1,
       status: 'draft',
-      fields: fields,
-      sections: [{
-        id: 'main',
-        name: 'Main Section',
-        fields: fields.map((f: any) => f.id),
-        order: 0,
-        collapsible: false,
-        defaultExpanded: true
-      }],
-      isPatientTemplate: false,
+      templateType: isPatientForm ? 'patient' : 'form',
+      isPatientTemplate: isPatientForm,
       isStudySubjectTemplate: false,
-      // Template Linking
-      childTemplateIds: [],
-      linkedTemplates: [],
-      // PHI and Healthcare Compliance
-      phiDataFields: [],
-      hipaaCompliant: false,
-      gdprCompliant: false,
-      // Compliance Settings
-      requiresElectronicSignature: false,
-      requiresSignature: false,
-      isPhiForm: false,
-      complianceRegions: [],
-      phiEncryptionEnabled: false,
-      phiAccessLogging: false,
-      phiDataMinimization: false,
-      allowSavePartial: true,
-      allowPartialSave: true,
-      requiresReview: false,
-      allowEditing: true,
-      // Metadata
-      tags: ['ocr-generated'],
-      // Timestamps
+      fields: cleanedFields,
+      sections: sections,
+      conditionalLogic: [],
+      metadata: {
+        studyPhase: 'OCR Import',
+        dataRetentionPeriod: 7,
+        therapeuticArea: 'General'
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: '',
       lastModifiedBy: '',
       childFormIds: [],
+      childTemplateIds: [],
+      linkedTemplates: [],
+      phiDataFields: isPatientForm ? this.extractPhiFields(cleanedFields) : [],
+      hipaaCompliant: isPatientForm,
+      gdprCompliant: false,
+      requiresElectronicSignature: false,
+      complianceRegions: [],
+      phiEncryptionEnabled: isPatientForm,
+      phiAccessLogging: isPatientForm,
+      phiDataMinimization: false,
+      allowSavePartial: true,
+      requiresReview: false,
+      allowEditing: true,
+      tags: ['ocr-generated'],
+      category: isPatientForm ? 'patient' : 'general',
       changeHistory: []
     };
     
@@ -455,82 +523,342 @@ export class TextractOcrService implements IOcrService {
   }
 
 
-  private buildFieldsFromElements(elements: OcrFormElement[]): any[] {
+  private buildSmartFieldsFromElements(elements: OcrFormElement[]): { extractedFields: any[], extractedSections: any[] } {
     const fields: any[] = [];
+    const sections: any[] = [];
     const processedIds = new Set<string>();
+    let currentSection: any = null;
+    let fieldOrder = 0;
     
     elements.forEach((element, index) => {
       if (processedIds.has(element.id)) return;
       
-      if (element.type === 'label' && element.relatedElements?.length) {
-        // Find related input element
-        const relatedInput = elements.find(e => 
-          element.relatedElements?.includes(e.id) && e.type === 'input'
-        );
-        
-        if (relatedInput) {
+      // Detect section headers (bold, larger text, all caps)
+      if (this.isSectionHeader(element)) {
+        currentSection = {
+          id: `section-${sections.length}`,
+          name: element.text,
+          description: '',
+          order: sections.length,
+          fields: []
+        };
+        sections.push(currentSection);
+        processedIds.add(element.id);
+        return;
+      }
+      
+      // Process label-input pairs
+      if (element.type === 'label') {
+        const field = this.createFieldFromLabel(element, elements, index, fieldOrder++);
+        if (field) {
+          fields.push(field);
           processedIds.add(element.id);
-          processedIds.add(relatedInput.id);
+          if (field.relatedElementId) {
+            processedIds.add(field.relatedElementId);
+          }
           
-          fields.push({
-            id: `field-${index}`,
-            name: element.text.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(),
-            label: element.text,
-            type: 'text',
-            required: false,
-            value: relatedInput.text || '',
-            metadata: {
-              confidence: Math.min(element.confidence || 0, relatedInput.confidence || 0),
-              boundingBox: element.boundingBox
-            }
-          });
-        } else {
-          processedIds.add(element.id);
-          fields.push({
-            id: `field-${index}`,
-            name: element.text.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(),
-            label: element.text,
-            type: 'text',
-            required: false,
-            metadata: {
-              confidence: element.confidence || 0,
-              boundingBox: element.boundingBox
-            }
-          });
+          // Add to current section if exists
+          if (currentSection) {
+            currentSection.fields.push(field.id);
+          }
         }
-      } else if (element.type === 'checkbox') {
+      }
+      
+      // Process standalone checkboxes and radio buttons
+      if (element.type === 'checkbox') {
         processedIds.add(element.id);
         fields.push({
-          id: `field-${index}`,
-          name: `checkbox_${index}`,
-          label: element.text,
+          id: `field-${fieldOrder++}`,
+          name: `checkbox_${fieldOrder}`,
+          label: element.text.replace(/[☐☑☒□■\[\]\(\)xX*]/g, '').trim(),
           type: 'checkbox',
           required: false,
+          order: fieldOrder,
           metadata: {
             confidence: element.confidence || 0,
             boundingBox: element.boundingBox
           }
         });
+        
+        if (currentSection) {
+          currentSection.fields.push(`field-${fieldOrder - 1}`);
+        }
       } else if (element.type === 'radio') {
         processedIds.add(element.id);
         fields.push({
-          id: `field-${index}`,
-          name: `radio_${index}`,
-          label: element.text,
+          id: `field-${fieldOrder++}`,
+          name: `radio_${fieldOrder}`,
+          label: element.text.replace(/[○●◯◉⭕\(\)•*oO]/g, '').trim(),
           type: 'radio',
           required: false,
+          order: fieldOrder,
           metadata: {
             confidence: element.confidence || 0,
             boundingBox: element.boundingBox
           }
         });
+        
+        if (currentSection) {
+          currentSection.fields.push(`field-${fieldOrder - 1}`);
+        }
+      }
+    });
+    
+    return { extractedFields: fields, extractedSections: sections };
+  }
+
+  private isSectionHeader(element: OcrFormElement): boolean {
+    const text = element.text.trim();
+    
+    // Check for section header patterns
+    const headerPatterns = [
+      /^[A-Z][A-Z\s]+$/,  // All caps
+      /^\d+\.\s+[A-Z]/,  // Numbered section
+      /^Section\s+\d+/i,  // "Section X"
+      /^Part\s+[A-Z\d]+/i,  // "Part X"
+    ];
+    
+    return headerPatterns.some(pattern => pattern.test(text)) && 
+           text.length > 3 && 
+           text.length < 50 &&
+           !text.endsWith(':') &&
+           !text.endsWith('?');
+  }
+
+  private createFieldFromLabel(element: OcrFormElement, allElements: OcrFormElement[], index: number, order: number): any {
+    const field: any = {
+      id: `field-${order}`,
+      name: this.generateFieldName(element.text),
+      label: element.text,
+      type: 'text',
+      required: false,
+      order: order,
+      placeholder: '',
+      defaultValue: '',
+      metadata: {
+        confidence: element.confidence,
+        boundingBox: element.boundingBox
+      }
+    };
+    
+    // Look for related input element
+    if (element.relatedElements && element.relatedElements.length > 0) {
+      const relatedId = element.relatedElements[0];
+      const relatedElement = allElements.find(e => e.id === relatedId);
+      
+      if (relatedElement) {
+        field.relatedElementId = relatedId;
+        
+        // Set field type based on related element
+        if (relatedElement.type === 'input') {
+          // Infer field type from label text
+          const labelLower = element.text.toLowerCase();
+          
+          if (labelLower.includes('email')) {
+            field.type = 'email';
+            field.validation = { pattern: '^[^@]+@[^@]+\\.[^@]+$' };
+          } else if (labelLower.includes('phone') || labelLower.includes('tel')) {
+            field.type = 'tel';
+            field.validation = { pattern: '^[\\d\\s\\(\\)\\-\\+]+$' };
+          } else if (labelLower.includes('date') || labelLower.includes('dob')) {
+            field.type = 'date';
+          } else if (labelLower.includes('time')) {
+            field.type = 'time';
+          } else if (labelLower.includes('number') || labelLower.includes('age') || labelLower.includes('quantity')) {
+            field.type = 'number';
+          } else if (labelLower.includes('signature')) {
+            field.type = 'signature';
+          } else {
+            field.type = 'text';
+          }
+          
+          // Set placeholder from related text if available
+          if (relatedElement.text) {
+            field.defaultValue = relatedElement.text;
+          }
+        }
+      }
+    }
+    
+    return field;
+  }
+
+  private generateFieldName(labelText: string): string {
+    return labelText
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 50);
+  }
+
+  private buildFieldsFromTables(tables: OcrTable[]): any[] {
+    const fields: any[] = [];
+    
+    tables.forEach((table, tableIndex) => {
+      if (table.rows && Array.isArray(table.rows) && table.rows.length > 0) {
+        // Treat first row as headers if it looks like headers
+        const headers = table.rows[0].cells.map((cell: any) => cell.text);
+        
+        // Create fields for each data row
+        for (let i = 1; i < table.rows.length; i++) {
+          table.rows[i].cells.forEach((cell: any, cellIndex: number) => {
+            if (headers[cellIndex]) {
+              fields.push({
+                id: `table-${tableIndex}-row-${i}-col-${cellIndex}`,
+                name: `${this.generateFieldName(headers[cellIndex])}_row_${i}`,
+                label: `${headers[cellIndex]} (Row ${i})`,
+                type: 'text',
+                required: false,
+                defaultValue: cell.text || '',
+                metadata: {
+                  tableIndex,
+                  rowIndex: i,
+                  columnIndex: cellIndex,
+                  confidence: cell.confidence || 0
+                }
+              });
+            }
+          });
+        }
       }
     });
     
     return fields;
   }
 
-  
+  private cleanupFields(fields: any[]): any[] {
+    // Remove duplicates and clean up field data
+    const seen = new Set<string>();
+    const cleaned: any[] = [];
+    
+    fields.forEach(field => {
+      const key = `${field.name}_${field.label}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        
+        // Ensure all required properties
+        field.id = field.id || `field-${cleaned.length}`;
+        field.name = field.name || `field_${cleaned.length}`;
+        field.label = field.label || 'Unlabeled Field';
+        field.type = field.type || 'text';
+        field.required = field.required || false;
+        field.order = field.order !== undefined ? field.order : cleaned.length;
+        
+        cleaned.push(field);
+      }
+    });
+    
+    // Sort by order
+    cleaned.sort((a, b) => a.order - b.order);
+    
+    return cleaned;
+  }
+
+  private generateTemplateName(result: OcrProcessingResult): string {
+    // Try to extract a title from the first few elements
+    if (result.elements && result.elements.length > 0) {
+      for (let i = 0; i < Math.min(5, result.elements.length); i++) {
+        const element = result.elements[i];
+        if (element.type === 'text' && element.text.length > 10 && element.text.length < 100) {
+          // Check if it looks like a title
+          const text = element.text.trim();
+          if (!text.endsWith(':') && !text.endsWith('?') && !text.includes('_')) {
+            return text;
+          }
+        }
+      }
+    }
+    
+    return `OCR Form Template ${new Date().toLocaleDateString()}`;
+  }
+
+  private detectIfPatientForm(fields: any[]): boolean {
+    const patientIndicators = [
+      'patient', 'name', 'dob', 'date of birth', 'mrn', 'medical record',
+      'gender', 'sex', 'address', 'phone', 'email', 'insurance',
+      'emergency contact', 'physician', 'diagnosis', 'medication'
+    ];
+    
+    let indicatorCount = 0;
+    fields.forEach(field => {
+      const fieldText = `${field.label} ${field.name}`.toLowerCase();
+      patientIndicators.forEach(indicator => {
+        if (fieldText.includes(indicator)) {
+          indicatorCount++;
+        }
+      });
+    });
+    
+    // If more than 3 patient-related fields, consider it a patient form
+    return indicatorCount >= 3;
+  }
+
+  private generateValidationRules(fields: any[]): any[] {
+    const rules: any[] = [];
+    
+    fields.forEach(field => {
+      // Add validation rules based on field type and name
+      if (field.type === 'email') {
+        rules.push({
+          fieldId: field.id,
+          type: 'pattern',
+          pattern: '^[^@]+@[^@]+\\.[^@]+$',
+          message: 'Please enter a valid email address'
+        });
+      } else if (field.type === 'tel') {
+        rules.push({
+          fieldId: field.id,
+          type: 'pattern',
+          pattern: '^[\\d\\s\\(\\)\\-\\+]+$',
+          message: 'Please enter a valid phone number'
+        });
+      } else if (field.type === 'number') {
+        const labelLower = field.label.toLowerCase();
+        if (labelLower.includes('age')) {
+          rules.push({
+            fieldId: field.id,
+            type: 'range',
+            min: 0,
+            max: 150,
+            message: 'Age must be between 0 and 150'
+          });
+        }
+      }
+      
+      // Add required validation if field seems important
+      const importantFields = ['name', 'patient', 'mrn', 'dob', 'date of birth'];
+      const fieldTextLower = field.label.toLowerCase();
+      if (importantFields.some(imp => fieldTextLower.includes(imp))) {
+        field.required = true;
+        rules.push({
+          fieldId: field.id,
+          type: 'required',
+          message: `${field.label} is required`
+        });
+      }
+    });
+    
+    return rules;
+  }
+
+  private extractPhiFields(fields: any[]): string[] {
+    const phiFields: string[] = [];
+    const phiIndicators = [
+      'name', 'dob', 'birth', 'ssn', 'social security',
+      'address', 'phone', 'email', 'mrn', 'medical record',
+      'insurance', 'emergency contact'
+    ];
+    
+    fields.forEach(field => {
+      const fieldText = `${field.label} ${field.name}`.toLowerCase();
+      if (phiIndicators.some(indicator => fieldText.includes(indicator))) {
+        phiFields.push(field.id);
+      }
+    });
+    
+    return phiFields;
+  }
+
   // Enhanced mock response for development
   private getEnhancedMockTextractResponse(): any {
     return {
