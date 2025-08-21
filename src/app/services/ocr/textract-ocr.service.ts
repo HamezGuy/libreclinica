@@ -43,11 +43,11 @@ export class TextractOcrService implements IOcrService {
   private useMockData = true; // Toggle for development vs production
 
   constructor() {
-    // In production, this would be configured from environment
-    this.API_ENDPOINT = (environment as any).textractApiEndpoint || '/api/textract';
+    // Use real API endpoint
+    this.API_ENDPOINT = 'http://localhost:3001/api/textract';
     
-    // Check if we should use mock data or real API
-    this.useMockData = !environment.production || !(environment as any).textractApiEndpoint;
+    // Disable mock data - use real Textract
+    this.useMockData = false;
   }
 
   processDocument(
@@ -59,13 +59,25 @@ export class TextractOcrService implements IOcrService {
       ? Promise.resolve(file)
       : this.convertToBase64(file);
     
-    return from(base64Promise).pipe(
-      switchMap(base64 => from(this.callTextractAPI(base64, config))),
-      catchError(error => {
-        console.error('Textract processing error:', error);
-        return throwError(() => new Error('Failed to process document with Textract'));
-      })
-    );
+    // Check if we should use mock data (disabled by default)
+    if (this.useMockData) {
+      return from(base64Promise).pipe(
+        switchMap(() => {
+          // Simulate processing delay
+          return new Promise(resolve => setTimeout(resolve, 1500));
+        }),
+        map(() => this.getMockOcrResult()),
+        catchError(error => throwError(() => error))
+      );
+    } else {
+      return from(base64Promise).pipe(
+        switchMap(base64 => from(this.callTextractAPI(base64, config))),
+        catchError(error => {
+          console.error('Textract processing error:', error);
+          return throwError(() => new Error('Failed to process document with Textract'));
+        })
+      );
+    }
   }
 
   getCapabilities(): {
@@ -111,66 +123,62 @@ export class TextractOcrService implements IOcrService {
     });
   }
 
-  private async callTextractAPI(
-    base64Document: string,
-    config?: OcrProcessingConfig
-  ): Promise<OcrProcessingResult> {
-    const startTime = Date.now();
+  private callTextractAPI(base64Data: string, config?: OcrProcessingConfig): Observable<any> {
+    // Call the real backend proxy server
+    const headers = new Headers({
+      'Content-Type': 'application/json'
+    });
     
-    let response: any;
-    
-    if (this.useMockData) {
-      // Development mode - use mock data
-      response = this.getEnhancedMockTextractResponse();
-    } else {
-      // Production mode - call real API through backend proxy
-      response = await this.callTextractBackendProxy(base64Document, config);
-    }
-    
+    return from(
+      fetch(`${this.API_ENDPOINT}/analyze`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ base64: base64Data })
+      })
+    ).pipe(
+      switchMap(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            throw new Error(err.message || 'Textract API error');
+          });
+        }
+        return response.json();
+      }),
+      map(result => {
+        if (result.success && result.data) {
+          return result.data;
+        } else if (result.rawData) {
+          // If backend returns raw Textract data, process it
+          return this.processTextractResponse(result.rawData);
+        } else {
+          throw new Error('Invalid response from Textract API');
+        }
+      }),
+      catchError(error => {
+        console.error('Textract API error:', error);
+        return throwError(() => new Error(`OCR processing failed: ${error.message}`));
+      })
+    );
+  }
+
+  private processTextractResponse(response: any): OcrProcessingResult {
     const elements = this.parseTextractResponse(response);
     const tables = this.parseTextractTables(response);
     const formFields = this.extractFormFields(response);
     
-    // Merge form fields with elements for better field detection
-    const enhancedElements = this.mergeFormFieldsWithElements(elements, formFields);
+    // Merge form fields with elements
+    const mergedElements = this.mergeFormFieldsWithElements(elements, formFields);
     
     return {
-      elements: enhancedElements,
-      tables,
+      elements: mergedElements,
+      tables: tables,
+      rawData: response,
       metadata: {
-        pageCount: response.DocumentMetadata?.Pages || 1,
-        processingTime: Date.now() - startTime,
-        provider: 'Amazon Textract',
-        documentType: 'FORM',
-        warnings: this.useMockData ? ['Using mock data for development'] : []
-      },
-      rawData: response
+        provider: 'textract' as any,
+        pageCount: 1,
+        processingTime: 0
+      }
     };
-  }
-
-  // Call backend proxy for real Textract API
-  private async callTextractBackendProxy(
-    base64Document: string,
-    config?: OcrProcessingConfig
-  ): Promise<any> {
-    // This would call your backend API that securely handles AWS credentials
-    const response = await fetch(this.API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        document: base64Document,
-        featureTypes: ['FORMS', 'TABLES'],
-        config: config
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Textract API error: ${response.statusText}`);
-    }
-    
-    return response.json();
   }
 
   private parseTextractResponse(response: any): OcrFormElement[] {
@@ -182,7 +190,7 @@ export class TextractOcrService implements IOcrService {
         if (block.BlockType === 'LINE' || block.BlockType === 'WORD') {
           const element: OcrFormElement = {
             id: `element-${index}`,
-            type: this.inferElementType(block),
+            type: this.inferElementType(block.Text || ''),
             text: block.Text || '',
             confidence: block.Confidence || 0,
             boundingBox: this.convertBoundingBox(block.Geometry?.BoundingBox),
@@ -206,7 +214,7 @@ export class TextractOcrService implements IOcrService {
     return tables;
   }
 
-  private inferElementType(text: string): 'label' | 'input' | 'checkbox' | 'radio' | 'select' | 'text' | 'table' {
+  private inferElementType(text: string): 'label' | 'input' | 'checkbox' | 'radio' | 'text' {
     const lowerText = text.toLowerCase();
     
     // Check for checkbox indicators
@@ -244,6 +252,147 @@ export class TextractOcrService implements IOcrService {
       width: bb.Width || 0,
       height: bb.Height || 0
     };
+  }
+
+  private calculateAverageConfidence(elements: OcrFormElement[]): number {
+    if (elements.length === 0) return 0;
+    const sum = elements.reduce((acc, el) => acc + el.confidence, 0);
+    return sum / elements.length;
+  }
+
+  private extractFormFields(response: any): any[] {
+    const formFields: any[] = [];
+    
+    if (response.Blocks) {
+      const keyValuePairs: any = {};
+      const keyBlocks: any[] = [];
+      const valueBlocks: any[] = [];
+      
+      // First pass: identify KEY_VALUE_SET blocks
+      response.Blocks.forEach((block: any) => {
+        if (block.BlockType === 'KEY_VALUE_SET') {
+          if (block.EntityTypes && block.EntityTypes.includes('KEY')) {
+            keyBlocks.push(block);
+          } else if (block.EntityTypes && block.EntityTypes.includes('VALUE')) {
+            valueBlocks.push(block);
+          }
+        }
+      });
+      
+      // Match keys with values
+      keyBlocks.forEach((keyBlock: any) => {
+        if (keyBlock.Relationships) {
+          const valueRelation = keyBlock.Relationships.find((r: any) => r.Type === 'VALUE');
+          if (valueRelation && valueRelation.Ids) {
+            const valueBlock = valueBlocks.find((v: any) => valueRelation.Ids.includes(v.Id));
+            if (valueBlock) {
+              const keyText = this.getTextFromBlock(keyBlock, response.Blocks);
+              const valueText = this.getTextFromBlock(valueBlock, response.Blocks);
+              
+              formFields.push({
+                key: keyText,
+                value: valueText,
+                keyBoundingBox: keyBlock.Geometry?.BoundingBox,
+                valueBoundingBox: valueBlock.Geometry?.BoundingBox
+              });
+            }
+          }
+        }
+      });
+    }
+    
+    return formFields;
+  }
+
+  private getTextFromBlock(block: any, allBlocks: any[]): string {
+    let text = '';
+    
+    if (block.Text) {
+      return block.Text;
+    }
+    
+    if (block.Relationships) {
+      const childRelation = block.Relationships.find((r: any) => r.Type === 'CHILD');
+      if (childRelation && childRelation.Ids) {
+        childRelation.Ids.forEach((childId: string) => {
+          const childBlock = allBlocks.find((b: any) => b.Id === childId);
+          if (childBlock && childBlock.Text) {
+            text += (text ? ' ' : '') + childBlock.Text;
+          }
+        });
+      }
+    }
+    
+    return text;
+  }
+
+  private mergeFormFieldsWithElements(elements: OcrFormElement[], formFields: any[]): OcrFormElement[] {
+    const merged = [...elements];
+    
+    formFields.forEach((f: any) => {
+      if (f.key) {
+        const existingKey = merged.find(e => 
+          e.text.toLowerCase().trim() === f.key.toLowerCase().trim()
+        );
+        
+        if (!existingKey && f.keyBoundingBox) {
+          merged.push({
+            id: `form-key-${merged.length}`,
+            type: 'label',
+            text: f.key,
+            confidence: 95,
+            boundingBox: this.convertBoundingBox(f.keyBoundingBox),
+            relatedElements: f.value ? [`form-value-${merged.length}`] : []
+          });
+        }
+        
+        if (f.value && f.valueBoundingBox) {
+          merged.push({
+            id: `form-value-${merged.length}`,
+            type: 'input',
+            text: f.value,
+            confidence: 95,
+            boundingBox: this.convertBoundingBox(f.valueBoundingBox),
+            relatedElements: [`form-key-${merged.length - 1}`]
+          });
+        }
+      }
+    });
+    
+    return merged;
+  }
+
+  private getMockOcrResult(): OcrProcessingResult {
+    return {
+      elements: [
+        {
+          id: 'mock-1',
+          type: 'label',
+          text: 'Patient Name:',
+          confidence: 98,
+          boundingBox: { left: 10, top: 10, width: 100, height: 20 },
+          relatedElements: ['mock-2']
+        },
+        {
+          id: 'mock-2',
+          type: 'input',
+          text: '',
+          confidence: 95,
+          boundingBox: { left: 120, top: 10, width: 200, height: 20 },
+          relatedElements: ['mock-1']
+        }
+      ],
+      tables: [],
+      metadata: {
+        provider: 'textract' as any,
+        pageCount: 1,
+        processingTime: 1500
+      }
+    };
+  }
+
+  getProviderName(): string {
+    return 'Amazon Textract';
   }
 
   convertToFormTemplate(
@@ -305,71 +454,6 @@ export class TextractOcrService implements IOcrService {
     return template;
   }
 
-  getProviderName(): string {
-    return 'Amazon Textract';
-  }
-
-  private extractFormFields(response: any): any[] {
-    const formFields: any[] = [];
-    const keyValuePairs = new Map<string, any>();
-    
-    // First pass: collect KEY_VALUE_SET blocks
-    response.Blocks?.forEach((block: any) => {
-      if (block.BlockType === 'KEY_VALUE_SET' && block.EntityTypes?.includes('KEY')) {
-        const keyText = this.getTextFromBlock(block, response.Blocks);
-        let valueText = '';
-        let valueBoundingBox = null;
-        let confidence = 0;
-        
-        if (block.Relationships) {
-          const valueRelation = block.Relationships.find((r: any) => r.Type === 'VALUE');
-          if (valueRelation && valueRelation.Ids) {
-            const valueBlock = response.Blocks.find((b: any) => 
-              valueRelation.Ids.includes(b.Id) && b.BlockType === 'KEY_VALUE_SET'
-            );
-            if (valueBlock) {
-              valueText = this.getTextFromBlock(valueBlock, response.Blocks);
-              valueBoundingBox = valueBlock.Geometry?.BoundingBox;
-              confidence = valueBlock.Confidence || 0;
-            }
-          }
-        }
-        
-        keyValuePairs.set(keyText, {
-          text: valueText,
-          keyBoundingBox: block.Geometry?.BoundingBox,
-          valueBoundingBox,
-          confidence
-        });
-      }
-    });
-    
-    // Second pass: build form fields from key-value pairs
-    keyValuePairs.forEach((value, key) => {
-      formFields.push({
-        key: key,
-        value: value.text || '',
-        keyBoundingBox: value.keyBoundingBox,
-        valueBoundingBox: value.valueBoundingBox,
-        confidence: value.confidence || 0
-      });
-    });
-    
-    // Also extract SELECTION_ELEMENT blocks (checkboxes, radio buttons)
-    response.Blocks?.forEach((block: any) => {
-      if (block.BlockType === 'SELECTION_ELEMENT') {
-        formFields.push({
-          key: '',
-          value: block.SelectionStatus === 'SELECTED' ? 'checked' : 'unchecked',
-          valueBoundingBox: block.Geometry?.BoundingBox,
-          confidence: block.Confidence || 0,
-          selectionElement: true
-        });
-      }
-    });
-    
-    return formFields;
-  }
 
   private buildFieldsFromElements(elements: OcrFormElement[]): any[] {
     const fields: any[] = [];
@@ -445,60 +529,7 @@ export class TextractOcrService implements IOcrService {
     
     return fields;
   }
-  
-  private getTextFromBlock(block: any, allBlocks: any[]): string {
-    let text = '';
-    
-    if (block.Relationships) {
-      const childRelation = block.Relationships.find((r: any) => r.Type === 'CHILD');
-      if (childRelation && childRelation.Ids) {
-        const childBlocks = allBlocks.filter((b: any) => childRelation.Ids.includes(b.Id));
-        text = childBlocks
-          .filter((b: any) => b.BlockType === 'WORD' || b.BlockType === 'LINE')
-          .map((b: any) => b.Text || '')
-          .join(' ');
-      }
-    }
-    
-    return text || block.Text || '';
-  }
-  
-  private mergeFormFieldsWithElements(elements: OcrFormElement[], formFields: any[]): OcrFormElement[] {
-    const merged = [...elements];
-    
-    formFields.forEach((f: any) => {
-      if (f.key) {
-        // Check if we already have this as an element
-        const existingKey = merged.find(e => 
-          e.text.toLowerCase().trim() === f.key.toLowerCase().trim()
-        );
-        
-        if (!existingKey && f.keyBoundingBox) {
-          merged.push({
-            id: `form-key-${merged.length}`,
-            type: 'label',
-            text: f.key,
-            confidence: 95,
-            boundingBox: this.convertBoundingBox(f.keyBoundingBox),
-            relatedElements: f.value ? [`form-value-${merged.length}`] : []
-          });
-        }
-        
-        if (f.value && f.valueBoundingBox) {
-          merged.push({
-            id: `form-value-${merged.length}`,
-            type: 'input',
-            text: f.value,
-            confidence: 95,
-            boundingBox: this.convertBoundingBox(f.valueBoundingBox),
-            relatedElements: [`form-key-${merged.length - 1}`]
-          });
-        }
-      }
-    });
-    
-    return merged;
-  }
+
   
   // Enhanced mock response for development
   private getEnhancedMockTextractResponse(): any {
