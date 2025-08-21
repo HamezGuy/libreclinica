@@ -244,16 +244,19 @@ function getTextFromBlock(block, blockMap) {
 }
 
 // Convert Textract bounding box to our format
+// Textract returns normalized coordinates (0-1), we keep them normalized
+// The frontend will scale them based on actual image dimensions
 function convertBoundingBox(bb) {
   if (!bb) {
-    return { left: 0, top: 0, width: 0, height: 0 };
+    return { left: 0, top: 0, width: 0, height: 0, normalized: true };
   }
   
   return {
     left: bb.Left || 0,
     top: bb.Top || 0,
     width: bb.Width || 0,
-    height: bb.Height || 0
+    height: bb.Height || 0,
+    normalized: true  // Flag to indicate these are normalized coordinates
   };
 }
 

@@ -160,6 +160,8 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   currentImageNaturalSize = { width: 0, height: 0 };
   imageScale = 1;
   imageOffset = { x: 0, y: 0 };
+  imageOffsetX = 0;  // X offset for centered image
+  imageOffsetY = 0;  // Y offset for centered image
   showBoundingBoxes = true;
   showConfidenceScores = true;
   selectedElement: any = null;
@@ -361,12 +363,22 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
         throw new Error('No OCR result received');
       }
       
+      console.log('OCR Result received:', result);
+      console.log('Elements:', result.elements?.length || 0);
+      console.log('Tables:', result.tables?.length || 0);
+      
       this.ocrResult = result;
       this.generatedFields = this.convertOcrToFields(result);
       // Enhance fields with better labels and types if needed
       // Additional processing can be added here
       this.processOcrResult(result);
       this.detectedFields = this.convertOcrToFields(result);
+      
+      // Store elements for bounding box display
+      if (result.elements && result.elements.length > 0) {
+        this.detectedElements = result.elements;
+        console.log('Detected elements for bounding boxes:', this.detectedElements);
+      }
       this.viewMode = 'review';
 
       // Initialize canvas after view change
@@ -735,46 +747,67 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       return;
     }
 
+    const canvas = this.canvas;
+    const ctx = this.ctx;
+
     // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Save context state
-    this.ctx.save();
-
-    // Apply zoom transformation
-    this.ctx.scale(this.zoomLevel, this.zoomLevel);
+    // Calculate scale to fit image in canvas
+    const scale = Math.min(
+      canvas.width / this.currentImage.width,
+      canvas.height / this.currentImage.height
+    ) * this.zoomLevel;
+    
+    const scaledWidth = this.currentImage.width * scale;
+    const scaledHeight = this.currentImage.height * scale;
+    const x = (canvas.width - scaledWidth) / 2;
+    const y = (canvas.height - scaledHeight) / 2;
+    
+    // Update stored transformation values
+    this.imageScale = scale;
+    this.imageOffsetX = x;
+    this.imageOffsetY = y;
 
     // Draw the image
-    this.ctx.drawImage(this.currentImage, 0, 0);
+    ctx.save();
+    ctx.drawImage(this.currentImage, x, y, scaledWidth, scaledHeight);
+    ctx.restore();
 
-    // Draw OCR elements
-    if (this.showBoundingBoxes && this.ocrResult && this.ocrResult.elements) {
-      this.ocrResult.elements.forEach((element: any) => {
-        if (element.boundingBox) {
-          this.drawBoundingBox(element.boundingBox, element.confidence);
-        }
-      });
+    // Draw OCR elements if available
+    if (this.showBoundingBoxes && this.ocrResult) {
+      this.drawOcrElements();
     }
-
-    // Restore context state
-    this.ctx.restore();
   }
 
   private drawBoundingBox(boundingBox: any, confidence: number): void {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.currentImage) return;
 
     // Set style based on confidence
     const alpha = Math.min(0.3 + (confidence * 0.5), 0.8);
     this.ctx.strokeStyle = `rgba(0, 123, 255, ${alpha})`;
-    this.ctx.lineWidth = 2 / this.zoomLevel; // Adjust line width for zoom
+    this.ctx.lineWidth = 2;
+
+    // Check if coordinates are normalized (0-1 range)
+    let left, top, width, height;
+    if (boundingBox.normalized || (boundingBox.left <= 1 && boundingBox.top <= 1 && boundingBox.width <= 1 && boundingBox.height <= 1)) {
+      // Convert normalized coordinates to pixel coordinates
+      const imgWidth = this.currentImage.width || this.currentImage.naturalWidth;
+      const imgHeight = this.currentImage.height || this.currentImage.naturalHeight;
+      left = boundingBox.left * imgWidth * this.imageScale + this.imageOffsetX;
+      top = boundingBox.top * imgHeight * this.imageScale + this.imageOffsetY;
+      width = boundingBox.width * imgWidth * this.imageScale;
+      height = boundingBox.height * imgHeight * this.imageScale;
+    } else {
+      // Use pixel coordinates directly with scaling
+      left = boundingBox.left * this.imageScale + this.imageOffsetX;
+      top = boundingBox.top * this.imageScale + this.imageOffsetY;
+      width = boundingBox.width * this.imageScale;
+      height = boundingBox.height * this.imageScale;
+    }
 
     // Draw rectangle
-    this.ctx.strokeRect(
-      boundingBox.left,
-      boundingBox.top,
-      boundingBox.width,
-      boundingBox.height
-    );
+    this.ctx.strokeRect(left, top, width, height);
   }
 
   onRawCanvasWheel(event: WheelEvent): void {
@@ -929,13 +962,18 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
       const img = new Image();
       img.onload = () => {
         this.currentImage = img;
-        // Scale image to fit canvas
+        // Calculate scale and position to fit canvas
         const scale = Math.min(
           canvas.width / img.width,
           canvas.height / img.height
         );
         const x = (canvas.width - img.width * scale) / 2;
         const y = (canvas.height - img.height * scale) / 2;
+        
+        // Store transformation for bounding boxes
+        this.imageScale = scale;
+        this.imageOffsetX = x;
+        this.imageOffsetY = y;
         
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -968,7 +1006,20 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
           ctx.fillStyle = 'rgba(0, 123, 255, 0.8)';
           ctx.font = '10px Arial';
           const text = `${Math.round(element.confidence * 100)}%`;
-          ctx.fillText(text, element.boundingBox.left, element.boundingBox.top - 5);
+          
+          // Convert coordinates if normalized
+          let left, top;
+          if (this.currentImage && (element.boundingBox.normalized || (element.boundingBox.left <= 1 && element.boundingBox.top <= 1))) {
+            const imgWidth = (this.currentImage as any).width || (this.currentImage as any).naturalWidth || 800;
+            const imgHeight = (this.currentImage as any).height || (this.currentImage as any).naturalHeight || 600;
+            left = element.boundingBox.left * imgWidth * this.imageScale + this.imageOffsetX;
+            top = element.boundingBox.top * imgHeight * this.imageScale + this.imageOffsetY;
+          } else {
+            left = element.boundingBox.left * this.imageScale + this.imageOffsetX;
+            top = element.boundingBox.top * this.imageScale + this.imageOffsetY;
+          }
+          
+          ctx.fillText(text, left, top - 5);
         }
       }
     });
@@ -1024,7 +1075,7 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   }
 
   switchToFieldsView(): void {
-    this.viewMode = 'review';
+    this.viewMode = 'fields';
   }
 
   switchToReviewView(): void {

@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { DomSanitizer } from '@angular/platform-browser';
 import { Observable, of, from, throwError } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -36,13 +38,20 @@ interface TextractConfig {
 export class TextractOcrService implements IOcrService {
   private API_ENDPOINT: string;
   private config: TextractConfig = {
-    region: environment.aws?.region || 'us-east-1',
+    region: 'us-east-1', // Default region, actual region is configured in backend
     accessKeyId: '', // Loaded from backend
     secretAccessKey: '' // Loaded from backend
   };
+  private awsConfig = {
+    region: 'us-east-1', // Default region, actual region is configured in backend
+    credentials: null // Not needed when using backend proxy
+  };
   private useMockData = false; // Use real Textract by default
 
-  constructor() {
+  constructor(
+    private http: HttpClient,
+    private sanitizer: DomSanitizer
+  ) {
     // Use backend proxy endpoint - credentials are handled server-side
     this.API_ENDPOINT = environment.production 
       ? '/api/textract' // Production uses relative path
@@ -144,7 +153,7 @@ export class TextractOcrService implements IOcrService {
     const requestBody = {
       base64: base64Data,
       config: {
-        confidenceThreshold: config?.confidenceThreshold || environment.aws?.textract?.confidenceThreshold || 80,
+        confidenceThreshold: config?.confidenceThreshold || 80,
         extractTables: config?.extractTables !== false,
         extractForms: config?.extractForms !== false
       }
@@ -158,25 +167,30 @@ export class TextractOcrService implements IOcrService {
       })
     ).pipe(
       switchMap(response => {
+        console.log('OCR Response status:', response.status);
         if (!response.ok) {
-          return response.json().then(err => {
-            throw new Error(err.message || 'Textract API error');
-          });
+          return throwError(() => new Error(`HTTP error! status: ${response.status}`));
         }
-        return response.json();
+        return from(response.json());
       }),
-      map(result => {
-        if (result.success && result.data) {
-          return result.data;
-        } else if (result.rawData) {
-          // If backend returns raw Textract data, process it
-          return this.processTextractResponse(result.rawData);
-        } else {
-          throw new Error('Invalid response from Textract API');
+      map((data: any) => {
+        console.log('OCR Response data:', data);
+        // Backend returns the processed result
+        if (data.error) {
+          throw new Error(data.error);
         }
+        
+        // Log the extracted elements and tables
+        const result = data.data || data;
+        console.log('OCR Extracted elements:', result.elements?.length || 0);
+        console.log('OCR Extracted tables:', result.tables?.length || 0);
+        console.log('OCR Raw blocks:', data.rawData?.Blocks?.length || 0);
+        
+        // Return the processed data from backend
+        return result;
       }),
       catchError(error => {
-        console.error('Textract API error:', error);
+        console.error('Error calling Textract backend:', error);
         return throwError(() => new Error(`OCR processing failed: ${error.message}`));
       })
     );
