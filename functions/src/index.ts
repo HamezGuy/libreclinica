@@ -30,8 +30,8 @@ export {
   exportPatientData,
 } from "./healthcare-api";
 
-// Export Textract OCR function
-const textractOcr = require("./textract-ocr.js");
+// Export Textract OCR function (AWS SDK v3)
+const textractOcr = require("./textract-ocr-v3.js");
 export const analyzeDocument = textractOcr.analyzeDocument;
 
 console.log("Firebase Functions initialized successfully");

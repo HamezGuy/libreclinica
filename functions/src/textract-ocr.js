@@ -8,20 +8,26 @@ const corsHandler = cors({
     'http://localhost:4200',
     'http://localhost:4201',
     'http://localhost:4202',
+    'https://www.accuratrials.com',
+    'https://accuratrials.com',
     'https://electronic-data-capture-project.vercel.app',
     'https://electronic-data-capture-project-*.vercel.app',
     'https://data-entry-project-465905.firebaseapp.com',
-    'https://data-entry-project-465905.web.app'
+    'https://data-entry-project-465905.web.app',
+    'https://edc-project-j9m0xtl1m-james-guis-projects.vercel.app',
+    'https://edc-project-*.vercel.app'
   ],
   credentials: true
 });
 
-// Configure AWS Textract
-const textract = new AWS.Textract({
+// Configure AWS services
+const awsConfig = {
   accessKeyId: functions.config().aws?.access_key_id || process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: functions.config().aws?.secret_access_key || process.env.AWS_SECRET_ACCESS_KEY,
   region: functions.config().aws?.region || process.env.AWS_REGION || 'us-east-1'
-});
+};
+
+const textract = new AWS.Textract(awsConfig);
 
 exports.analyzeDocument = functions.runWith({
   timeoutSeconds: 120,
@@ -51,23 +57,50 @@ exports.analyzeDocument = functions.runWith({
       }
 
       // Convert base64 to buffer
-      const base64Data = requestData.base64.replace(/^data:.*,/, '');
+      let base64Data = requestData.base64.replace(/^data:.*,/, '');
       const documentBytes = Buffer.from(base64Data, 'base64');
-
-      // Prepare Textract parameters
+      
+      // Check document size (Textract sync API supports up to 5MB)
+      const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+      if (documentBytes.length > maxSizeBytes) {
+        throw new Error(`Document size (${Math.round(documentBytes.length / 1024 / 1024)}MB) exceeds maximum allowed size of 5MB for direct processing`);
+      }
+      
+      // Check if document is PDF (PDFs start with %PDF which is JVBERi in base64)
+      const isPDF = base64Data.startsWith('JVBERi');
+      
+      console.log(`Processing ${isPDF ? 'PDF' : 'image'} document (${Math.round(documentBytes.length / 1024)}KB)...`);
+      
+      // Process both PDFs and images directly using synchronous API
+      // Textract's analyzeDocument API supports both formats up to 5MB
       const params = {
         Document: {
           Bytes: documentBytes
         },
         FeatureTypes: ['FORMS', 'TABLES']
       };
-
-      console.log('Calling AWS Textract...');
       
-      // Call Textract
-      const result = await textract.analyzeDocument(params).promise();
-      
-      console.log(`Textract analysis complete. Found ${result.Blocks?.length || 0} blocks`);
+      let result;
+      try {
+        result = await textract.analyzeDocument(params).promise();
+        console.log(`Textract analysis complete. Found ${result.Blocks?.length || 0} blocks`);
+      } catch (textractError) {
+        console.error('Textract API error:', textractError);
+        
+        // Provide helpful error messages
+        if (textractError.code === 'InvalidParameterException' && textractError.message?.includes('PDF')) {
+          throw new Error('PDF processing failed. The document may be corrupted or use unsupported PDF features.');
+        } else if (textractError.code === 'InvalidParameterException') {
+          throw new Error('Document format not supported. Please upload a valid PDF or image file (JPEG, PNG).');
+        } else if (textractError.code === 'ProvisionedThroughputExceededException') {
+          throw new Error('Textract service is currently busy. Please try again in a few moments.');
+        } else if (textractError.code === 'InvalidS3ObjectException' || textractError.code === 'BadDocumentException') {
+          throw new Error('Document could not be processed. Please ensure the file is not corrupted.');
+        } else if (textractError.code === 'AccessDeniedException') {
+          throw new Error('AWS credentials lack Textract permissions. Please contact your administrator.');
+        }
+        throw textractError;
+      }
       
       // Process and structure the response
       const processedResult = processTextractResponse(result);
@@ -80,10 +113,24 @@ exports.analyzeDocument = functions.runWith({
       
     } catch (error) {
       console.error('Textract error:', error);
-      res.status(500).json({ 
-        error: 'Failed to analyze document',
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Failed to analyze document';
+      let statusCode = 500;
+      
+      if (error.message?.includes('AWS IAM user lacks S3 permissions')) {
+        errorMessage = error.message;
+        statusCode = 403;
+      } else if (error.message?.includes('S3 bucket') && error.message?.includes('does not exist')) {
+        errorMessage = error.message;
+        statusCode = 503;
+      }
+      
+      res.status(statusCode).json({ 
+        error: errorMessage,
         message: error.message,
-        code: error.code
+        code: error.code,
+        details: 'If this is a permissions error, please contact your administrator to update AWS IAM permissions.'
       });
     }
   });
@@ -236,18 +283,19 @@ function getTextFromBlock(block, blockMap) {
   return text.trim();
 }
 
-// Convert Textract bounding box to our format
-function convertBoundingBox(bb) {
-  if (!bb) {
-    return { left: 0, top: 0, width: 0, height: 0, normalized: true };
+// Helper function to convert AWS bounding box to our format
+function convertBoundingBox(awsBoundingBox) {
+  if (!awsBoundingBox) {
+    return null;
   }
   
+  // Keep coordinates normalized (0-1 range) for frontend to display correctly
   return {
-    left: bb.Left || 0,
-    top: bb.Top || 0,
-    width: bb.Width || 0,
-    height: bb.Height || 0,
-    normalized: true
+    left: awsBoundingBox.Left,
+    top: awsBoundingBox.Top,
+    width: awsBoundingBox.Width,
+    height: awsBoundingBox.Height,
+    normalized: true  // Flag to indicate these are normalized coordinates
   };
 }
 

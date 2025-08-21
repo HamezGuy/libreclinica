@@ -48,7 +48,47 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy', service: 'textract-proxy' });
 });
 
-// Textract document analysis endpoint
+// Proxy endpoint for Firebase Function
+app.post('/api/textract', async (req, res) => {
+  try {
+    console.log('Proxying request to Firebase Function');
+    console.log('Request body:', JSON.stringify(req.body).substring(0, 200));
+    
+    // Forward the request to Firebase Function
+    const firebaseFunctionUrl = 'https://us-central1-data-entry-project-465905.cloudfunctions.net/analyzeDocument';
+    
+    // Use axios instead of fetch for better compatibility
+    const axios = require('axios');
+    
+    const response = await axios.post(firebaseFunctionUrl, req.body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: () => true // Don't throw on non-2xx status
+    });
+    
+    console.log('Firebase Function response status:', response.status);
+    
+    if (response.status >= 400) {
+      console.error('Firebase Function error:', response.data);
+      return res.status(response.status).json(response.data);
+    }
+    
+    console.log('Successfully proxied OCR request');
+    res.json(response.data);
+    
+  } catch (error) {
+    console.error('Proxy error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to proxy request to Firebase Function',
+      message: error.message,
+      details: error.response?.data || error.toString()
+    });
+  }
+});
+
+// Textract document analysis endpoint (direct AWS call)
 app.post('/api/textract/analyze', upload.single('document'), async (req, res) => {
   try {
     console.log('Received document for analysis');

@@ -157,16 +157,18 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   canvas: HTMLCanvasElement | null = null;
   ctx: CanvasRenderingContext2D | null = null;
   currentImage: HTMLImageElement | null = null;
-  currentImageNaturalSize = { width: 0, height: 0 };
-  imageScale = 1;
-  imageOffset = { x: 0, y: 0 };
-  imageOffsetX = 0;  // X offset for centered image
-  imageOffsetY = 0;  // Y offset for centered image
+  imageScale: number = 1;
+  imageOffsetX: number = 0;
+  imageOffsetY: number = 0;
+  zoomLevel: number = 1;
+  isDragging: boolean = false;
+  dragStartX: number = 0;
+  dragStartY: number = 0;
+  panOffset: { x: number; y: number } = { x: 0, y: 0 };  
   showBoundingBoxes = true;
   showConfidenceScores = true;
   selectedElement: any = null;
   editingFieldIndex: number | null = null;
-  zoomLevel: number = 1;
 
   // Field editing
   selectedField: FormField | null = null;
@@ -186,31 +188,41 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     private languageService: LanguageService,
     @Optional() @Inject(MAT_DIALOG_DATA) public data: any
   ) {
+    // Initialize forms with proper default values to prevent writeValue errors
     this.templateForm = this.fb.group({
-      name: ['', Validators.required],
-      description: [''],
-      category: ['ocr-generated'],
-      version: ['1.0']
+      name: [this.data?.templateName || '', Validators.required],
+      description: [this.data?.description || ''],
+      category: [this.data?.category || 'ocr-generated'],
+      version: [this.data?.version || '1.0']
     });
 
     this.fieldEditForm = this.fb.group({
       label: ['', Validators.required],
       name: ['', Validators.required],
       type: ['text', Validators.required],
-      required: [false],
+      required: [false || false],  // Ensure boolean
       placeholder: [''],
       helpText: [''],
-      isPhiField: [false],
-      auditRequired: [false]
+      isPhiField: [false || false],  // Ensure boolean
+      auditRequired: [false || false]  // Ensure boolean
     });
   }
 
   ngOnInit(): void {
-    // Pre-fill form if data provided
-    if (this.data?.templateName) {
-      this.templateForm.patchValue({
-        name: this.data.templateName
-      });
+    // Forms already initialized with data in constructor
+    // Additional initialization if needed
+    if (this.data) {
+      // Safely patch any additional data
+      const patchData: any = {};
+      if (this.data.templateName && !this.templateForm.get('name')?.value) {
+        patchData.name = this.data.templateName;
+      }
+      if (this.data.description && !this.templateForm.get('description')?.value) {
+        patchData.description = this.data.description;
+      }
+      if (Object.keys(patchData).length > 0) {
+        this.templateForm.patchValue(patchData);
+      }
     }
   }
 
@@ -218,22 +230,16 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     // Initialize providers
     this.availableProviders = this.ocrProviderFactory.getAvailableProviders();
 
-    // Initialize canvas for review mode
-    if (this.viewMode === 'review' && this.imageCanvas) {
-      setTimeout(() => {
-        if (this.imageCanvas && this.imageCanvas.nativeElement) {
-          this.initializeCanvas();
-          // this.loadImageToCanvas(); // Method to be implemented if needed
-        }
-      }, 100);
-    }
-    if (this.documentPreviewUrl) {
-      setTimeout(() => {
-        if (this.imageCanvas && this.imageCanvas.nativeElement) {
+    // Initialize canvas after view is ready
+    setTimeout(() => {
+      // Initialize canvas for review mode
+      if (this.viewMode === 'review' && this.imageCanvas?.nativeElement) {
+        this.initializeCanvas();
+        if (this.documentPreviewUrl || this.imagePreviewUrl) {
           this.loadCurrentPageToCanvas();
         }
-      }, 100);
-    }
+      }
+    }, 100);
   }
 
   ngOnDestroy(): void {
@@ -379,6 +385,20 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
         this.detectedElements = result.elements;
         console.log('Detected elements for bounding boxes:', this.detectedElements);
       }
+      
+      // Create or maintain document preview URL
+      if (!this.documentPreviewUrl && this.selectedFile) {
+        if (this.selectedFile.type === 'application/pdf') {
+          // For PDFs, create a blob URL
+          this.documentPreviewUrl = URL.createObjectURL(this.selectedFile);
+          this.imagePreviewUrl = this.documentPreviewUrl;
+        } else if (this.selectedFile.type.startsWith('image/')) {
+          // For images, create a preview URL
+          this.documentPreviewUrl = URL.createObjectURL(this.selectedFile);
+          this.imagePreviewUrl = this.documentPreviewUrl;
+        }
+      }
+      
       this.viewMode = 'review';
 
       // Initialize canvas after view change
@@ -826,14 +846,16 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     const idx = (typeof index === 'number') ? index : this.generatedFields.findIndex((f: FormField) => f.id === field.id);
     this.editingFieldIndex = idx >= 0 ? idx : null;
 
-    // Populate the edit form with current field values
+    // Populate the edit form with current field values, ensuring no null values
     this.fieldEditForm.patchValue({
-      label: field.label,
-      name: field.name,
-      type: field.type,
-      required: field.required,
-      auditRequired: field.auditRequired,
-      helpText: field.helpText
+      label: field.label || '',
+      name: field.name || '',
+      type: field.type || 'text',
+      required: field.required === true,  // Ensure boolean
+      placeholder: field.placeholder || '',
+      helpText: field.helpText || '',
+      isPhiField: field.isPhiField === true,  // Ensure boolean
+      auditRequired: field.auditRequired === true  // Ensure boolean
     });
     // Show the edit panel if it exists
   }
@@ -944,85 +966,198 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     // Set default styles
     this.ctx.strokeStyle = '#007bff';
     this.ctx.lineWidth = 2;
-    this.ctx.font = '12px Arial';
+    
+    console.log('Canvas initialized:', canvas.width, 'x', canvas.height);
   }
+  
+  loadCurrentPageToCanvas(): void {
+    if (!this.imageCanvas || !this.imageCanvas.nativeElement) {
+      console.warn('Canvas not available');
+      return;
+    }
 
-  // Load current page image to canvas
-  private loadCurrentPageToCanvas(): void {
-    if (!this.ctx || !this.imageCanvas) return;
-    
     const canvas = this.imageCanvas.nativeElement;
-    const ctx = this.ctx;
-    
-    // Clear canvas
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error('Could not get canvas context');
+      return;
+    }
+
+    // Initialize canvas if not already done
+    if (!this.ctx) {
+      this.initializeCanvas();
+    }
+
+    // Clear entire canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // If we have a document preview URL, load it as an image
-    if (this.documentPreviewUrl) {
+    // Save context state
+    ctx.save();
+    
+    // Apply transformations for pan and zoom
+    ctx.translate(this.panOffset.x, this.panOffset.y);
+    ctx.scale(this.zoomLevel, this.zoomLevel);
+    
+    // Determine which URL to use (prioritize imagePreviewUrl for multi-page)
+    const imageUrl = this.imagePreviewUrl || this.documentPreviewUrl;
+    
+    console.log('Loading image from URL:', imageUrl);
+    console.log('Document type:', this.selectedFile?.type);
+    
+    if (imageUrl) {
       const img = new Image();
+      
       img.onload = () => {
-        this.currentImage = img;
-        // Calculate scale and position to fit canvas
+        // Clear canvas in transformed space
+        ctx.clearRect(-this.panOffset.x / this.zoomLevel, -this.panOffset.y / this.zoomLevel, 
+                      canvas.width / this.zoomLevel, canvas.height / this.zoomLevel);
+        
+        // Calculate scaling to fit image in canvas
         const scale = Math.min(
           canvas.width / img.width,
           canvas.height / img.height
-        );
-        const x = (canvas.width - img.width * scale) / 2;
-        const y = (canvas.height - img.height * scale) / 2;
+        ) * 0.8; // 80% to leave margin
         
-        // Store transformation for bounding boxes
+        const scaledWidth = img.width * scale;
+        const scaledHeight = img.height * scale;
+        
+        // Center the image
+        const x = (canvas.width - scaledWidth) / 2 / this.zoomLevel;
+        const y = (canvas.height - scaledHeight) / 2 / this.zoomLevel;
+        
+        // Draw the image
+        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        
+        // Store image dimensions for later use
         this.imageScale = scale;
-        this.imageOffsetX = x;
-        this.imageOffsetY = y;
+        this.imageOffsetX = x * this.zoomLevel;
+        this.imageOffsetY = y * this.zoomLevel;
         
-        ctx.save();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        // Draw OCR bounding boxes if available
+        if (this.detectedElements && this.detectedElements.length > 0) {
+          console.log('Drawing', this.detectedElements.length, 'bounding boxes');
+          this.drawBoundingBoxesForElements(ctx, this.detectedElements, img.width, img.height, scale, x, y);
+        } else if (this.ocrResult && this.ocrResult.elements && this.ocrResult.elements.length > 0) {
+          console.log('Drawing', this.ocrResult.elements.length, 'OCR result boxes');
+          this.drawBoundingBoxesForElements(ctx, this.ocrResult.elements, img.width, img.height, scale, x, y);
+        }
+        
+        // Restore context
+        ctx.restore();
+        console.log('Image loaded and rendered successfully');
+      };
+      
+      img.onerror = (error) => {
+        console.error('Failed to load image:', error);
         ctx.restore();
         
-        // Draw OCR elements if available
-        if (this.showBoundingBoxes && this.ocrResult) {
-          this.drawOcrElements();
-        }
+        // Show error message on canvas
+        ctx.fillStyle = '#ffebee';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#c62828';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Failed to load document preview', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillText('Note: PDF preview requires PDF.js library', canvas.width / 2, canvas.height / 2 + 10);
       };
-      img.src = this.documentPreviewUrl;
+      
+      // Load the image
+      img.src = imageUrl;
+    } else {
+      // No image available, show placeholder
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(-this.panOffset.x / this.zoomLevel, -this.panOffset.y / this.zoomLevel, 
+                   canvas.width / this.zoomLevel, canvas.height / this.zoomLevel);
+      ctx.fillStyle = '#666';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('No document preview available', 
+                   canvas.width / 2 / this.zoomLevel, 
+                   canvas.height / 2 / this.zoomLevel);
+      
+      ctx.restore();
     }
   }
   
-  // Draw OCR elements on canvas
-  private drawOcrElements(): void {
-    if (!this.ctx || !this.ocrResult || !this.ocrResult.elements) return;
+  private drawBoundingBoxesForElements(ctx: CanvasRenderingContext2D, elements: any[], imgWidth: number, imgHeight: number, scale: number, offsetX: number, offsetY: number): void {
+    if (!elements || elements.length === 0) return;
     
-    const ctx = this.ctx;
-    ctx.save();
-    
-    // Draw bounding boxes for each OCR element
-    this.ocrResult.elements.forEach((element: any) => {
+    elements.forEach((element: any) => {
       if (element.boundingBox) {
-        this.drawBoundingBox(element.boundingBox, element.confidence);
+        const box = element.boundingBox;
         
-        // Draw confidence scores if enabled
-        if (this.showConfidenceScores && element.confidence !== undefined) {
-          ctx.fillStyle = 'rgba(0, 123, 255, 0.8)';
-          ctx.font = '10px Arial';
-          const text = `${Math.round(element.confidence * 100)}%`;
+        // Bounding box coordinates are normalized (0-1)
+        // Convert to actual pixel coordinates based on image dimensions
+        const x = box.left * imgWidth * scale + offsetX;
+        const y = box.top * imgHeight * scale + offsetY;
+        const width = box.width * imgWidth * scale;
+        const height = box.height * imgHeight * scale;
+        
+        // Draw bounding box with color based on confidence
+        const confidence = element.confidence || 0;
+        const color = confidence > 90 ? 'rgba(0, 200, 0, 0.6)' : 
+                     confidence > 70 ? 'rgba(255, 165, 0, 0.6)' : 
+                     'rgba(255, 0, 0, 0.6)';
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2 / this.zoomLevel;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Fill with semi-transparent color
+        ctx.fillStyle = color.replace('0.6', '0.15');
+        ctx.fillRect(x, y, width, height);
+        
+        // Draw label with text and confidence
+        if (element.text || element.confidence) {
+          // Background for text
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          const label = element.text ? 
+            `${element.text.substring(0, 30)}${element.text.length > 30 ? '...' : ''} (${Math.round(confidence)}%)` :
+            `${Math.round(confidence)}%`;
           
-          // Convert coordinates if normalized
-          let left, top;
-          if (this.currentImage && (element.boundingBox.normalized || (element.boundingBox.left <= 1 && element.boundingBox.top <= 1))) {
-            const imgWidth = (this.currentImage as any).width || (this.currentImage as any).naturalWidth || 800;
-            const imgHeight = (this.currentImage as any).height || (this.currentImage as any).naturalHeight || 600;
-            left = element.boundingBox.left * imgWidth * this.imageScale + this.imageOffsetX;
-            top = element.boundingBox.top * imgHeight * this.imageScale + this.imageOffsetY;
-          } else {
-            left = element.boundingBox.left * this.imageScale + this.imageOffsetX;
-            top = element.boundingBox.top * this.imageScale + this.imageOffsetY;
+          const fontSize = 12 / this.zoomLevel;
+          ctx.font = `${fontSize}px Arial`;
+          const metrics = ctx.measureText(label);
+          const padding = 4 / this.zoomLevel;
+          const labelWidth = metrics.width + padding * 2;
+          const labelHeight = fontSize + padding * 2;
+          let labelX = x;
+          let labelY = y - labelHeight - 2 / this.zoomLevel;
+          if (labelY < offsetY) {
+            labelY = y + 2 / this.zoomLevel;
           }
-          
-          ctx.fillText(text, left, top - 5);
+          // Draw background box
+          ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+          // Draw text
+          ctx.fillStyle = '#000';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label, labelX + padding, labelY + padding);
         }
       }
     });
+  }
+
+  private drawOcrElements(): void {
+    if (!this.ctx || !this.ocrResult || !this.ocrResult.elements || !this.currentImage) return;
+    
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Use image dimensions with stored scale/offsets to align boxes correctly
+    const imgWidth = this.currentImage.width || (this.currentImage as any).naturalWidth;
+    const imgHeight = this.currentImage.height || (this.currentImage as any).naturalHeight;
+
+    if (this.showBoundingBoxes) {
+      this.drawBoundingBoxesForElements(
+        ctx,
+        this.ocrResult.elements,
+        imgWidth,
+        imgHeight,
+        this.imageScale,
+        this.imageOffsetX,
+        this.imageOffsetY
+      );
+    }
     
     ctx.restore();
   }
@@ -1081,8 +1216,9 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
   switchToReviewView(): void {
     this.viewMode = 'review';
     setTimeout(() => {
-      if (this.imageCanvas && this.imageCanvas.nativeElement) {
+      if (this.imageCanvas?.nativeElement) {
         this.initializeCanvas();
+        this.loadCurrentPageToCanvas();
       }
     }, 100);
   }
@@ -1095,7 +1231,7 @@ export class OcrTemplateBuilderComponent implements OnInit, AfterViewInit, OnDes
     this.imagePreviewUrl = this.imagePreviewUrls[pageIndex];
 
     // Reload canvas with new page
-    if (this.viewMode === 'review' && this.imageCanvas && this.imageCanvas.nativeElement) {
+    if (this.viewMode === 'review' && this.imageCanvas?.nativeElement) {
       this.initializeCanvas();
       this.loadCurrentPageToCanvas();
     }

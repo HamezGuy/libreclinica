@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer } from '@angular/platform-browser';
-import { Observable, of, from, throwError } from 'rxjs';
-import { map, catchError, switchMap } from 'rxjs/operators';
+import { Observable, from, of, throwError } from 'rxjs';
+import { map, catchError, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   IOcrService,
@@ -36,7 +36,7 @@ interface TextractConfig {
   providedIn: 'root'
 })
 export class TextractOcrService implements IOcrService {
-  private API_ENDPOINT: string;
+  private readonly API_ENDPOINT = environment.functions?.textractEndpoint || 'https://us-central1-data-entry-project-465905.cloudfunctions.net/analyzeDocument';
   private config: TextractConfig = {
     region: 'us-east-1', // Default region, actual region is configured in backend
     accessKeyId: '', // Loaded from backend
@@ -52,10 +52,11 @@ export class TextractOcrService implements IOcrService {
     private http: HttpClient,
     private sanitizer: DomSanitizer
   ) {
-    // Use backend proxy endpoint - credentials are handled server-side
-    this.API_ENDPOINT = environment.production 
-      ? `${(environment as any).functionsUrl}/analyzeDocument` 
-      : 'http://localhost:3001/api/textract';
+    // Always use Firebase Function directly
+    // No need for backend proxy - call Firebase Function directly
+    const isProduction = window.location.hostname !== 'localhost' && 
+                        window.location.hostname !== '127.0.0.1' &&
+                        !window.location.hostname.startsWith('192.168');
     
     // Don't use mock data - backend handles authentication
     this.useMockData = false;
@@ -64,7 +65,10 @@ export class TextractOcrService implements IOcrService {
     console.log('TextractOcrService initialized:', {
       endpoint: this.API_ENDPOINT,
       region: this.config.region,
-      useMockData: this.useMockData
+      useMockData: this.useMockData,
+      hostname: window.location.hostname,
+      isProduction: isProduction,
+      note: 'Using Firebase Function directly for all OCR requests'
     });
   }
 
@@ -143,7 +147,7 @@ export class TextractOcrService implements IOcrService {
   }
 
   private callTextractAPI(base64Data: string, config?: OcrProcessingConfig): Observable<any> {
-    // Call the backend proxy server which handles AWS credentials
+    // Call the Firebase Function directly which handles AWS credentials
     const headers = new Headers({
       'Content-Type': 'application/json',
       'Accept': 'application/json'
@@ -160,7 +164,7 @@ export class TextractOcrService implements IOcrService {
     };
     
     return from(
-      fetch(`${this.API_ENDPOINT}/analyze`, {
+      fetch(this.API_ENDPOINT, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify(requestBody)
