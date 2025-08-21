@@ -323,17 +323,17 @@
           </table>
 
           <div class="template-preview" *ngIf="conversionResult?.template">
-            <h3>{{ 'data_preview' | translate }}</h3>
+            <h3>{{ 'excel-conversion.data_preview' | translate }}</h3>
             <mat-card>
               <mat-card-header>
                 <mat-card-title>{{ data.template?.name || 'Template' }}</mat-card-title>
-                <mat-card-subtitle>{{ 'version' | translate }} {{ data.template?.version || '1.0' }}</mat-card-subtitle>
+                <mat-card-subtitle>{{ 'excel-conversion.version' | translate }} {{ data.template?.version || '1.0' }}</mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
                 <div class="template-stats">
-                  <p><strong>{{ 'fields' | translate }}:</strong> {{ data.template?.fields?.length || 0 }}</p>
-                  <span><strong>{{ 'phi_fields' | translate }}:</strong> {{ conversionResult?.template?.phiDataFields?.length || 0 }}</span>
-                  <p><strong>{{ 'status' | translate }}:</strong> {{ data.template?.status || 'draft' }}</p>
+                  <p><strong>{{ 'excel-conversion.fields' | translate }}:</strong> {{ data.template?.fields?.length || 0 }}</p>
+                  <span><strong>{{ 'excel-conversion.phi_fields' | translate }}:</strong> {{ conversionResult?.template?.phiDataFields?.length || 0 }}</span>
+                  <p><strong>{{ 'excel-conversion.status' | translate }}:</strong> {{ data.template?.status || 'draft' }}</p>
                 </div>
               </mat-card-content>
             </mat-card>
