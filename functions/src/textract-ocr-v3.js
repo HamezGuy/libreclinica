@@ -4,20 +4,60 @@ const cors = require('cors');
 
 // Initialize CORS with allowed origins
 const corsHandler = cors({
-  origin: [
-    'http://localhost:4200',
-    'http://localhost:4201',
-    'http://localhost:4202',
-    'https://www.accuratrials.com',
-    'https://accuratrials.com',
-    'https://electronic-data-capture-project.vercel.app',
-    'https://electronic-data-capture-project-*.vercel.app',
-    'https://data-entry-project-465905.firebaseapp.com',
-    'https://data-entry-project-465905.web.app',
-    'https://edc-project-j9m0xtl1m-james-guis-projects.vercel.app',
-    'https://edc-project-*.vercel.app'
-  ],
-  credentials: true
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:4200',
+      'http://localhost:4201',
+      'http://localhost:4202',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5000',
+      'http://localhost:5001',
+      'http://localhost:8080',
+      'http://localhost:8081',
+      'http://127.0.0.1:4200',
+      'http://127.0.0.1:4201',
+      'http://127.0.0.1:4202',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5000',
+      'http://127.0.0.1:8080',
+      'https://www.accuratrials.com',
+      'https://accuratrials.com',
+      'https://electronic-data-capture-project.vercel.app',
+      'https://electronic-data-capture-project-*.vercel.app',
+      'https://data-entry-project-465905.firebaseapp.com',
+      'https://data-entry-project-465905.web.app',
+      'https://edc-project-j9m0xtl1m-james-guis-projects.vercel.app',
+      'https://edc-project-*.vercel.app'
+    ];
+    
+    // Allow any localhost or 127.0.0.1 origin in development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Check against allowed origins list
+    if (allowedOrigins.includes(origin) || 
+        allowedOrigins.some(allowed => {
+          if (allowed.includes('*')) {
+            const pattern = allowed.replace('*', '.*');
+            return new RegExp(pattern).test(origin);
+          }
+          return false;
+        })) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // Cache preflight response for 24 hours
 });
 
 exports.analyzeDocument = functions.runWith({
@@ -46,7 +86,9 @@ exports.analyzeDocument = functions.runWith({
     }
 
     try {
-      console.log('Received OCR request');
+      console.log('Received OCR request from origin:', req.headers.origin || 'no origin');
+      console.log('Request method:', req.method);
+      console.log('Request headers:', JSON.stringify(req.headers));
       
       const requestData = req.body;
       
