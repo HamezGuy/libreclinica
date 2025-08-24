@@ -107,24 +107,30 @@ export interface PatientPhase {
 
 // Patient Phase Template (full template data embedded in phase)
 export interface PatientPhaseTemplate {
-  id: string;
-  templateId: string; // Original template ID
+  id: string; // Unique form instance ID for this patient
+  templateId: string; // Original template ID for reference
   templateName: string;
   templateVersion: string;
   category?: string;
   description?: string;
   
-  // Template structure (full form definition)
+  // Template structure (full form definition - patient's own copy)
   fields: any[]; // Complete field definitions from original template
   sections?: any[]; // Section structure if applicable
-  metadata?: any; // Any additional template metadata
+  metadata?: any; // Complete template metadata including all settings
   
-  // Assignment properties
+  // Assignment properties from study phase
   isRequired: boolean;
   order: number;
   completionRequired?: boolean;
   signatureRequired?: boolean;
   reviewRequired?: boolean;
+  
+  // Additional assignment metadata
+  assignmentNotes?: string;
+  assignmentTags?: string[];
+  expectedCompletionDays?: number;
+  reminderSettings?: any;
   
   // Status for this patient
   status: 'pending' | 'in_progress' | 'completed' | 'reviewed' | 'signed';
@@ -143,6 +149,13 @@ export interface PatientPhaseTemplate {
   
   // Audit
   changeHistory?: any[];
+  
+  // Patient-specific form instance data
+  patientId?: string;
+  studyId?: string;
+  phaseId?: string;
+  formInstanceCreatedAt?: Date;
+  formInstanceCreatedBy?: string;
 }
 
 // Patient Visit Subcomponent

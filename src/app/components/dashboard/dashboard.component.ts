@@ -518,7 +518,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (this.patientPhases.length === 0 && patient.id) {
         this.patientService.getPatientById(patient.id).then(fullPatient => {
           if (fullPatient) {
-            this.patientPhases = fullPatient.phases || fullPatient.visitSubcomponents || [];
+            this.patientPhases = fullPatient.phases || [];
             console.log('Loaded patient phases:', this.patientPhases);
             
             // Calculate completion percentages for each phase

@@ -245,8 +245,47 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
     this.viewPatientHistory.emit(patient);
   }
   
+  // Get patient folders (phases)
+  getPatientFolders(patientId: string): any[] {
+    const phases = this.getPatientPhases(patientId);
+    return phases.map(phase => ({
+      id: phase.id,
+      name: phase.phaseName,
+      phaseId: phase.phaseId,
+      isPhaseFolder: true,
+      status: phase.status,
+      completionPercentage: phase.completionPercentage,
+      type: phase.type
+    }));
+  }
+  
+  // Get folder completion class
+  getFolderCompletionClass(folder: any): string {
+    if (folder.status === 'completed') return 'completed';
+    if (folder.status === 'in_progress') return 'in-progress';
+    if (folder.status === 'missed') return 'missed';
+    if (folder.status === 'scheduled') return 'scheduled';
+    return 'not-started';
+  }
+  
+  // Get folder icon
+  getFolderIcon(folder: any): string {
+    if (folder.type) {
+      switch (folder.type) {
+        case 'screening': return 'search';
+        case 'baseline': return 'assessment';
+        case 'treatment': return 'medication';
+        case 'follow_up': return 'event_note';
+        case 'unscheduled': return 'schedule';
+        case 'adverse_event': return 'warning';
+        default: return 'folder';
+      }
+    }
+    return 'folder';
+  }
+  
   // Navigate to phase forms
-  onPhaseClick(studyId: string, patientId: string, phaseId: string, event: Event) {
+  onPhaseClick(studyId: string, patientId: string, phaseId: string, folderId: string, event: Event) {
     event.stopPropagation();
     this.router.navigate(['/phase-forms', studyId, patientId, phaseId]);
   }

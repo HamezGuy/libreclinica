@@ -276,7 +276,7 @@ export class PatientService {
       
       // Create the patient phase structure
       const patientPhase: PatientPhase = {
-        id: `phase_${studyPhase.id}`,
+        id: `phase_${studyPhase.id}_${patientId}`, // Make ID unique per patient
         phaseId: studyPhase.id,
         phaseName: studyPhase.phaseName || studyPhase.name || `Phase ${studyPhase.order}`,
         phaseCode: studyPhase.phaseCode,
@@ -333,48 +333,103 @@ export class PatientService {
               continue;
             }
             
+            // Create a unique form instance ID for this patient
+            const formInstanceId = `${patientId}_${studyPhase.id}_${assignment.templateId}_${Date.now()}`;
+            
+            // Deep clone the template to ensure complete independence
+            const templateClone = JSON.parse(JSON.stringify(fullTemplate));
+            
             // Create the patient phase template with full embedded data
             const patientPhaseTemplate: PatientPhaseTemplate = {
-              id: `${studyPhase.id}_template_${assignment.templateId}`,
-              templateId: assignment.templateId,
-              templateName: assignment.templateName || fullTemplate.name || `Template ${i + 1}`,
-              templateVersion: assignment.templateVersion || fullTemplate.version || '1.0',
-              category: fullTemplate.category,
-              description: fullTemplate.description || assignment.description,
+              id: formInstanceId, // Unique form instance ID for this patient
+              templateId: assignment.templateId, // Original template ID for reference
+              templateName: assignment.templateName || templateClone.name || `Template ${i + 1}`,
+              templateVersion: assignment.templateVersion || templateClone.version || '1.0',
+              category: templateClone.category,
+              description: templateClone.description || assignment.description,
               
-              // Copy the complete template structure
-              fields: fullTemplate.fields || [],
-              sections: fullTemplate.sections,
+              // Deep copy the complete template structure - this is the patient's own copy
+              fields: templateClone.fields || [],
+              sections: templateClone.sections || [],
               metadata: {
-                originalTemplate: fullTemplate,
-                templateType: fullTemplate.templateType,
-                settings: (fullTemplate as any).settings || {},
-                validation: (fullTemplate as any).validation || {}
+                // Store complete original template data
+                originalTemplateId: assignment.templateId,
+                originalTemplateName: templateClone.name,
+                originalTemplateVersion: templateClone.version,
+                templateType: templateClone.templateType,
+                settings: templateClone.settings || {},
+                validation: templateClone.validation || {},
+                // Additional template metadata
+                layout: templateClone.layout || {},
+                styling: templateClone.styling || {},
+                logic: templateClone.logic || {},
+                calculations: templateClone.calculations || [],
+                dependencies: templateClone.dependencies || [],
+                // Compliance and regulatory
+                isGxpValidated: templateClone.isGxpValidated || false,
+                requiresSignature: templateClone.requiresSignature || false,
+                auditTrail: templateClone.auditTrail || true,
+                // Template configuration
+                allowPartialSave: templateClone.allowPartialSave !== false,
+                autoSaveInterval: templateClone.autoSaveInterval || 30,
+                maxAttachmentSize: templateClone.maxAttachmentSize || 10485760, // 10MB default
+                supportedFileTypes: templateClone.supportedFileTypes || ['pdf', 'jpg', 'png', 'doc', 'docx'],
+                // Copy any custom properties from the template
+                customProperties: templateClone.customProperties || {},
+                // Store the complete original template for reference
+                fullTemplateSnapshot: templateClone
               },
               
-              // Assignment properties
+              // Assignment properties from study phase
               isRequired: assignment.isRequired !== false,
               order: assignment.order || i,
               completionRequired: assignment.completionRequired || false,
               signatureRequired: assignment.signatureRequired || false,
               reviewRequired: assignment.reviewRequired || false,
               
-              // Initial status
+              // Additional assignment metadata
+              assignmentNotes: assignment.notes || '',
+              assignmentTags: assignment.tags || [],
+              expectedCompletionDays: assignment.expectedCompletionDays,
+              reminderSettings: assignment.reminderSettings || {},
+              
+              // Initial status for this patient
               status: 'pending',
               completionPercentage: 0,
               
-              // Form data will be populated when patient fills the form
+              // Initialize empty form data - will be populated when patient fills the form
               formData: {},
               validationErrors: [],
-              changeHistory: []
+              changeHistory: [
+                {
+                  action: 'created',
+                  timestamp: new Date(),
+                  userId: userId,
+                  details: `Form instance created for patient ${patientId}`,
+                  metadata: {
+                    patientId: patientId,
+                    studyPhaseId: studyPhase.id,
+                    templateId: assignment.templateId
+                  }
+                }
+              ],
+              
+              // Patient-specific form instance data
+              patientId: patientId,
+              studyId: studyPhase.studyId,
+              phaseId: studyPhase.id,
+              formInstanceCreatedAt: new Date(),
+              formInstanceCreatedBy: userId
             };
             
             patientPhase.templates.push(patientPhaseTemplate);
             
             // Track blocking templates if required
             if (patientPhaseTemplate.isRequired) {
-              patientPhase.blockingTemplates.push(patientPhaseTemplate.templateId);
+              patientPhase.blockingTemplates.push(formInstanceId); // Use form instance ID, not template ID
             }
+            
+            console.log(`[PatientService] Created form instance ${formInstanceId} from template ${assignment.templateId}`);
             
           } catch (error) {
             console.error(`[PatientService] Error fetching template ${assignment.templateId}:`, error);
@@ -382,7 +437,7 @@ export class PatientService {
           }
         }
         
-        console.log(`[PatientService] Successfully embedded ${patientPhase.templates.length} templates in phase ${patientPhase.phaseName}`);
+        console.log(`[PatientService] Successfully embedded ${patientPhase.templates.length} form instances in phase ${patientPhase.phaseName}`);
       } else {
         console.log(`[PatientService] Phase ${patientPhase.phaseName} has no template assignments`);
       }
@@ -390,10 +445,37 @@ export class PatientService {
       patientPhases.push(patientPhase);
     }
     
-    console.log(`[PatientService] Created ${patientPhases.length} patient phases with embedded templates`);
+    console.log(`[PatientService] Created ${patientPhases.length} patient phases with ${patientPhases.reduce((sum, p) => sum + p.templates.length, 0)} total form instances`);
     return patientPhases;
   }
 
+  // Delete patient (soft delete)
+  async deletePatient(patientId: string): Promise<void> {
+    const currentUser = await this.authService.getCurrentUserProfile();
+    if (!currentUser) throw new Error('User not authenticated');
+    
+    // Check permissions
+    if (currentUser.accessLevel !== AccessLevel.ADMIN && 
+        currentUser.accessLevel !== AccessLevel.SUPER_ADMIN) {
+      throw new Error('Insufficient permissions to delete patient');
+    }
+    
+    const patientRef = doc(this.firestore, this.COLLECTION_NAME, patientId);
+    
+    // Soft delete by updating status
+    await runInInjectionContext(this.injector, async () => {
+      await updateDoc(patientRef, {
+        status: 'withdrawn',
+        deletedAt: serverTimestamp(),
+        deletedBy: currentUser.uid,
+        lastModifiedAt: serverTimestamp(),
+        lastModifiedBy: currentUser.uid
+      });
+    });
+    
+    console.log(`[PatientService] Soft deleted patient ${patientId}`);
+  }
+  
   // Get patient by ID
   async getPatientById(patientId: string): Promise<Patient | null> {
     const currentUser = await this.authService.getCurrentUserProfile();

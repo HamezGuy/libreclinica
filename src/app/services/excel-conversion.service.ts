@@ -460,14 +460,6 @@ export class ExcelConversionService {
       }
     }
     
-    // Export legacy visit subcomponents if no phases
-    if ((!patient.phases || patient.phases.length === 0) && patient.visitSubcomponents) {
-      for (const visit of patient.visitSubcomponents) {
-        const visitSheet = this.createVisitDataSheet(visit);
-        const sheetName = this.sanitizeSheetName(visit.name || `Visit_${visit.id}`);
-        XLSX.utils.book_append_sheet(wb, visitSheet, sheetName);
-      }
-    }
     
     // Generate Excel file
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
