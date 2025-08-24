@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChange
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { PatientVisitSubcomponent } from '../../models/patient.model';
+import { PatientPhase } from '../../models/patient.model';
 import { PatientService } from '../../services/patient.service';
 import { StudyPhaseService } from '../../services/study-phase.service';
 import { PatientPhaseProgress } from '../../models/study-phase.model';
@@ -27,7 +27,7 @@ interface PatientListItem {
   formsCount: number;
   status: 'active' | 'completed' | 'withdrawn';
   canViewPhi: boolean;
-  visitSubcomponents?: PatientVisitSubcomponent[];
+  phases?: PatientPhase[];
   phaseProgress?: PatientPhaseProgress[];
 }
 
@@ -70,7 +70,7 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
   sidebarItems: SidebarItem[] = [];
   expandedStudies = new Set<string>();
   expandedPatients = new Set<string>();
-  patientFolders = new Map<string, PatientVisitSubcomponent[]>();
+  patientPhases = new Map<string, PatientPhase[]>();
   patientProgress = new Map<string, PatientPhaseProgress[]>();
   loadingFolders = new Set<string>();
   
@@ -138,38 +138,38 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
       this.expandedPatients.delete(patientId);
     } else {
       this.expandedPatients.add(patientId);
-      // Load patient folders if not already loaded
-      if (!this.patientFolders.has(patientId)) {
-        await this.loadPatientFolders(patientId);
+      // Load patient phases if not already loaded
+      if (!this.patientPhases.has(patientId)) {
+        await this.loadPatientPhases(patientId);
       }
     }
   }
   
-  async loadPatientFolders(patientId: string) {
-    if (this.loadingFolders.has(patientId)) return;
-    
+  private async loadPatientPhases(patientId: string): Promise<void> {
     this.loadingFolders.add(patientId);
     try {
-      // Load visit subcomponents (folders)
-      const subcomponents$ = this.patientService.getPatientVisitSubcomponents(patientId);
-      const subcomponents = await firstValueFrom(subcomponents$);
-      this.patientFolders.set(patientId, subcomponents);
+      // Load patient phases
+      const patient$ = this.patientService.getPatient(patientId);
+      const patientData = await firstValueFrom(patient$);
+      if (patientData?.phases) {
+        this.patientPhases.set(patientId, patientData.phases);
+      }
       
       // Load phase progress if patient has a study
-      const patient = this.patients.find(p => p.id === patientId);
-      if (patient?.studyId) {
-        const progress = await this.studyPhaseService.getPatientPhaseProgress(patientId, patient.studyId);
+      const patientListItem = this.patients.find(p => p.id === patientId);
+      if (patientListItem?.studyId) {
+        const progress = await this.studyPhaseService.getPatientPhaseProgress(patientId, patientListItem.studyId);
         this.patientProgress.set(patientId, progress);
       }
     } catch (error) {
-      console.error('Error loading patient folders:', error);
+      console.error('Error loading patient phases:', error);
     } finally {
       this.loadingFolders.delete(patientId);
     }
   }
   
-  getPatientFolders(patientId: string): PatientVisitSubcomponent[] {
-    return this.patientFolders.get(patientId) || [];
+  getPatientPhases(patientId: string): PatientPhase[] {
+    return this.patientPhases.get(patientId) || [];
   }
   
   getPhaseProgress(patientId: string, phaseId: string): PatientPhaseProgress | undefined {
@@ -177,24 +177,24 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
     return progress.find(p => p.phaseId === phaseId);
   }
   
-  getFolderCompletionClass(folder: PatientVisitSubcomponent): string {
-    if (folder.status === 'completed') return 'completed';
-    if (folder.status === 'in_progress') return 'in-progress';
-    if (folder.status === 'missed') return 'missed';
-    return 'scheduled';
+  getPhaseCompletionClass(phase: PatientPhase): string {
+    if (phase.status === 'completed') return 'completed';
+    if (phase.status === 'in_progress') return 'in-progress';
+    if (phase.status === 'missed') return 'missed';
+    if (phase.status === 'scheduled') return 'scheduled';
+    return 'not-started';
   }
   
-  getFolderIcon(folder: PatientVisitSubcomponent): string {
-    if (folder.isPhaseFolder) {
-      switch (folder.type) {
-        case 'screening': return 'search';
-        case 'baseline': return 'assessment';
-        case 'treatment': return 'medication';
-        case 'follow_up': return 'event_note';
-        default: return 'folder';
-      }
+  getPhaseIcon(phase: PatientPhase): string {
+    switch (phase.type) {
+      case 'screening': return 'search';
+      case 'baseline': return 'assessment';
+      case 'treatment': return 'medication';
+      case 'follow_up': return 'event_note';
+      case 'unscheduled': return 'schedule';
+      case 'adverse_event': return 'warning';
+      default: return 'folder';
     }
-    return 'folder_open';
   }
   
   isPatientExpanded(patientId: string): boolean {
@@ -246,8 +246,8 @@ export class DashboardSidebarComponent implements OnInit, OnChanges {
   }
   
   // Navigate to phase forms
-  onPhaseClick(studyId: string, patientId: string, phaseId: string, visitSubcomponentId: string, event: Event) {
+  onPhaseClick(studyId: string, patientId: string, phaseId: string, event: Event) {
     event.stopPropagation();
-    this.router.navigate(['/phase-forms', studyId, patientId, phaseId, visitSubcomponentId]);
+    this.router.navigate(['/phase-forms', studyId, patientId, phaseId]);
   }
 }

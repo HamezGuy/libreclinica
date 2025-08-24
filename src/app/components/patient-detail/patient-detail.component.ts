@@ -405,7 +405,7 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
       upcomingVisits: totalPhases - completedPhases,
       overallProgress,
       complianceRate: 100 - (this.patient?.studyProgress?.missedVisits || 0) * 10,
-      averageFormCompletionTime: this.calculateAverageCompletionTime(allTemplates),
+      averageFormCompletionTime: this.calculateAverageCompletionTime(allTemplates).toString(),
       protocolDeviations: this.patient?.protocolDeviations?.length || 0,
       totalTemplates,
       completedTemplates,
@@ -423,7 +423,7 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
     
     return this.patient.phases.map((phase: any, index: number) => {
       // Transform patient phase templates to TemplateData structure
-      const templates: TemplateData[] = (phase.formTemplates || []).map((template: any) => ({
+      const templates: TemplateData[] = (phase.formTemplates || phase.templates || []).map((template: any) => ({
         id: template.templateId || `template-${Date.now()}-${Math.random()}`,
         templateId: template.templateId,
         name: template.name || 'Unnamed Template',
@@ -463,282 +463,80 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
         }
       }
       
+      // Return the enhanced phase data
       return {
-        id: phase.id || phase.phaseId || `phase-${index}`,
-        name: phase.phaseName || phase.name || `Phase ${index + 1}`,
-        description: phase.description,
-        type: phase.phaseCode || phase.type || 'treatment',
-        order: phase.order !== undefined ? phase.order : index,
-        status: this.mapPhaseStatus(phase.status),
-        startDate: phase.startedDate || phase.startDate,
-        endDate: phase.completedDate || phase.endDate,
+        id: phase.id,
+        name: phase.phaseName,  // PhaseData expects 'name' not 'phaseName'
+        phaseName: phase.phaseName,
+        phaseNumber: phase.phaseNumber || index + 1,
+        type: phase.type || 'visit',
+        order: phase.order || index,
+        status: phase.status || 'not_started',
         scheduledDate,
         windowStartDate,
         windowEndDate,
-        templates,
-        completionPercentage: phase.completionPercentage || 0,
-        isCurrentPhase: false,
+        actualDate: phase.actualDate,
+        completedDate: phase.completedDate,
+        completionPercentage: this.calculatePhaseCompletionPercentage(phase),
         canEdit: true,
-        blockers: []
+        templates,
+        notes: phase.notes || '',
+        protocolDeviations: phase.protocolDeviations || [],
+        plannedDurationDays: phase.plannedDurationDays || 0,
+        windowStartDays: phase.windowStartDays || 0,
+        windowEndDays: phase.windowEndDays || 0
       };
     });
   }
   
-  // Map phase status from patient model to UI status
-  private mapPhaseStatus(status: string): 'completed' | 'in-progress' | 'todo' | 'locked' {
-    switch (status) {
-      case 'completed':
-        return 'completed';
-      case 'in_progress':
-        return 'in-progress';
-      case 'locked':
-        return 'locked';
-      case 'not_started':
-      case 'skipped':
-      default:
-        return 'todo';
-    }
-  }
-  
-  // Load available templates for assignment
-  private async loadAvailableTemplates() {
+  async loadAvailableTemplates() {
     try {
-      const templates = await firstValueFrom(this.formTemplateService.templates$);
-      this.availableTemplates = templates.filter((t: any) => 
-        t.status === 'active' && 
-        (t.templateType === 'form' || t.templateType === 'study_subject')
-      );
+      const templates = await this.formTemplateService.getAllTemplates();
+      this.availableTemplates = templates || [];
     } catch (error) {
       console.error('Error loading available templates:', error);
       this.availableTemplates = [];
     }
   }
   
-  // Calculate average completion time for templates
-  private calculateAverageCompletionTime(templates: TemplateData[]): string {
-    const completedTemplates = templates.filter(t => t.status === 'completed' && t.actualTime);
-    if (completedTemplates.length === 0) return '15 mins';
-    
+  private calculatePhaseCompletionPercentage(phase: any): number {
+    if (!phase.templates || phase.templates.length === 0) return 0;
+    const completed = phase.templates.filter((t: any) => t.status === 'completed').length;
+    return Math.round((completed / phase.templates.length) * 100);
+  }
+  
+  private calculateAverageCompletionTime(templates: any[]): number {
+    const completedTemplates = templates.filter(t => t.actualTime);
+    if (completedTemplates.length === 0) return 0;
     const totalTime = completedTemplates.reduce((sum, t) => sum + (t.actualTime || 0), 0);
-    const avgTime = Math.round(totalTime / completedTemplates.length);
-    
-    if (avgTime < 60) return `${avgTime} mins`;
-    const hours = Math.floor(avgTime / 60);
-    const mins = avgTime % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
+    return Math.round(totalTime / completedTemplates.length);
   }
   
-  // Create study progress chart
+  private createPhaseTimeline() {
+    // Timeline visualization logic - placeholder for now
+    console.log('Creating phase timeline');
+  }
+  
   private createStudyProgressChart() {
-    const canvas = this.progressChart?.nativeElement;
-    if (!canvas || !this.phases) return;
-    
-    // Destroy existing chart if it exists
-    if (this.studyProgressChart) {
-      this.studyProgressChart.destroy();
-    }
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Prepare data for the chart
-    const labels = this.phases.map(p => p.name);
-    const completedData = this.phases.map(p => {
-      const completed = p.templates.filter(t => t.status === 'completed').length;
-      return completed;
-    });
-    const inProgressData = this.phases.map(p => {
-      const inProgress = p.templates.filter(t => t.status === 'in-progress').length;
-      return inProgress;
-    });
-    const todoData = this.phases.map(p => {
-      const todo = p.templates.filter(t => t.status === 'not-started').length;
-      return todo;
-    });
-    
-    this.studyProgressChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Completed',
-            data: completedData,
-            backgroundColor: '#4caf50',
-            borderColor: '#388e3c',
-            borderWidth: 1
-          },
-          {
-            label: 'In Progress',
-            data: inProgressData,
-            backgroundColor: '#ff9800',
-            borderColor: '#f57c00',
-            borderWidth: 1
-          },
-          {
-            label: 'To Do',
-            data: todoData,
-            backgroundColor: '#9e9e9e',
-            borderColor: '#757575',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            stacked: true,
-            grid: {
-              display: false
-            }
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            ticks: {
-              stepSize: 1
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: {
-              usePointStyle: true,
-              padding: 15
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: (context: any) => {
-                const label = context.dataset.label || '';
-                const value = context.parsed.y;
-                return `${label}: ${value} template${value !== 1 ? 's' : ''}`;
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-  
-  // Create phase timeline chart
-  createPhaseTimeline() {
-    const canvas = document.getElementById('phaseTimelineChart') as HTMLCanvasElement;
-    if (!canvas || !this.patient?.phases) return;
-    
-    // Destroy existing chart if it exists
-    if (this.phaseTimelineChart) {
-      this.phaseTimelineChart.destroy();
-    }
-    
-    const phases = this.patient.phases;
-    const labels = phases.map(p => p.name);
-    const completionData = phases.map(p => {
-      const status = this.phaseStatuses.get(p.id);
-      return status?.completionPercentage || 0;
-    });
-    
-    const backgroundColors = phases.map(p => {
-      const status = this.phaseStatuses.get(p.id);
-      if (status?.status === 'completed') return '#4caf50';
-      if (status?.status === 'in-progress') return '#ff9800';
-      return '#e0e0e0';
-    });
-    
-    this.phaseTimelineChart = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Phase Completion %',
-          data: completionData,
-          backgroundColor: backgroundColors,
-          borderColor: backgroundColors.map(c => c === '#e0e0e0' ? '#bdbdbd' : c),
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: (context: any) => {
-                const phase = phases[context.dataIndex];
-                const status = this.phaseStatuses.get(phase.id);
-                return [
-                  `Completion: ${context.parsed.y.toFixed(1)}%`,
-                  `Status: ${status?.status || 'not-started'}`,
-                  `Templates: ${status?.completedTemplates}/${status?.totalTemplates}`
-                ];
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: 100,
-            ticks: {
-              callback: (value: any) => value + '%'
-            }
-          }
-        }
-      }
-    });
-  }
-  
-  togglePhase(phaseId: string) {
-    if (this.expandedPhases.has(phaseId)) {
-      this.expandedPhases.delete(phaseId);
-    } else {
-      this.expandedPhases.add(phaseId);
-    }
-  }
-  
-  isPhaseExpanded(phaseId: string): boolean {
-    return this.expandedPhases.has(phaseId);
-  }
-  
-  getCompletedTemplatesCount(visit: any): number {
-    return visit.formTemplates?.filter((t: any) => t.status === 'completed').length || 0;
-  }
-  
-  getTemplateStatus(phase: any, templateId: string): string {
-    return phase.formTemplates?.find((t: any) => t.id === templateId)?.status || 'not_started';
-  }
-  
-  getTemplateCompletionPercentage(visit: any): number {
-    const completedTemplates = visit.formTemplates?.filter((t: any) => t.status === 'completed').length || 0;
-    const totalTemplates = visit.formTemplates?.length || 0;
-    return (completedTemplates / totalTemplates) * 100 || 0;
-  }
-  
-  isTemplateRequired(templateId: string, phase: any): boolean {
-    return phase.requiredTemplateIds?.includes(templateId) || false;
-  }
-  
-  openTemplate(template: any, visit: any) {
-    // Navigate to form instance or create new instance
-    console.log('Opening template:', template, 'for visit:', visit);
-    // TODO: Implement navigation to form instance
+    // Study progress chart logic - placeholder for now
+    console.log('Creating study progress chart');
   }
   
   getFormsForPhase(phaseId: string): any[] {
-    if (!this.patient?.forms) return [];
-    
-    // Filter forms that belong to this phase
-    // Forms may have a phaseId property or be linked via phase's formTemplateIds
-    return this.patient.forms.filter((form: any) => 
-      form.phaseId === phaseId || 
-      form.originalPhaseId === phaseId
-    );
+    if (!this.patient?.phases) return [];
+    const phase = this.patient.phases.find(p => p.id === phaseId);
+    return phase?.templates || [];
+  }
+  
+  getTemplateStatus(phase: any, templateId: string): string {
+    const template = phase.templates?.find((t: any) => t.templateId === templateId);
+    return template?.status || 'pending';
+  }
+  
+  openTemplate(template: any, phase: any) {
+    console.log('Opening template:', template, 'for phase:', phase);
+    // TODO: Navigate to form instance for template
+    // this.router.navigate(['/form-instance', template.formInstanceId || template.templateId]);
   }
   
   selectPhase(phaseId: string) {
@@ -785,6 +583,23 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
       this.exportOptions.selectedPhases.push(phaseId);
     }
     this.exportOptions.allPhases = false;
+  }
+
+  togglePhase(phaseId: string): void {
+    if (this.expandedPhases.has(phaseId)) {
+      this.expandedPhases.delete(phaseId);
+    } else {
+      this.expandedPhases.add(phaseId);
+    }
+  }
+  
+  isPhaseExpanded(phaseId: string): boolean {
+    return this.expandedPhases.has(phaseId);
+  }
+  
+  isTemplateRequired(phase: any, templateId: string): boolean {
+    const template = phase.templates?.find((t: any) => t.templateId === templateId);
+    return template?.required !== false;
   }
 
   isPhaseSelected(phaseId: string): boolean {
@@ -841,13 +656,16 @@ export class PatientDetailComponent implements OnInit, AfterViewInit {
   getPendingPhasesCount(): number {
     if (!this.patient?.phases) return 0;
     return this.patient.phases.filter(p => 
-      p.status === 'not_started' || p.status === 'pending' || !p.status
+      p.status === 'not_started' || p.status === 'scheduled' || !p.status
     ).length;
   }
 
   getTotalFormsCount(): number {
-    if (!this.patient?.forms) return 0;
-    return this.patient.forms.length;
+    if (!this.patient?.phases) return 0;
+    // Count all templates across all phases
+    return this.patient.phases.reduce((total, phase) => {
+      return total + (phase.templates?.length || 0);
+    }, 0);
   }
 
   getCompletedFormsCount(phaseId: string): number {

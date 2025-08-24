@@ -26,7 +26,7 @@ import {
   PhaseTransitionRule,
   TransitionCondition
 } from '../models/study-phase.model';
-import { PatientVisitSubcomponent } from '../models/patient.model';
+import { PatientPhase } from '../models/patient.model';
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { FormInstanceService } from './form-instance.service';
 import { FormTemplateService } from './form-template.service';
@@ -154,32 +154,28 @@ export class StudyPhaseService {
     // Sort phases by order
     const sortedPhases = [...phases].sort((a, b) => a.order - b.order);
 
-    for (const phase of sortedPhases) {
-      // Create visit subcomponent for each phase
-      const subcomponentId = doc(collection(this.firestore, 'temp')).id;
+    for (const phaseConfig of sortedPhases) {
+      // Create patient phase for each phase config
+      const phaseId = doc(collection(this.firestore, 'temp')).id;
       
       // Collect all template IDs from phase assignments
-      const allTemplateIds = phase.templateAssignments.map(ta => ta.templateId);
-      const requiredTemplateIds = phase.templateAssignments
-        .filter(ta => ta.isRequired)
-        .map(ta => ta.templateId);
-      const optionalTemplateIds = phase.templateAssignments
-        .filter(ta => !ta.isRequired)
-        .map(ta => ta.templateId);
+      const allTemplateIds = phaseConfig.templateAssignments.map((ta: PhaseTemplateAssignment) => ta.templateId);
+      const requiredTemplateIds = phaseConfig.templateAssignments
+        .filter((ta: PhaseTemplateAssignment) => ta.isRequired)
+        .map((ta: PhaseTemplateAssignment) => ta.templateId);
+      const optionalTemplateIds = phaseConfig.templateAssignments
+        .filter((ta: PhaseTemplateAssignment) => !ta.isRequired)
+        .map((ta: PhaseTemplateAssignment) => ta.templateId);
 
-      const subcomponent: PatientVisitSubcomponent = {
-        id: subcomponentId,
-        patientId,
-        studyId,
-        name: phase.phaseName,
-        description: phase.description,
-        type: this.mapPhaseToVisitType(phase.phaseCode),
-        order: phase.order,
-        phaseId: phase.id,
-        phaseCode: phase.phaseCode,
-        isPhaseFolder: true,
+      const patientPhase: PatientPhase = {
+        id: phaseId,
+        phaseName: phaseConfig.phaseName,
+        description: phaseConfig.description,
+        type: this.mapPhaseToVisitType(phaseConfig.phaseCode || ''),
         status: 'scheduled',
         completionPercentage: 0,
+        windowStartDays: phaseConfig.windowStartDays || 0,
+        windowEndDays: phaseConfig.windowEndDays || 0,
         templateIds: allTemplateIds,
         requiredTemplateIds,
         optionalTemplateIds,
@@ -193,14 +189,14 @@ export class StudyPhaseService {
         lastModifiedAt: now
       };
 
-      const subcomponentRef = doc(
+      const phaseRef = doc(
         this.firestore,
         'patients',
         patientId,
-        'visitSubcomponents',
-        subcomponentId
+        'phases',
+        phaseId
       );
-      batch.set(subcomponentRef, this.prepareForFirestore(subcomponent));
+      batch.set(phaseRef, this.prepareForFirestore(patientPhase));
 
       // Create phase progress tracking
       const progressId = doc(collection(this.firestore, this.PHASE_PROGRESS_COLLECTION)).id;
@@ -242,16 +238,16 @@ export class StudyPhaseService {
     
     // Now create form instances for each template in each phase
     // This is done after batch commit to ensure folders exist
-    for (const phase of sortedPhases) {
-      const subcomponentId = `${patientId}_${phase.phaseCode}`;
+    for (const phaseConfig of sortedPhases) {
+      const subcomponentId = `${patientId}_${phaseConfig.phaseCode}`;
       
       // Create form instances for each template assignment
-      for (const assignment of phase.templateAssignments) {
+      for (const assignment of phaseConfig.templateAssignments) {
         try {
           // Get template details
           const template = await this.formTemplateService.getTemplate(assignment.templateId);
           if (!template) {
-            console.warn(`Template ${assignment.templateId} not found for phase ${phase.phaseName}`);
+            console.warn(`Template ${assignment.templateId} not found for phase ${phaseConfig.phaseName}`);
             continue;
           }
           
@@ -263,7 +259,7 @@ export class StudyPhaseService {
             subcomponentId
           );
           
-          console.log(`Created form instance for template ${template.name} in phase ${phase.phaseName}`);
+          console.log(`Created form instance for template ${template.name} in phase ${phaseConfig.phaseName}`);
         } catch (error) {
           console.error(`Failed to create form instance for template ${assignment.templateId}:`, error);
           // Continue with other templates even if one fails
@@ -517,6 +513,16 @@ export class StudyPhaseService {
         doc => doc.data() as PatientPhaseProgress
       );
 
+      // Store phase metadata for reference
+      const phaseMetadata = {
+        phaseId: phase.id,
+        phaseName: phase.phaseName,
+        phaseCode: phase.phaseCode,
+        visitSubcomponentId: phaseId,
+        templateAssignments: phase.templateAssignments,
+        order: phase.order
+      };
+
       const summary: StudyPhaseSummary = {
         phaseId: phase.id,
         phaseName: phase.phaseName,
@@ -542,8 +548,8 @@ export class StudyPhaseService {
   }
 
   // Helper to map phase codes to visit types
-  private mapPhaseToVisitType(phaseCode: string): PatientVisitSubcomponent['type'] {
-    const mapping: { [key: string]: PatientVisitSubcomponent['type'] } = {
+  private mapPhaseToVisitType(phaseCode: string): PatientPhase['type'] {
+    const mapping: { [key: string]: PatientPhase['type'] } = {
       'SCR': 'screening',
       'BSL': 'baseline',
       'TRT': 'treatment',

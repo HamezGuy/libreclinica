@@ -66,6 +66,85 @@ export interface PatientConsent {
   withdrawnReason?: string;
 }
 
+// Patient Phase with embedded template data
+export interface PatientPhase {
+  id: string;
+  phaseId: string; // Original phase ID from study
+  phaseName: string;
+  phaseCode?: string;
+  description?: string;
+  type: 'screening' | 'baseline' | 'treatment' | 'follow_up' | 'unscheduled' | 'adverse_event';
+  order: number;
+  
+  // Phase timing
+  scheduledDate?: Date;
+  windowStartDays: number;
+  windowEndDays: number;
+  daysToComplete: number;
+  plannedDurationDays?: number;
+  actualStartDate?: Date;
+  actualEndDate?: Date;
+  
+  // Status
+  status: 'not_started' | 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
+  completionPercentage: number;
+  
+  // Embedded full template data (not just references)
+  templates: PatientPhaseTemplate[]; // Full template objects with all fields and metadata
+  
+  // Phase progression
+  canProgressToNextPhase: boolean;
+  blockingTemplates: string[]; // Template IDs blocking progression
+  allowParallel?: boolean;
+  allowSkip?: boolean;
+  
+  // Metadata
+  createdBy: string;
+  createdAt: Date;
+  lastModifiedBy: string;
+  lastModifiedAt: Date;
+}
+
+// Patient Phase Template (full template data embedded in phase)
+export interface PatientPhaseTemplate {
+  id: string;
+  templateId: string; // Original template ID
+  templateName: string;
+  templateVersion: string;
+  category?: string;
+  description?: string;
+  
+  // Template structure (full form definition)
+  fields: any[]; // Complete field definitions from original template
+  sections?: any[]; // Section structure if applicable
+  metadata?: any; // Any additional template metadata
+  
+  // Assignment properties
+  isRequired: boolean;
+  order: number;
+  completionRequired?: boolean;
+  signatureRequired?: boolean;
+  reviewRequired?: boolean;
+  
+  // Status for this patient
+  status: 'pending' | 'in_progress' | 'completed' | 'reviewed' | 'signed';
+  completionPercentage: number;
+  startedAt?: Date;
+  completedAt?: Date;
+  completedBy?: string;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  signedAt?: Date;
+  signedBy?: string;
+  
+  // Form data
+  formData?: any; // Patient's actual form responses
+  validationErrors?: any[];
+  
+  // Audit
+  changeHistory?: any[];
+}
+
 // Patient Visit Subcomponent
 export interface PatientVisitSubcomponent {
   id: string;
@@ -136,14 +215,13 @@ export interface Patient {
   hasValidConsent: boolean;
   consentExpirationDate?: Date;
   
-  // Visit Subcomponents (folders)
-  visitSubcomponents: PatientVisitSubcomponent[];
-  currentVisitId?: string;
-  nextScheduledVisitId?: string;
+  // Study Phases with embedded templates (copied from study for patient-specific data)
+  phases: PatientPhase[]; // Patient-specific phases with full template data embedded
+  currentPhaseId?: string;
+  nextScheduledPhaseId?: string;
   
-  // Study Phases and Forms (copied from study for patient-specific data)
-  phases?: any[]; // Patient-specific phases copied from study
-  forms?: any[]; // Patient-specific form instances copied from study templates
+  // Standalone Forms (not associated with any phase)
+  standaloneForms?: any[]; // Forms not tied to any phase (e.g., adverse events, unscheduled visits)
   
   // Medical History (summary)
   medicalHistory?: {

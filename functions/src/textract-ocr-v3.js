@@ -1,6 +1,8 @@
 const functions = require('firebase-functions/v1');
 const { TextractClient, AnalyzeDocumentCommand } = require('@aws-sdk/client-textract');
 const cors = require('cors');
+const sharp = require('sharp');
+const { PDFDocument } = require('pdf-lib');
 
 // Initialize CORS with allowed origins
 const corsHandler = cors({
@@ -99,7 +101,48 @@ exports.analyzeDocument = functions.runWith({
 
       // Convert base64 to buffer
       let base64Data = requestData.base64.replace(/^data:.*,/, '');
-      const documentBytes = Buffer.from(base64Data, 'base64');
+      let documentBytes = Buffer.from(base64Data, 'base64');
+      
+      // Check if document is PDF (PDFs start with %PDF which is JVBERi in base64)
+      const isPDF = base64Data.startsWith('JVBERi');
+      
+      console.log(`Processing ${isPDF ? 'PDF' : 'image'} document (${Math.round(documentBytes.length / 1024)}KB)...`);
+      
+      // If it's a PDF, convert to image first
+      if (isPDF) {
+        console.log('Converting PDF to image for Textract processing...');
+        try {
+          // Load the PDF document
+          const pdfDoc = await PDFDocument.load(documentBytes);
+          const pageCount = pdfDoc.getPageCount();
+          console.log(`PDF has ${pageCount} page(s)`);
+          
+          // For now, we'll process only the first page
+          // You can extend this to handle multiple pages if needed
+          if (pageCount > 1) {
+            console.log('Note: Processing only the first page of multi-page PDF');
+          }
+          
+          // Create a new PDF with just the first page
+          const singlePagePdf = await PDFDocument.create();
+          const [firstPage] = await singlePagePdf.copyPages(pdfDoc, [0]);
+          singlePagePdf.addPage(firstPage);
+          const singlePageBytes = await singlePagePdf.save();
+          
+          // Convert PDF to PNG using sharp
+          // Sharp can handle single-page PDFs directly
+          documentBytes = await sharp(Buffer.from(singlePageBytes), {
+            density: 300 // High DPI for better OCR quality
+          })
+            .png()
+            .toBuffer();
+            
+          console.log(`PDF converted to PNG (${Math.round(documentBytes.length / 1024)}KB)`);
+        } catch (pdfError) {
+          console.error('PDF conversion error:', pdfError);
+          throw new Error(`Failed to convert PDF to image: ${pdfError.message}`);
+        }
+      }
       
       // Check document size (Textract sync API supports up to 5MB)
       const maxSizeBytes = 5 * 1024 * 1024; // 5MB
@@ -107,13 +150,7 @@ exports.analyzeDocument = functions.runWith({
         throw new Error(`Document size (${Math.round(documentBytes.length / 1024 / 1024)}MB) exceeds maximum allowed size of 5MB for direct processing`);
       }
       
-      // Check if document is PDF (PDFs start with %PDF which is JVBERi in base64)
-      const isPDF = base64Data.startsWith('JVBERi');
-      
-      console.log(`Processing ${isPDF ? 'PDF' : 'image'} document (${Math.round(documentBytes.length / 1024)}KB)...`);
-      
-      // Process both PDFs and images directly using synchronous API
-      // Textract's analyzeDocument API supports both formats up to 5MB
+      // Process the image (either original or converted from PDF)
       const command = new AnalyzeDocumentCommand({
         Document: {
           Bytes: documentBytes

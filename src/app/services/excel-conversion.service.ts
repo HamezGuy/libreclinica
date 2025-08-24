@@ -347,10 +347,14 @@ export class ExcelConversionService {
     const fieldNames = new Set<string>();
     
     patients.forEach(patient => {
-      // Find forms matching the template
-      const patientForms = patient.forms?.filter(f => 
-        f.templateId === templateId || f.templateName === templateName
-      ) || [];
+      // Find forms matching the template from patient phases
+      const patientForms: any[] = [];
+      patient.phases?.forEach(phase => {
+        const matchingTemplates = phase.templates?.filter((t: any) => 
+          t.templateId === templateId || t.name === templateName
+        ) || [];
+        patientForms.push(...matchingTemplates);
+      });
       
       patientForms.forEach(form => {
         const rowData: any = {
@@ -450,8 +454,8 @@ export class ExcelConversionService {
         : patient.phases;
       
       for (const phase of phasesToExport) {
-        const phaseSheet = this.createPhaseDataSheet(phase, patient.forms || []);
-        const sheetName = this.sanitizeSheetName(phase.name || `Phase_${phase.id}`);
+        const phaseSheet = this.createPhaseDataSheet(phase, phase.templates || []);
+        const sheetName = this.sanitizeSheetName(phase.phaseName || `Phase_${phase.id}`);
         XLSX.utils.book_append_sheet(wb, phaseSheet, sheetName);
       }
     }
