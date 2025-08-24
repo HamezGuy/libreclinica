@@ -54,22 +54,24 @@ import {
 // StudyPatientReference removed - using simplified patient reference directly
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { CloudAuditService } from './cloud-audit.service';
+import { StudyPhaseService } from './study-phase.service';
 import { AccessLevel } from '../enums/access-levels.enum';
 
 @Injectable({
   providedIn: 'root'
 })
 export class StudyService implements IStudyService {
-  private firestore: Firestore = inject(Firestore);
-  private authService: EdcCompliantAuthService = inject(EdcCompliantAuthService);
-  private auditService: CloudAuditService = inject(CloudAuditService);
-  private injector: Injector = inject(Injector);
-
   // Reactive data streams
   private studiesSubject = new BehaviorSubject<Study[]>([]);
   private careIndicatorsSubject = new BehaviorSubject<CareIndicator[]>([]);
 
-  constructor() {
+  constructor(
+    private firestore: Firestore,
+    private authService: EdcCompliantAuthService,
+    private auditService: CloudAuditService,
+    private studyPhaseService: StudyPhaseService,
+    private injector: Injector
+  ) {
     this.initializeRealtimeListeners();
   }
 
@@ -1284,18 +1286,30 @@ export class StudyService implements IStudyService {
         lastModifiedAt: serverTimestamp()
       });
 
-      // Create patient visit subcomponents from study sections
-      const visitSubcomponents = await this.createPatientVisitSubcomponents(
-        studyData,
-        patientId,
-        currentUser.uid
+      // Create patient phases using study-phase service
+      const phasesQuery = query(
+        collection(this.firestore, 'studyPhases'),
+        where('studyId', '==', studyId)
       );
+      const phasesSnapshot = await getDocs(phasesQuery);
+      const phases = phasesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+      
+      // Use study-phase service to create patient phases
+      if (phases.length > 0) {
+        await this.studyPhaseService.createPatientPhaseFolders(
+          patientId,
+          studyId,
+          phases
+        );
+      }
 
-      // Update patient with study ID and visit subcomponents
+      // Update patient with study ID
       const patientRef = doc(this.firestore, 'patients', patientId);
       await updateDoc(patientRef, {
         studyId: studyId,
-        visitSubcomponents: visitSubcomponents,
         lastModifiedBy: currentUser.uid,
         lastModifiedAt: serverTimestamp()
       });
@@ -1316,7 +1330,8 @@ export class StudyService implements IStudyService {
   }
 
   /**
-   * Create patient visit subcomponents from study phases
+   * @deprecated Use StudyPhaseService.createPatientPhaseFolders instead
+   * This method is kept for backward compatibility only
    */
   private async createPatientVisitSubcomponents(
     study: Study,

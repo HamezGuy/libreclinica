@@ -7,7 +7,7 @@ import { PatientService } from '../../services/patient.service';
 import { StudyPhaseService } from '../../services/study-phase.service';
 import { FormTemplateService } from '../../services/form-template.service';
 import { FormInstance } from '../../models/form-template.model';
-import { PatientVisitSubcomponent } from '../../models/patient.model';
+import { PatientPhase } from '../../models/patient.model';
 import { PatientPhaseProgress } from '../../models/study-phase.model';
 import { FormViewerComponent } from '../form-viewer/form-viewer.component';
 import { TranslatePipe } from '../../pipes/translate.pipe';
@@ -28,7 +28,7 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
   visitSubcomponentId: string = '';
   
   patient: any;
-  phaseFolder: PatientVisitSubcomponent | null = null;
+  phaseData: PatientPhase | null = null;
   phaseProgress: PatientPhaseProgress | null = null;
   formInstances: FormInstance[] = [];
   templates: Map<string, any> = new Map();
@@ -71,11 +71,9 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
       // Load patient data
       this.patient = await this.patientService.getPatient(this.patientId);
       
-      // Load phase folder (visit subcomponent)
-      const subcomponents = await firstValueFrom(
-        this.patientService.getPatientVisitSubcomponents(this.patientId)
-      );
-      this.phaseFolder = subcomponents.find(sc => sc.id === this.visitSubcomponentId) || null;
+      // Load phase data
+      const phases = this.patient?.phases || [];
+      this.phaseData = phases.find((p: PatientPhase) => p.id === this.phaseId) || null;
       
       // Load phase progress
       const progress = await this.studyPhaseService.getPatientPhaseProgress(
@@ -221,11 +219,11 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
   }
   
   isFormRequired(templateId: string): boolean {
-    return this.phaseFolder?.requiredTemplateIds?.includes(templateId) || false;
+    return this.phaseData?.blockingTemplates?.includes(templateId) || false;
   }
   
   canProgressToNextPhase(): boolean {
-    return this.phaseFolder?.canProgressToNextPhase || false;
+    return this.phaseData?.canProgressToNextPhase || false;
   }
   
   goBack() {

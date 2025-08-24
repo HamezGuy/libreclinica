@@ -26,7 +26,7 @@ import {
   PhaseTransitionRule,
   TransitionCondition
 } from '../models/study-phase.model';
-import { PatientPhase } from '../models/patient.model';
+import { Patient, PatientPhase, PatientPhaseTemplate } from '../models/patient.model';
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { FormInstanceService } from './form-instance.service';
 import { FormTemplateService } from './form-template.service';
@@ -158,17 +158,31 @@ export class StudyPhaseService {
       // Create patient phase for each phase config
       const phaseId = doc(collection(this.firestore, 'temp')).id;
       
-      // Collect all template IDs from phase assignments
-      const allTemplateIds = phaseConfig.templateAssignments.map((ta: PhaseTemplateAssignment) => ta.templateId);
+      // Create PatientPhaseTemplate objects from assignments
+      const phaseTemplates: PatientPhaseTemplate[] = [];
+      for (const assignment of phaseConfig.templateAssignments) {
+        const template: PatientPhaseTemplate = {
+          id: assignment.templateId,
+          templateId: assignment.templateId,
+          templateName: assignment.templateName || '',
+          templateVersion: '1.0',
+          isRequired: assignment.isRequired,
+          order: assignment.order || 0,
+          status: 'pending',
+          completionPercentage: 0,
+          fields: [],
+          sections: []
+        };
+        phaseTemplates.push(template);
+      }
+      
       const requiredTemplateIds = phaseConfig.templateAssignments
         .filter((ta: PhaseTemplateAssignment) => ta.isRequired)
-        .map((ta: PhaseTemplateAssignment) => ta.templateId);
-      const optionalTemplateIds = phaseConfig.templateAssignments
-        .filter((ta: PhaseTemplateAssignment) => !ta.isRequired)
         .map((ta: PhaseTemplateAssignment) => ta.templateId);
 
       const patientPhase: PatientPhase = {
         id: phaseId,
+        phaseId: phaseConfig.id,
         phaseName: phaseConfig.phaseName,
         description: phaseConfig.description,
         type: this.mapPhaseToVisitType(phaseConfig.phaseCode || ''),
@@ -176,11 +190,9 @@ export class StudyPhaseService {
         completionPercentage: 0,
         windowStartDays: phaseConfig.windowStartDays || 0,
         windowEndDays: phaseConfig.windowEndDays || 0,
-        templateIds: allTemplateIds,
-        requiredTemplateIds,
-        optionalTemplateIds,
-        completedTemplates: [],
-        inProgressTemplates: [],
+        daysToComplete: 30,
+        templates: phaseTemplates,
+        order: phaseConfig.order,
         canProgressToNextPhase: false, // Will be updated based on completion
         blockingTemplates: requiredTemplateIds, // Initially all required templates are blocking
         createdBy: currentUser.uid,
@@ -199,15 +211,15 @@ export class StudyPhaseService {
       batch.set(phaseRef, this.prepareForFirestore(patientPhase));
 
       // Create phase progress tracking
-      const progressId = doc(collection(this.firestore, this.PHASE_PROGRESS_COLLECTION)).id;
+      const progressId = `${patientId}_${phaseConfig.id}`;
       const progress: PatientPhaseProgress = {
         id: progressId,
         patientId,
         studyId,
-        phaseId: phase.id,
-        phaseName: phase.phaseName,
+        phaseId: phaseConfig.id,
+        phaseName: phaseConfig.phaseName,
         status: 'not_started',
-        totalTemplates: allTemplateIds.length,
+        totalTemplates: phaseConfig.templateAssignments.length,
         requiredTemplates: requiredTemplateIds.length,
         completedTemplates: 0,
         completedRequiredTemplates: 0,
@@ -222,7 +234,7 @@ export class StudyPhaseService {
       };
 
       // Initialize form completion status
-      for (const assignment of phase.templateAssignments) {
+      for (const assignment of phaseConfig.templateAssignments) {
         progress.formCompletionStatus[assignment.templateId] = {
           isCompleted: false,
           isRequired: assignment.isRequired
@@ -518,7 +530,7 @@ export class StudyPhaseService {
         phaseId: phase.id,
         phaseName: phase.phaseName,
         phaseCode: phase.phaseCode,
-        visitSubcomponentId: phaseId,
+        visitSubcomponentId: phase.id,
         templateAssignments: phase.templateAssignments,
         order: phase.order
       };

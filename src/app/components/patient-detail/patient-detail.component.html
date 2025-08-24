@@ -37,7 +37,7 @@
             <i class="material-icons status-icon" *ngIf="phase.status === 'in_progress'">pending</i>
           </div>
           <div class="phase-nav-info">
-            <span class="phase-name">{{ phase.phaseName }}</span>
+            <strong>{{ phase.phaseName }}</strong>
             <div class="phase-nav-meta">
               <span class="phase-nav-type">{{ phase.type || 'Visit' }}</span>
               <span class="phase-nav-progress">{{ phase.completionPercentage || 0 }}%</span>
@@ -159,7 +159,7 @@
           <span class="marker-number">{{ i + 1 }}</span>
         </div>
         <div class="timeline-content">
-          <div class="timeline-title">{{ phase.name }}</div>
+          <div class="timeline-title">{{ phase.phaseName }}</div>
           <div class="timeline-date" *ngIf="phase.scheduledDate">
             {{ phase.scheduledDate | date:'MMM d, y' }}
           </div>
@@ -181,7 +181,7 @@
           <div class="phase-info">
             <div class="phase-title-row">
               <h3>{{ phase.phaseName }}</h3>
-              <span class="phase-badge" [ngClass]="phase.type?.toLowerCase()">{{ phase.type || 'Phase' }}</span>
+              <span class="phase-badge" [ngClass]="phase.type ? phase.type.toLowerCase() : ''">{{ phase.type || 'Phase' }}</span>
             </div>
             <p class="phase-description">{{ phase.description }}</p>
             <div class="phase-meta">
