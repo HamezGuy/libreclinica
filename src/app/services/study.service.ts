@@ -156,118 +156,146 @@ export class StudyService implements IStudyService {
   // Study CRUD Operations
   // ============================================================================
 
-  async createStudy(studyData: Omit<Study, 'id' | 'createdAt' | 'lastModifiedAt' | 'changeHistory'>): Promise<Study> {
-    return await runInInjectionContext(this.injector, async () => {
-      // Get current user through observable (synchronous access)
-      const currentUser = this.authService.isAuthenticated$ ? await firstValueFrom(this.authService.user$) : null;
+  async createStudy(studyData: Partial<Study>): Promise<Study> {
+    console.log('[StudyService] createStudy() method called');
+    
+    try {
+      // Get current user
+      const currentUser = await firstValueFrom(this.authService.user$);
+      console.log('[StudyService] Current user:', currentUser?.uid, currentUser?.email);
+      
+      if (currentUser) {
+        const tokenResult = await currentUser.getIdTokenResult();
+        console.log('[StudyService] User custom claims:', tokenResult?.claims);
+        console.log('[StudyService] User role from claims:', tokenResult?.claims?.['role']);
+        console.log('[StudyService] User accessLevel from claims:', tokenResult?.claims?.['accessLevel']);
+      }
+      
       if (!currentUser) {
-        throw new Error('User must be authenticated to create studies');
+        console.error('[StudyService] No authenticated user');
+        throw new Error('User must be authenticated to create a study');
       }
 
       const now = new Date();
       
-      // Create the study WITHOUT sections - they will be in studyPhases collection
-      const study: Omit<Study, 'id'> = {
+      // Generate IDs upfront
+      const studyRef = doc(collection(this.firestore, 'studies'));
+      const studyId = studyRef.id;
+      console.log('[StudyService] Generated study ID:', studyId);
+      
+      // Prepare phase references and IDs
+      const phaseRefs: any[] = [];
+      const phaseIds: string[] = [];
+      
+      if (studyData.sections && studyData.sections.length > 0) {
+        for (const section of studyData.sections) {
+          const phaseRef = doc(collection(this.firestore, 'phases'));
+          phaseRefs.push({ ref: phaseRef, section });
+          phaseIds.push(phaseRef.id);
+        }
+        console.log('[StudyService] Generated', phaseIds.length, 'phase IDs');
+      }
+    
+      // Prepare the study object with phase IDs
+      console.log('[StudyService] Preparing study object...');
+      const study: Study = {
         ...studyData,
-        phaseIds: [], // Will store references to phases in studyPhases collection
+        id: studyId,
+        protocolNumber: studyData.protocolNumber || '',
+        title: studyData.title || '',
+        phaseIds: phaseIds,  // Include phase IDs from the start
         createdBy: currentUser.uid,
         createdAt: now,
-        lastModifiedBy: currentUser.uid,
         lastModifiedAt: now,
+        lastModifiedBy: currentUser.uid,
         changeHistory: [{
           id: this.generateId(),
           timestamp: now,
           userId: currentUser.uid,
-          userEmail: currentUser.email || '',
+          userEmail: currentUser.email || 'unknown',
           action: 'created',
-          changes: { created: true },
-          reason: 'Initial study creation',
-          ipAddress: await this.getClientIpAddress(),
-          userAgent: navigator.userAgent
+          changes: {
+            description: 'Study created'
+          }
         }]
-      };
-
-      // Remove any legacy sections field if it exists
-      delete (study as any).sections;
-      delete (study as any).phases;
-
-      const studiesRef = collection(this.firestore, 'studies');
+      } as Study;
       
-      // Clean the study object to remove any undefined values before saving to Firestore
+      console.log('[StudyService] Study object prepared:', study);
+      
+      // Clean the study object to remove undefined fields
+      console.log('[StudyService] Cleaning study object...');
       const cleanedStudy = this.removeUndefinedFields(study);
+      console.log('[StudyService] Study cleaned');
       
-      const docRef = await addDoc(studiesRef, cleanedStudy);
-      const studyId = docRef.id;
+      // Start atomic batch write
+      console.log('[StudyService] Starting atomic batch write...');
+      const batch = writeBatch(this.firestore);
       
-      // Now create phases in the studyPhases collection if provided
-      const phaseIds: string[] = [];
-      if (studyData.sections && Array.isArray(studyData.sections)) {
-        const batch = writeBatch(this.firestore);
+      // Add study document to batch
+      console.log('[StudyService] Adding study document to batch...');
+      const studyDocRef = doc(this.firestore, 'studies', studyId);
+      batch.set(studyDocRef, cleanedStudy);
+      
+      // Add phase documents to batch
+      const phases = studyData.phases || [];
+      console.log(`[StudyService] Adding ${phases.length} phase documents to batch...`);
+      phases.forEach((phase: any) => {
+        const phaseRef = doc(collection(this.firestore, 'studyPhases'));
+        const phaseId = phaseRef.id;
+        phaseIds.push(phaseId);
         
-        for (let i = 0; i < studyData.sections.length; i++) {
-          const section = studyData.sections[i] as any;
-          const phaseId = this.generateId();
-          phaseIds.push(phaseId);
-          
-          const phaseData = {
-            id: phaseId,
-            studyId: studyId,
-            phaseName: section.name || `Phase ${i + 1}`,
-            phaseCode: section.code || `P${i + 1}`,
-            description: section.description || '',
-            order: section.order || i,
-            type: section.type || 'treatment',
-            plannedDurationDays: section.plannedDurationDays || 30,
-            windowStartDays: section.windowStart || 0,
-            windowEndDays: section.windowEnd || 30,
-            daysToComplete: section.daysToComplete || 7,
-            templateAssignments: this.extractTemplateAssignments(section.formTemplates || []),
-            isActive: true,
-            allowSkip: false,
-            allowParallel: false,
-            createdBy: currentUser.uid,
-            createdAt: now,
-            lastModifiedBy: currentUser.uid,
-            lastModifiedAt: now
-          };
-          
-          const phaseRef = doc(this.firestore, 'studyPhases', phaseId);
-          batch.set(phaseRef, this.removeUndefinedFields(phaseData));
-        }
+        const phaseData = {
+          ...phase,
+          id: phaseId,
+          studyId: studyId,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: currentUser.uid,
+          updatedBy: currentUser.uid
+        };
         
-        await batch.commit();
-        console.log(`[StudyService] Created ${phaseIds.length} phases in studyPhases collection for study ${studyId}`);
-      }
+        const cleanedPhase = this.removeUndefinedFields(phaseData);
+        batch.set(phaseRef, cleanedPhase);
+        console.log(`[StudyService] Added phase to batch: ${phase.name} with ID: ${phaseId}`);
+      });
       
-      // Update the study document with phase IDs
-      if (phaseIds.length > 0) {
-        await updateDoc(docRef, {
-          phaseIds: phaseIds
-        });
-      }
-      
-      const createdStudy: Study = { 
-        ...study, 
-        id: studyId,
-        phaseIds: phaseIds
-      };
+      // Commit the batch
+      console.log('[StudyService] Committing atomic batch write...');
+      await batch.commit();
+      console.log('[StudyService] ✅ Study and phases created successfully');
       
       // Log audit event
-      await this.auditService.logAuditEvent({
-        action: 'study_created',
-        resourceType: 'study',
-        resourceId: studyId,
-        userId: currentUser.uid,
-        details: JSON.stringify({
-          protocolNumber: study.protocolNumber,
-          title: study.title,
-          phase: study.phase,
-          phasesCount: phaseIds.length
-        })
-      });
-
+      console.log('[StudyService] Logging audit event...');
+      try {
+        await this.auditService.logAuditEvent({
+          action: 'STUDY_CREATED',
+          resourceType: 'study',
+          resourceId: studyId,
+          details: JSON.stringify({
+            studyTitle: study.title,
+            protocolNumber: study.protocolNumber,
+            phaseCount: phases.length
+          }),
+          userId: currentUser.uid,
+          userEmail: currentUser.email || 'unknown',
+          timestamp: now,
+          severity: 'INFO'
+        });
+        console.log('[StudyService] ✅ Audit event logged');
+      } catch (auditError) {
+        console.error('[StudyService] Failed to log audit event:', auditError);
+        // Don't fail the creation if audit logging fails
+      }
+      
+      // Return the created study with ID and phase IDs
+      const createdStudy = { ...cleanedStudy, id: studyId, phaseIds } as Study;
+      console.log('[StudyService] Returning created study:', createdStudy);
       return createdStudy;
-    });
+      
+    } catch (error) {
+      console.error('[StudyService] Error creating study:', error);
+      throw error;
+    }
   }
 
   async getStudy(studyId: string): Promise<Study | null> {

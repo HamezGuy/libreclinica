@@ -326,58 +326,63 @@ export class PatientService {
           
           try {
             // Fetch the full template data from formTemplates collection
+            console.log(`[PatientService] Fetching template ${assignment.templateId} from formTemplates collection`);
             const fullTemplate = await this.formTemplateService.getTemplate(assignment.templateId);
             
             if (!fullTemplate) {
-              console.warn(`[PatientService] Template ${assignment.templateId} not found, skipping`);
-              continue;
+              console.warn(`[PatientService] Template ${assignment.templateId} not found in formTemplates collection`);
+              // Try to use the assignment data if template not found
+              if (!assignment.templateName) {
+                console.warn(`[PatientService] No template name in assignment, skipping`);
+                continue;
+              }
             }
             
             // Create a unique form instance ID for this patient
             const formInstanceId = `${patientId}_${studyPhase.id}_${assignment.templateId}_${Date.now()}`;
             
             // Deep clone the template to ensure complete independence
-            const templateClone = JSON.parse(JSON.stringify(fullTemplate));
+            const templateClone = fullTemplate ? JSON.parse(JSON.stringify(fullTemplate)) : null;
             
             // Create the patient phase template with full embedded data
             const patientPhaseTemplate: PatientPhaseTemplate = {
               id: formInstanceId, // Unique form instance ID for this patient
               templateId: assignment.templateId, // Original template ID for reference
-              templateName: assignment.templateName || templateClone.name || `Template ${i + 1}`,
-              templateVersion: assignment.templateVersion || templateClone.version || '1.0',
-              category: templateClone.category,
-              description: templateClone.description || assignment.description,
+              templateName: assignment.templateName || templateClone?.name || `Template ${i + 1}`,
+              templateVersion: assignment.templateVersion || templateClone?.version || '1.0',
+              category: templateClone?.category || assignment.category || 'general',
+              description: templateClone?.description || assignment.description || '',
               
               // Deep copy the complete template structure - this is the patient's own copy
-              fields: templateClone.fields || [],
-              sections: templateClone.sections || [],
+              fields: templateClone?.fields || assignment.fields || [],
+              sections: templateClone?.sections || assignment.sections || [],
               metadata: {
                 // Store complete original template data
                 originalTemplateId: assignment.templateId,
-                originalTemplateName: templateClone.name,
-                originalTemplateVersion: templateClone.version,
-                templateType: templateClone.templateType,
-                settings: templateClone.settings || {},
-                validation: templateClone.validation || {},
+                originalTemplateName: templateClone?.name || assignment.templateName,
+                originalTemplateVersion: templateClone?.version || assignment.templateVersion || '1.0',
+                templateType: templateClone?.templateType || assignment.templateType || 'form',
+                settings: templateClone?.settings || assignment.settings || {},
+                validation: templateClone?.validation || assignment.validation || {},
                 // Additional template metadata
-                layout: templateClone.layout || {},
-                styling: templateClone.styling || {},
-                logic: templateClone.logic || {},
-                calculations: templateClone.calculations || [],
-                dependencies: templateClone.dependencies || [],
+                layout: templateClone?.layout || assignment.layout || {},
+                styling: templateClone?.styling || assignment.styling || {},
+                logic: templateClone?.logic || assignment.logic || {},
+                calculations: templateClone?.calculations || assignment.calculations || [],
+                dependencies: templateClone?.dependencies || assignment.dependencies || [],
                 // Compliance and regulatory
-                isGxpValidated: templateClone.isGxpValidated || false,
-                requiresSignature: templateClone.requiresSignature || false,
-                auditTrail: templateClone.auditTrail || true,
+                isGxpValidated: templateClone?.isGxpValidated || assignment.isGxpValidated || false,
+                requiresSignature: templateClone?.requiresSignature || assignment.requiresSignature || false,
+                auditTrail: templateClone?.auditTrail !== false,
                 // Template configuration
-                allowPartialSave: templateClone.allowPartialSave !== false,
-                autoSaveInterval: templateClone.autoSaveInterval || 30,
-                maxAttachmentSize: templateClone.maxAttachmentSize || 10485760, // 10MB default
-                supportedFileTypes: templateClone.supportedFileTypes || ['pdf', 'jpg', 'png', 'doc', 'docx'],
+                allowPartialSave: templateClone?.allowPartialSave !== false,
+                autoSaveInterval: templateClone?.autoSaveInterval || 30,
+                maxAttachmentSize: templateClone?.maxAttachmentSize || 10485760, // 10MB default
+                supportedFileTypes: templateClone?.supportedFileTypes || ['pdf', 'jpg', 'png', 'doc', 'docx'],
                 // Copy any custom properties from the template
-                customProperties: templateClone.customProperties || {},
+                customProperties: templateClone?.customProperties || assignment.customProperties || {},
                 // Store the complete original template for reference
-                fullTemplateSnapshot: templateClone
+                fullTemplateSnapshot: templateClone || assignment
               },
               
               // Assignment properties from study phase

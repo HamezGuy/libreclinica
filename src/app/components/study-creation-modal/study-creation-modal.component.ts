@@ -1,11 +1,12 @@
-import { Component, EventEmitter, Input, Output, OnInit, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Study, EnhancedStudySection, StudySectionFormTemplate } from '../../models/study.model';
-import { AccessLevel } from '../../enums/access-levels.enum';
+import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Study, StudySection, EnhancedStudySection, StudySectionFormTemplate } from '../../models/study.model';
 import { FormTemplate } from '../../models/form-template.model';
 import { FormTemplateService } from '../../services/form-template.service';
 import { StudyService } from '../../services/study.service';
+import { EdcCompliantAuthService } from '../../services/edc-compliant-auth.service';
+import { firstValueFrom, take } from 'rxjs';
 import { TemplateGalleryComponent } from '../template-gallery/template-gallery.component';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
@@ -40,13 +41,16 @@ export class StudyCreationModalComponent implements OnInit {
 
 
   async ngOnInit(): Promise<void> {
+    console.log('[StudyCreationModal] Component initializing...');
     this.initializeForm();
+    console.log('[StudyCreationModal] Form initialized');
     
     // Auto-login for testing
     await this.autoLoginForTesting();
     
+    console.log('[StudyCreationModal] Loading templates...');
     this.loadAvailableTemplates();
-    this.createSampleTemplatesIfNeeded();
+    console.log('[StudyCreationModal] Component initialization complete');
   }
 
   private initializeForm(): void {
@@ -115,76 +119,78 @@ export class StudyCreationModalComponent implements OnInit {
     this.creationLock = false;
   }
 
-  onSubmit(): void {
-    // CRITICAL: Only allow submission from step 3 (Review & Create)
+  async onSubmit(): Promise<void> {
+    console.log('[StudyCreationModal] ========== STUDY CREATION STARTED ==========');
+    console.log('[StudyCreationModal] Current step:', this.currentStep);
+    console.log('[StudyCreationModal] Form valid:', this.studyCreationForm.valid);
+    console.log('[StudyCreationModal] Form value:', this.studyCreationForm.value);
+    
+    // Only submit on final step
     if (this.currentStep !== 3) {
-      console.log('[StudyCreationModal] Form submission blocked - not on final step');
+      console.log('[StudyCreationModal] Not on final step, returning');
       return;
     }
     
-    // Prevent duplicate submissions with double-check
+    // Prevent duplicate submissions
     if (this.isCreatingStudy || this.creationLock) {
-      console.log('[StudyCreationModal] Already creating study - preventing duplicate submission');
+      console.log('[StudyCreationModal] Study creation already in progress - ignoring duplicate request');
+      console.log('[StudyCreationModal] isCreatingStudy:', this.isCreatingStudy, 'creationLock:', this.creationLock);
       return;
     }
     
-    // Set both locks immediately to prevent any race conditions
+    // Set both locks to prevent any duplicate submissions
     this.isCreatingStudy = true;
     this.creationLock = true;
+    console.log('[StudyCreationModal] Locks set - proceeding with creation');
     
-    // CRITICAL: On step 3 (Review & Create), ALWAYS allow study creation
-    console.log('[StudyCreationModal] Starting study creation with locks engaged');
     const formValue = this.studyCreationForm.value;
+    console.log('[StudyCreationModal] Form values extracted:', formValue);
     
-    // Build study object with ALL required fields from the Study model
+    // Build the new study object with all required fields
     const newStudy: any = {
-      // Basic Information (all required)
-      title: formValue.title || '',
-      protocolNumber: formValue.protocolNumber || '',
-      description: formValue.description || '',
-      version: formValue.version || '1.0',
+      // Basic Info
+      protocolNumber: formValue.protocolNumber,
+      title: formValue.title,
+      shortTitle: formValue.shortTitle,
+      description: formValue.description,
       
-      // Study Classification (all required)
-      phase: formValue.phase || 'phase_i',
-      studyType: formValue.studyType || 'interventional',
-      therapeuticArea: formValue.therapeuticArea || '',
-      indication: formValue.indication || '',
+      // Classification
+      phase: formValue.phase,
+      studyType: formValue.studyType,
+      therapeuticArea: formValue.therapeuticArea,
+      indication: formValue.indication,
       
-      // Status and Timeline
-      status: formValue.status || 'planning',
-      plannedStartDate: formValue.plannedStartDate ? new Date(formValue.plannedStartDate) : new Date(),
-      plannedEndDate: formValue.plannedEndDate ? new Date(formValue.plannedEndDate) : new Date(),
+      // Timeline
+      plannedStartDate: formValue.plannedStartDate,
+      plannedEndDate: formValue.plannedEndDate,
+      actualStartDate: formValue.actualStartDate,
+      actualEndDate: formValue.actualEndDate,
       
-      // Enrollment (all required)
+      // Enrollment
       plannedEnrollment: formValue.plannedEnrollment || 0,
       actualEnrollment: formValue.actualEnrollment || 0,
       enrollmentStatus: formValue.enrollmentStatus || 'not_started',
       
-      // Patient Management (required array)
-      patientIds: [],
+      // Team
+      principalInvestigator: formValue.principalInvestigator,
+      studyCoordinator: formValue.studyCoordinator,
+      sponsor: formValue.sponsor,
+      cro: formValue.cro,
       
-      // Enhanced Study Structure (all required arrays/objects)
-      sections: this.processSections(formValue.sections || []),
-      phases: [], // Empty array for now - phases different from sections
-      phaseTransitionRules: [], // Empty array for now
-      substudies: [], // Empty array for now
-      studyGroups: [], // Empty array for now
-      eligibilityCriteria: {
-        inclusionCriteria: [],
-        exclusionCriteria: []
-      },
-      sites: [], // Empty array for now
+      // Regulatory
+      irbApprovalNumber: formValue.irbApprovalNumber,
+      irbApprovalDate: formValue.irbApprovalDate,
+      regulatoryStatus: formValue.regulatoryStatus || 'pending',
       
-      // Regulatory Information (required arrays)
-      regulatoryRequirements: [],
-      irbApprovalRequired: formValue.irbApprovalRequired ?? true,
-      consentRequired: formValue.consentRequired ?? true,
+      // Status
+      status: 'planning',
+      isActive: true,
       
-      // CFR 21 Part 11 Compliance
-      requiresElectronicSignatures: formValue.requiresElectronicSignatures ?? true,
-      auditTrailRequired: formValue.auditTrailRequired ?? true,
-      dataIntegrityLevel: formValue.dataIntegrityLevel || 'enhanced',
+      // Sections/Phases - these will be created as separate phase documents
+      sections: formValue.sections || [],
       
+      // Sites
+      sites: formValue.sites || [],
       // Data Retention (all required)
       dataRetentionPeriod: formValue.dataRetentionPeriod || 120,
       archivalRequirements: [],
@@ -217,14 +223,55 @@ export class StudyCreationModalComponent implements OnInit {
     }
     
     // Log the final study object for debugging
-    console.log('[StudyCreationModal] Creating study with data:', newStudy);
+    console.log('[StudyCreationModal] Study object before cleaning:', newStudy);
+    console.log('[StudyCreationModal] Number of sections/phases:', newStudy.sections?.length || 0);
     
     // Ensure no undefined values exist
     const cleanedStudy = this.removeUndefinedFields(newStudy);
+    console.log('[StudyCreationModal] Cleaned study object:', cleanedStudy);
     
-    // Keep locks engaged until parent component handles the creation
-    // The parent component should call resetCreationState() after handling
-    this.create.emit(cleanedStudy as Study);
+    try {
+      console.log('[StudyCreationModal] Creating study directly in modal...');
+      console.log('[StudyCreationModal] Calling studyService.createStudy() with:', cleanedStudy);
+      
+      // Create the study directly here instead of emitting to parent
+      const createdStudy = await this.studyService.createStudy(cleanedStudy);
+      
+      console.log('[StudyCreationModal] ✅ Study created successfully:', createdStudy);
+      console.log('[StudyCreationModal] Study ID:', createdStudy?.id);
+      console.log('[StudyCreationModal] Phase IDs:', createdStudy?.phaseIds);
+      console.log('[StudyCreationModal] Full created study object:', JSON.stringify(createdStudy, null, 2));
+      
+      if (!createdStudy || !createdStudy.id) {
+        throw new Error('Study creation failed - no ID returned');
+      }
+      
+      // Show success message
+      alert(`Study "${createdStudy.title}" created successfully with ${cleanedStudy.sections?.length || 0} phases!`);
+      
+      // Emit the created study for parent to refresh
+      this.create.emit(createdStudy);
+      
+      // Reset state and close modal after emitting
+      this.resetCreationState();
+      this.close.emit();
+      
+    } catch (error) {
+      console.error('[StudyCreationModal] ❌ Error creating study:', error);
+      console.error('[StudyCreationModal] Error details:', {
+        message: (error as any).message,
+        stack: (error as any).stack,
+        code: (error as any).code
+      });
+      
+      // Reset locks on error to allow retry
+      this.isCreatingStudy = false;
+      this.creationLock = false;
+      
+      alert('Error creating study: ' + ((error as any).message || 'Unknown error'));
+    }
+    
+    console.log('[StudyCreationModal] ========== STUDY CREATION ENDED ==========');
   }
   
   // Public method to reset creation state after parent handles the creation
@@ -306,29 +353,52 @@ export class StudyCreationModalComponent implements OnInit {
 
   // Load available templates
   private async loadAvailableTemplates(): Promise<void> {
+    console.log('[StudyCreationModal] Loading templates...');
     try {
-      // First try the observable
-      this.formTemplateService.templates$.subscribe(templates => {
+      // Use take(1) to avoid repeated subscriptions causing infinite loops
+      this.formTemplateService.templates$.pipe(
+        take(1)
+      ).subscribe((templates: FormTemplate[]) => {
         console.log('[StudyCreationModal] Templates from observable:', templates);
+        console.log('[StudyCreationModal] Template count:', templates?.length || 0);
         if (templates && templates.length > 0) {
           this.availableTemplates = templates;
-          console.log('[StudyCreationModal] Set availableTemplates from observable:', this.availableTemplates);
+          console.log('[StudyCreationModal] Available templates set:', this.availableTemplates.map(t => ({
+            id: t.id,
+            name: t.name,
+            version: t.version
+          })));
+        } else {
+          console.warn('[StudyCreationModal] No templates received from observable');
         }
       });
       
-      // Also try direct fetch as fallback
+      // Fallback: try direct fetch if no templates after short delay
       setTimeout(async () => {
         if (!this.availableTemplates || this.availableTemplates.length === 0) {
-          const allTemplates = await this.formTemplateService.getAllTemplates();
-          console.log('[StudyCreationModal] Templates from getAllTemplates:', allTemplates);
-          if (allTemplates && allTemplates.length > 0) {
-            this.availableTemplates = allTemplates;
-            console.log('[StudyCreationModal] Set availableTemplates from direct fetch:', this.availableTemplates);
+          console.log('[StudyCreationModal] No templates yet, trying direct fetch...');
+          try {
+            const allTemplates = await this.formTemplateService.getAllTemplates();
+            console.log('[StudyCreationModal] Direct fetch result:', allTemplates);
+            if (allTemplates && allTemplates.length > 0) {
+              this.availableTemplates = allTemplates;
+              console.log('[StudyCreationModal] Templates loaded via direct fetch:', allTemplates.map(t => ({
+                id: t.id,
+                name: t.name,
+                version: t.version
+              })));
+            } else {
+              console.warn('[StudyCreationModal] No templates from direct fetch either');
+            }
+          } catch (err) {
+            console.error('[StudyCreationModal] Failed to fetch templates directly:', err);
           }
+        } else {
+          console.log('[StudyCreationModal] Templates already loaded, skipping direct fetch');
         }
-      }, 1000);
+      }, 500);
     } catch (error) {
-      console.error('[StudyCreationModal] Error loading templates:', error);
+      console.error('[StudyCreationModal] Error in loadAvailableTemplates:', error);
     }
   }
   
@@ -338,188 +408,7 @@ export class StudyCreationModalComponent implements OnInit {
     console.log('[StudyCreationModal] Skipping auto-login, user should manually register/login');
   }
   
-  // Create sample templates if none exist
-  private async createSampleTemplatesIfNeeded(): Promise<void> {
-    try {
-      const templates = await this.formTemplateService.getAllTemplates();
-      if (templates.length === 0) {
-        console.log('[StudyCreationModal] No templates found, creating sample templates...');
-        
-        // Sample template data
-        const sampleTemplates: Partial<FormTemplate>[] = [
-          {
-            name: 'Patient Demographics Form',
-            description: 'Basic patient demographic information collection',
-            version: 1,
-            status: 'published',
-            templateType: 'form',
-            isPatientTemplate: false,
-            isStudySubjectTemplate: false,
-            category: 'Demographics',
-            fields: [
-              {
-                id: 'field1',
-                name: 'firstName',
-                label: 'First Name',
-                type: 'text',
-                required: true,
-                order: 1,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: false
-              },
-              {
-                id: 'field2',
-                name: 'lastName',
-                label: 'Last Name',
-                type: 'text',
-                required: true,
-                order: 2,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: false
-              },
-              {
-                id: 'field3',
-                name: 'dateOfBirth',
-                label: 'Date of Birth',
-                type: 'date',
-                required: true,
-                order: 3,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: true,
-                auditRequired: false
-              }
-            ]
-          },
-          {
-            name: 'Vital Signs Form',
-            description: 'Record patient vital signs',
-            version: 1,
-            status: 'published',
-            templateType: 'form',
-            isPatientTemplate: false,
-            isStudySubjectTemplate: false,
-            category: 'Clinical',
-            fields: [
-              {
-                id: 'field1',
-                name: 'bloodPressure',
-                label: 'Blood Pressure',
-                type: 'text',
-                required: true,
-                order: 1,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true
-              },
-              {
-                id: 'field2',
-                name: 'heartRate',
-                label: 'Heart Rate',
-                type: 'number',
-                required: true,
-                order: 2,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true
-              },
-              {
-                id: 'field3',
-                name: 'temperature',
-                label: 'Temperature',
-                type: 'number',
-                required: true,
-                order: 3,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true
-              }
-            ]
-          },
-          {
-            name: 'Adverse Event Report',
-            description: 'Report adverse events during study',
-            version: 1,
-            status: 'published',
-            templateType: 'form',
-            isPatientTemplate: false,
-            isStudySubjectTemplate: false,
-            category: 'Safety',
-            fields: [
-              {
-                id: 'field1',
-                name: 'eventDate',
-                label: 'Event Date',
-                type: 'date',
-                required: true,
-                order: 1,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true
-              },
-              {
-                id: 'field2',
-                name: 'eventDescription',
-                label: 'Event Description',
-                type: 'textarea',
-                required: true,
-                order: 2,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true
-              },
-              {
-                id: 'field3',
-                name: 'severity',
-                label: 'Severity',
-                type: 'select',
-                required: true,
-                order: 3,
-                readonly: false,
-                hidden: false,
-                validationRules: [],
-                isPhiField: false,
-                auditRequired: true,
-                options: [
-                  { value: 'mild', label: 'Mild' },
-                  { value: 'moderate', label: 'Moderate' },
-                  { value: 'severe', label: 'Severe' }
-                ]
-              }
-            ]
-          }
-        ];
-        
-        // Create templates
-        for (const template of sampleTemplates) {
-          await this.formTemplateService.createTemplate(template as FormTemplate);
-        }
-        
-        console.log('[StudyCreationModal] Sample templates created');
-        // Reload templates
-        await this.loadAvailableTemplates();
-      }
-    } catch (error) {
-      console.error('[StudyCreationModal] Error creating sample templates:', error);
-    }
-  }
+  // Removed sample template creation - no mock data needed
 
   // Get sections FormArray
   get sectionsArray(): FormArray {

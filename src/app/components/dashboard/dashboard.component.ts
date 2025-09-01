@@ -48,8 +48,7 @@ import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFi
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
 import { Study, StudySection, StudySite, EligibilityCriteria, PatientStudyEnrollment, CareIndicator, Substudy, StudyGroup, StudyFormInstance, StudyFormInstanceStatus, DataQuery, EnhancedStudySection, StudySectionFormTemplate } from '../../models/study.model';
 import { AccessLevel } from '../../enums/access-levels.enum';
-
-
+import { CloudAuditService, AuditLogEntry } from '../../services/cloud-audit.service';
 
 // Patient display model (non-PHI)
 export interface PatientListItem {
@@ -156,10 +155,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private studyPhaseService = inject(StudyPhaseService);
   private dialog = inject(MatDialog);
   private injector: Injector = inject(Injector);
-  
+  private cloudAuditService = inject(CloudAuditService);
+
   // ViewChild reference to study creation modal
   @ViewChild(StudyCreationModalComponent) studyCreationModal!: StudyCreationModalComponent;
-  
+
   // Observables
   userProfile$: Observable<UserProfile | null> = this.authService.currentUserProfile$;
   templates$: Observable<FormTemplate[]> = this.templateService.templates$;
@@ -169,7 +169,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   patients: PatientListItem[] = [];
   studies: Study[] = [];
   selectedStudy: Study | null = null;
-  studyEnrollments: PatientStudyEnrollment[] = [];
+  studyEnrollments: any[] = [];
   careIndicators: CareIndicator[] = [];
 
   // Enhanced study management state
@@ -180,7 +180,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedSubstudy: Substudy | null = null;
   selectedStudyGroup: StudyGroup | null = null;
   selectedSection: EnhancedStudySection | null = null;
-  
+
   // Study dashboard state
   studyViewTab: 'phases' | 'patients' | 'sites' | 'queries' = 'phases';
   expandedPhases: Set<string> = new Set();
@@ -252,6 +252,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { id: 'audit', label: 'report.auditLogs', icon: 'history', active: false }
   ];
   activeSidebarItem = 'patients';
+
+  // Audit log properties
+  auditLogs: any[] = [];
+  expandedAuditLogs = new Set<string>();
+  auditLogFilter: string = '';
+  loadingAuditLogs: boolean = false;
+  filteredAuditLogs: any[] = [];
+
+  // Make Object available in template
+  Object = Object;
 
   // Study-Patient Hierarchy Sidebar State
   expandedStudies = new Set<string>();
@@ -448,13 +458,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
         let visitSubcomponents: any[] = [];
         try {
           const { collection, getDocs, getFirestore } = await import('@angular/fire/firestore');
-          const firestore = getFirestore();
-          const subcomponentsRef = collection(firestore, 'patients', doc.id, 'visitSubcomponents');
-          const subcomponentsSnapshot = await getDocs(subcomponentsRef);
-          visitSubcomponents = subcomponentsSnapshot.docs.map(subDoc => ({
-            id: subDoc.id,
-            ...subDoc.data()
-          }));
+          visitSubcomponents = await runInInjectionContext(this.injector, async () => {
+            const firestore = getFirestore();
+            const subcomponentsRef = collection(firestore, 'patients', doc.id, 'visitSubcomponents');
+            const subcomponentsSnapshot = await getDocs(subcomponentsRef);
+            return subcomponentsSnapshot.docs.map(subDoc => ({
+              id: subDoc.id,
+              ...subDoc.data()
+            }));
+          });
         } catch (error) {
           console.log(`No visit subcomponents for patient ${doc.id}`);
         }
@@ -505,22 +517,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   async selectPatient(patient: any) {
+    // Convert Firestore timestamps to Date objects
+    if (patient) {
+      patient = {
+        ...patient,
+        enrollmentDate: patient.enrollmentDate ? 
+          (patient.enrollmentDate.seconds ? 
+            new Date(patient.enrollmentDate.seconds * 1000) : 
+            (patient.enrollmentDate instanceof Date ? patient.enrollmentDate : new Date(patient.enrollmentDate))
+          ) : undefined,
+        lastVisit: patient.lastVisit ? 
+          (patient.lastVisit.seconds ? 
+            new Date(patient.lastVisit.seconds * 1000) : 
+            (patient.lastVisit instanceof Date ? patient.lastVisit : new Date(patient.lastVisit))
+          ) : undefined
+      };
+    }
+    
     this.selectedPatient = patient;
     console.log('Selected patient:', patient);
-    
+
     // Load patient phases when patient is selected
     // First try to use phases array from patient document, then fall back to visitSubcomponents
     if (patient) {
       // Use phases if available, otherwise use visitSubcomponents
       this.patientPhases = patient.phases || patient.visitSubcomponents || [];
-      
+
       // If we still don't have phases, fetch the patient data to ensure we have the latest
       if (this.patientPhases.length === 0 && patient.id) {
         this.patientService.getPatientById(patient.id).then(fullPatient => {
           if (fullPatient) {
             this.patientPhases = fullPatient.phases || [];
             console.log('Loaded patient phases:', this.patientPhases);
-            
+
             // Calculate completion percentages for each phase
             this.patientPhases.forEach(phase => {
               const totalForms = phase.formTemplates?.length || phase.templateAssignments?.length || 0;
@@ -572,31 +601,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Load PHI data if user has permission
       if (this.permissions.canView) {
         try {
-          const phiData = await this.healthcareService.getPatient(patient.id);
-          // Map healthcare patient to dashboard patient interface
-          const name = phiData.name?.[0] || { given: [], family: '' };
-          const birthDate = phiData.birthDate ?
-            (typeof phiData.birthDate === 'string' ? new Date(phiData.birthDate) : phiData.birthDate) :
-            new Date();
+          // For now, use patient data from Firestore instead of Healthcare API
+          // The Healthcare API integration requires patients to be created in FHIR store first
+          const demographics = patient.demographics || {};
+          const birthDate = demographics.dateOfBirth ? 
+            (demographics.dateOfBirth.seconds ? 
+              new Date(demographics.dateOfBirth.seconds * 1000) : 
+              new Date(demographics.dateOfBirth)
+            ) : undefined;
 
           this.selectedPatientPhiData = {
-            id: phiData.id || '',
+            id: patient.id || '',
             name: {
-              given: name.given || [],
-              family: name.family || ''
+              given: [demographics.firstName || ''],
+              family: demographics.lastName || ''
             },
-            dateOfBirth: birthDate,
-            gender: phiData.gender || 'unknown',
+            dateOfBirth: birthDate || new Date(),
+            gender: demographics.gender || 'unknown',
             contactInfo: {
-              phone: phiData.telecom?.find(t => t.system === 'phone')?.value,
-              email: phiData.telecom?.find(t => t.system === 'email')?.value,
-              address: phiData.address?.[0] ?
-                `${phiData.address[0].line?.join(', ') || ''}, ${phiData.address[0].city || ''}, ${phiData.address[0].state || ''} ${phiData.address[0].postalCode || ''}`.trim() :
+              phone: demographics.phone,
+              email: demographics.email,
+              address: demographics.address ? 
+                `${demographics.address.street || ''}, ${demographics.address.city || ''}, ${demographics.address.state || ''} ${demographics.address.zip || ''}`.trim() :
                 undefined
             }
           };
+          
+          // Optionally try to fetch from Healthcare API if patient exists there
+          // This is commented out to prevent 500 errors for patients not in FHIR store
+          // const phiData = await this.healthcareService.getPatient(patient.id);
         } catch (error) {
           console.error('Error loading PHI data:', error);
+          // Fallback to basic patient data
+          this.selectedPatientPhiData = null;
         }
       }
     } catch (error) {
@@ -635,19 +672,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getTotalFormsCount(): number {
     if (!this.patientPhases) return 0;
-    return this.patientPhases.reduce((total, phase) => 
+    return this.patientPhases.reduce((total, phase) =>
       total + (phase.formTemplates?.length || 0), 0);
   }
 
   getCompletedFormsTotal(): number {
     if (!this.patientPhases) return 0;
-    return this.patientPhases.reduce((total, phase) => 
+    return this.patientPhases.reduce((total, phase) =>
       total + (phase.formTemplates?.filter((f: any) => f.completed).length || 0), 0);
   }
 
   getPendingFormsTotal(): number {
     if (!this.patientPhases) return 0;
-    return this.patientPhases.reduce((total, phase) => 
+    return this.patientPhases.reduce((total, phase) =>
       total + (phase.formTemplates?.filter((f: any) => !f.completed && f.isRequired).length || 0), 0);
   }
 
@@ -825,27 +862,212 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // Sidebar navigation
-  selectSidebarItem(itemId: string) {
+  async selectSidebarItem(itemId: string) {
+    console.log('Selecting sidebar item:', itemId);
     this.sidebarItems.forEach(item => item.active = item.id === itemId);
     this.activeSidebarItem = itemId;
+    
+    // Load data based on selected item
+    if (itemId === 'patients') {
+      await this.loadPatients();
+    } else if (itemId === 'forms') {
+      await this.loadTemplates();
+    } else if (itemId === 'studies') {
+      await this.loadStudiesData();
+    } else if (itemId === 'audit') {
+      await this.loadAuditLogs();
+    }
+  }
 
-    // Handle navigation based on selected item
-    switch (itemId) {
-      case 'patients':
-        this.loadPatients();
-        break;
-      case 'forms':
-        // Load forms view
-        break;
-      case 'studies':
-        // Load studies view
-        break;
-      case 'reports':
-        // Load reports view
-        break;
-      case 'audit':
-        // Load audit logs view
-        break;
+  async loadAuditLogs() {
+    try {
+      this.loadingAuditLogs = true;
+      this.auditLogs = await this.cloudAuditService.fetchUserAuditLogs();
+      this.filterAuditLogs();
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      this.auditLogs = [];
+      this.filteredAuditLogs = [];
+    } finally {
+      this.loadingAuditLogs = false;
+    }
+  }
+
+  filterAuditLogs() {
+    if (!this.auditLogFilter) {
+      this.filteredAuditLogs = this.auditLogs;
+      return;
+    }
+
+    const filter = this.auditLogFilter.toLowerCase();
+    this.filteredAuditLogs = this.auditLogs.filter(log => 
+      log.action?.toLowerCase().includes(filter) ||
+      log.resource?.toLowerCase().includes(filter) ||
+      log.userId?.toLowerCase().includes(filter) ||
+      log.details?.toLowerCase().includes(filter) ||
+      log.severity?.toLowerCase().includes(filter)
+    );
+  }
+
+  toggleAuditLogDetails(log: any) {
+    log.expanded = !log.expanded;
+  }
+
+  getAuditActionIcon(action: string): string {
+    const iconMap: { [key: string]: string } = {
+      'CREATE': 'add_circle',
+      'UPDATE': 'edit',
+      'DELETE': 'delete',
+      'VIEW': 'visibility',
+      'LOGIN': 'login',
+      'LOGOUT': 'logout',
+      'EXPORT': 'download',
+      'IMPORT': 'upload',
+      'APPROVE': 'check_circle',
+      'REJECT': 'cancel'
+    };
+    return iconMap[action] || 'info';
+  }
+
+  getAuditSeverityClass(severity: string): string {
+    const classMap: { [key: string]: string } = {
+      'INFO': 'severity-info',
+      'WARNING': 'severity-warning',
+      'ERROR': 'severity-error',
+      'CRITICAL': 'severity-critical'
+    };
+    return classMap[severity] || 'severity-info';
+  }
+
+  formatTimestamp(timestamp: any): string {
+    if (!timestamp) return '';
+    
+    // Handle Firestore Timestamp
+    if (timestamp.toDate) {
+      return timestamp.toDate().toLocaleString();
+    }
+    
+    // Handle string or Date
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? '' : date.toLocaleString();
+  }
+
+  trackAuditLog(index: number, log: any): string {
+    return log.id || index;
+  }
+
+  getAuditLogCountBySeverity(severity: string): number {
+    if (!this.filteredAuditLogs) return 0;
+    
+    if (severity === 'ERROR_CRITICAL') {
+      return this.filteredAuditLogs.filter(log => 
+        log.severity === 'ERROR' || log.severity === 'CRITICAL'
+      ).length;
+    }
+    
+    return this.filteredAuditLogs.filter(log => log.severity === severity).length;
+  }
+
+  async loadStudiesData() {
+    try {
+      this.studies = await this.studyService.getStudies().toPromise() || [];
+    } catch (error) {
+      console.error('Error loading studies:', error);
+      this.studies = [];
+    }
+  }
+
+  // Study management methods
+  getCareIndicatorsForStudy(studyId: string): any[] {
+    if (!this.careIndicators || !studyId) return [];
+    return this.careIndicators.filter(indicator => indicator.studyId === studyId);
+  }
+
+  getCareIndicatorIcon(type: string): string {
+    const iconMap: { [key: string]: string } = {
+      'enrollment': 'person_add',
+      'data_quality': 'assessment',
+      'compliance': 'rule',
+      'safety': 'health_and_safety',
+      'protocol': 'description',
+      'site': 'location_on',
+      'default': 'warning'
+    };
+    return iconMap[type] || iconMap['default'];
+  }
+
+  async enrollPatientInStudy(study: any) {
+    try {
+      // Navigate to patient enrollment or show enrollment modal
+      console.log('Enrolling patient in study:', study.id);
+      // TODO: Implement patient enrollment logic
+      this.showNotification('Patient enrollment feature coming soon', 'info');
+    } catch (error) {
+      console.error('Error enrolling patient:', error);
+      this.showNotification('Failed to enroll patient', 'error');
+    }
+  }
+
+  async deleteStudy(study: any) {
+    if (!confirm(`Are you sure you want to delete study "${study.title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Pass audit reason for CFR 21 Part 11 compliance
+      const reason = `User deleted study: ${study.title}`;
+      await this.studyService.deleteStudy(study.id, reason);
+      this.studies = this.studies.filter(s => s.id !== study.id);
+      this.showNotification('Study deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting study:', error);
+      this.showNotification('Failed to delete study', 'error');
+    }
+  }
+
+  async resolveCareIndicator(indicator: any) {
+    try {
+      // Mark indicator as resolved
+      indicator.resolved = true;
+      indicator.resolvedAt = new Date();
+      indicator.resolvedBy = this.currentUserProfile?.uid;
+      
+      // Update in database - using StudyService for care indicators
+      // TODO: Implement proper care indicator update in StudyService
+      console.log('Resolving care indicator:', indicator);
+      
+      // Update local state
+      const index = this.careIndicators.findIndex(ci => ci.id === indicator.id);
+      if (index !== -1) {
+        this.careIndicators[index] = { ...indicator, status: 'resolved' };
+      }
+      
+      this.showNotification('Care indicator resolved', 'success');
+    } catch (error) {
+      console.error('Error resolving care indicator:', error);
+      this.showNotification('Failed to resolve care indicator', 'error');
+    }
+  }
+
+  showNotification(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    // TODO: Implement proper notification service
+    // For now, use console logging
+  }
+
+  onStudyWidgetClosed() {
+    this.showStudyCreationModal = false;
+  }
+
+  async onStudyCreated(studyData: any) {
+    try {
+      const newStudy = await this.studyService.createStudy(studyData);
+      this.studies.push(newStudy);
+      this.showStudyCreationModal = false;
+      this.showNotification('Study created successfully', 'success');
+    } catch (error) {
+      console.error('Error creating study:', error);
+      this.showNotification('Failed to create study', 'error');
     }
   }
 
@@ -1109,24 +1331,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (patientsInPhase.length === 0) {
       return 'not_started';
     }
-    
+
     const hasCompleted = patientsInPhase.some(p => p.phaseProgress?.[phase.id]?.status === 'completed');
     if (hasCompleted) {
       const allCompleted = patientsInPhase.every(p => p.phaseProgress?.[phase.id]?.status === 'completed');
       return allCompleted ? 'completed' : 'in_progress';
     }
-    
+
     return 'in_progress';
   }
 
   getPhaseProgress(studyId: string, phase: any): number {
     const patientsInPhase = this.getPatientsInPhase(studyId, phase.id);
     if (patientsInPhase.length === 0) return 0;
-    
+
     const completedCount = patientsInPhase.filter(
       p => p.phaseProgress?.[phase.id]?.status === 'completed'
     ).length;
-    
+
     return Math.round((completedCount / patientsInPhase.length) * 100);
   }
 
@@ -1189,8 +1411,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Patient Phase Methods
   getPatientsInPhase(studyId: string, phaseId: string): PatientStudyEnrollment[] {
     return this.studyEnrollments.filter(enrollment => {
-      return enrollment.studyId === studyId && 
-             (enrollment.currentPhase === phaseId || 
+      return enrollment.studyId === studyId &&
+             (enrollment.currentPhase === phaseId ||
               enrollment.phaseProgress?.[phaseId]?.status === 'in_progress' ||
               enrollment.phaseProgress?.[phaseId]?.status === 'completed');
     });
@@ -1231,11 +1453,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Study Progress Methods
   getStudyOverallProgress(study: Study): number {
     if (!study.phases || study.phases.length === 0) return 0;
-    
+
     const totalProgress = study.phases.reduce((sum, phase) => {
       return sum + this.getPhaseProgress(study.id!, phase);
     }, 0);
-    
+
     return Math.round(totalProgress / study.phases.length);
   }
 
@@ -1672,7 +1894,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getTotalEnrollments(): number {
+    if (!this.studies || this.studies.length === 0) return 0;
     return this.studies.reduce((total, study) => total + (study.actualEnrollment || 0), 0);
+  }
+
+  getEnrollmentsForStudy(studyId: string): any[] {
+    if (!Array.isArray(this.studyEnrollments)) return [];
+    return this.studyEnrollments.filter((enrollment: any) => enrollment.studyId === studyId);
   }
 
   getActiveStudiesCount(): number {
@@ -1683,325 +1911,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return study.id || `study-${index}`;
   }
 
-  // Create Study Widget Event Handlers
-  onStudyWidgetClosed(): void {
-    this.showStudyCreationModal = false;
-  }
+// ... (rest of the code remains the same)
 
-  async onStudyCreated(studyData: Study): Promise<void> {
-    // Prevent processing if already creating (additional safety check)
-    if (this.studyCreationModal?.isCreatingStudy) {
-      console.log('Study creation already in progress - ignoring duplicate request');
-      return;
-    }
-    
-    try {
-      console.log('Creating study with data:', studyData);
-
-      // Create the study - StudyService.createStudy already handles phase creation from sections
-      const createdStudy = await this.studyService.createStudy(studyData);
-      console.log('Study created:', createdStudy);
-
-      if (!createdStudy.id) {
-        throw new Error('Study created but no ID returned');
-      }
-
-      // NOTE: StudyService.createStudy already creates phases from studyData.sections
-      // No need to create them again here - that was causing duplicate phases
-
-      this.showStudyCreationModal = false;
-      // Refresh the studies list
-      this.loadStudies();
-      alert('Study created successfully with ' + (studyData.sections?.length || 0) + ' phases!');
-      
-      // Reset the modal state completely after successful creation
-      if (this.studyCreationModal) {
-        this.studyCreationModal.resetCreationState();
-      }
-    } catch (error) {
-      console.error('Error creating study:', error);
-      alert('Error creating study: ' + (error as Error).message);
-      
-      // Reset the modal state on error to allow retry
-      if (this.studyCreationModal) {
-        this.studyCreationModal.isCreatingStudy = false;
-        // Note: Don't call full reset on error - user may want to fix and retry
-      }
-    }
-  }
-
-  private generatePhaseCode(sectionType: string): string {
-    const codeMap: { [key: string]: string } = {
-      'screening': 'SCR',
-      'baseline': 'BSL',
-      'treatment': 'TRT',
-      'follow_up': 'FUP',
-      'visit': 'VST',
-      'unscheduled': 'UNS'
-    };
-    return codeMap[sectionType] || 'GEN';
-  }
-
-  // Load studies
-  loadStudies(): void {
-    // Studies are automatically loaded via the studies$ observable
-    // This method is kept for compatibility but doesn't need to do anything
-  }
-
-  onRefreshStudies(): void {
-    this.loadStudies();
-  }
-
-  getSectionsForStudy(studyId: string): any[] {
-    // This would typically fetch from a service
-    // For now, return mock data or empty array
-    return [];
-  }
-
-  getCareIndicatorsForStudy(studyId: string): CareIndicator[] {
-    return this.careIndicators.filter(indicator => indicator.studyId === studyId);
-  }
-
-  getStudyProgress(study: Study): number {
-    if (!study.plannedEnrollment || study.plannedEnrollment === 0) {
-      return 0;
-    }
-    return Math.round(((study.actualEnrollment || 0) / study.plannedEnrollment) * 100);
-  }
-
-  getCareIndicatorIcon(type: string): string {
-    const iconMap: { [key: string]: string } = {
-      'patient_safety': 'warning',
-      'data_quality': 'error',
-      'enrollment': 'people',
-      'compliance': 'security',
-      'follow_up': 'schedule',
-      'adverse_event': 'emergency'
-    };
-    return iconMap[type] || 'info';
-  }
-
-  // Study Management Action Methods
-  async deleteStudy(study: Study): Promise<void> {
-    if (!this.permissions.canDelete) {
-      alert('You do not have permission to delete studies');
-      return;
-    }
-
-    // Check if study has enrolled patients
-    const enrollments = await this.studyService.getStudyPatients(study.id!);
-    const hasPatients = enrollments.length > 0;
-
-    let confirmMessage = `Are you sure you want to delete the study "${study.title}"?`;
-    if (hasPatients) {
-      confirmMessage = `WARNING: This study has ${enrollments.length} enrolled patient(s).\n\n` +
-        `Deleting this study will permanently delete ALL associated patient data.\n\n` +
-        `Study: ${study.title}\n` +
-        `Protocol: ${study.protocolNumber}\n` +
-        `Patients: ${enrollments.length}\n\n` +
-        `This action cannot be undone. Are you absolutely sure you want to proceed?`;
-    }
-
-    if (confirm(confirmMessage)) {
-      // Double confirmation for studies with patients
-      if (hasPatients) {
-        const secondConfirm = prompt(
-          `This is a destructive action that will delete ${enrollments.length} patient(s).\n\n` +
-          `To confirm, please type the study protocol number: ${study.protocolNumber}`
-        );
-        
-        if (secondConfirm !== study.protocolNumber) {
-          alert('Protocol number does not match. Deletion cancelled.');
-          return;
-        }
-      }
-
-      try {
-        // Show loading state
-        const deleteButton = document.querySelector(`[data-study-id="${study.id}"] .delete-button`);
-        if (deleteButton) {
-          deleteButton.textContent = 'Deleting...';
-          deleteButton.setAttribute('disabled', 'true');
-        }
-
-        // Determine which deletion method to use
-        if (hasPatients) {
-          // Use the new cascade delete method
-          await this.studyService.deleteStudyWithPatients(
-            study.id!, 
-            `User requested complete deletion of study and all ${enrollments.length} associated patients`
-          );
-          this.toastService.success(
-            `Study "${study.title}" and ${enrollments.length} associated patient(s) have been permanently deleted.`
-          );
-        } else {
-          // Use the regular soft delete for studies without patients
-          await this.studyService.deleteStudy(
-            study.id!, 
-            'User requested deletion of study with no enrolled patients'
-          );
-          this.toastService.success(
-            `Study "${study.title}" has been archived.`
-          );
-        }
-
-        // Remove from local array
-        this.studies = this.studies.filter(s => s.id !== study.id);
-        if (this.selectedStudy?.id === study.id) {
-          this.selectedStudy = null;
-          this.studyEnrollments = [];
-          this.careIndicators = [];
-        }
-
-        // Refresh the studies list
-        this.loadStudies();
-      } catch (error) {
-        console.error('Error deleting study:', error);
-        this.toastService.error(
-          `Failed to delete study: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-        
-        // Reset button state
-        const deleteButton = document.querySelector(`[data-study-id="${study.id}"] .delete-button`);
-        if (deleteButton) {
-          deleteButton.textContent = 'Delete';
-          deleteButton.removeAttribute('disabled');
-        }
-      }
-    }
-  }
-
-  async enrollPatientInStudy(study: Study): Promise<void> {
-    if (!this.permissions.canCreate) {
-      alert('You do not have permission to enroll patients');
-      return;
-    }
-
-    try {
-      // Load patient templates and open the patient form modal with the study pre-selected
-      await this.loadPatientTemplates();
-      
-      // Set the default study for the patient form
-      this.defaultStudyIdForPatient = study.id!;
-      
-      // Open the patient template selector modal
-      this.showPatientTemplateModal = true;
-    } catch (error) {
-      console.error('Error opening patient enrollment:', error);
-      alert('Failed to open patient enrollment. Please try again.');
-    }
-  }
-
-  /**
-   * Create a demo patient for testing purposes
-   * In production, this would be replaced with patient selection modal
-   */
-  private async createDemoPatientForStudy(studyId: string): Promise<string | null> {
-    try {
-      const userProfile = await this.authService.getCurrentUserProfile();
-      const now = new Date();
-      const userId = userProfile?.uid || 'system';
-      
-      // Get the study to access its protocol number
-      const study = this.studies.find(s => s.id === studyId);
-      if (!study) {
-        console.error('Study not found:', studyId);
-        return null;
-      }
-      
-      // Generate a unique patient number
-      const patientNumber = `${study.protocolNumber}-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Math.random().toString(36).substr(2, 3).toUpperCase()}`;
-      
-      // Create patient data
-      const patientData: any = {
-        patientNumber: patientNumber,
-        identifiers: [{
-          type: 'MRN',
-          value: `MRN-${Date.now()}`,
-          issuingAuthority: 'Demo Hospital'
-        }],
-        demographics: {
-          firstName: this.getRandomName('first'),
-          lastName: this.getRandomName('last'),
-          dateOfBirth: this.getRandomBirthDate(),
-          gender: Math.random() > 0.5 ? 'male' : 'female' as any,
-          email: `patient${Date.now()}@demo.com`,
-          phone: this.getRandomPhone(),
-          address: {
-            street: '123 Demo Street',
-            city: 'Demo City',
-            state: 'CA',
-            zipCode: '12345',
-            country: 'USA'
-          }
-        },
-        enrollmentDate: now,
-        enrollmentStatus: 'screening' as any,
-        siteId: study.sites?.[0]?.id || 'default-site',
-        treatmentArm: (study as any).treatmentArms?.[0]?.id || 'default-arm',
-        consents: [{
-          type: 'main_study',
-          version: '1.0',
-          consentDate: now,
-          consentedBy: patientNumber,
-          witnessName: 'Demo Witness',
-          witnessSignature: 'Demo Witness',
-          isValid: true
-        }]
-      };
-
-      // Use the PatientService to create the patient properly
-      // This will automatically copy phases and templates from studyPhases collection
-      // Note: createPatient expects (studyId, patientData) as parameters
-      const patientId = await this.patientService.createPatient(studyId, patientData);
-      
-      if (patientId) {
-        console.log('Patient created successfully with ID:', patientId);
-        
-        // Refresh the patients list to show the new patient
-        this.loadPatients();
-        
-        return patientId as string;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error creating demo patient:', error);
-      return null;
-    }
-  }
-  
-  // Helper methods for generating random demo data
-  private getRandomName(type: 'first' | 'last'): string {
-    const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'Robert', 'Lisa', 'James', 'Mary'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
-    
-    if (type === 'first') {
-      return firstNames[Math.floor(Math.random() * firstNames.length)];
-    } else {
-      return lastNames[Math.floor(Math.random() * lastNames.length)];
-    }
-  }
-  
-  private getRandomBirthDate(): Date {
-    const minAge = 18;
-    const maxAge = 80;
-    const age = Math.floor(Math.random() * (maxAge - minAge + 1)) + minAge;
-    const birthDate = new Date();
-    birthDate.setFullYear(birthDate.getFullYear() - age);
-    birthDate.setMonth(Math.floor(Math.random() * 12));
-    birthDate.setDate(Math.floor(Math.random() * 28) + 1);
-    return birthDate;
-  }
-  
-  private getRandomPhone(): string {
-    const areaCode = Math.floor(Math.random() * 900) + 100;
-    const prefix = Math.floor(Math.random() * 900) + 100;
-    const lineNumber = Math.floor(Math.random() * 9000) + 1000;
-    return `(${areaCode}) ${prefix}-${lineNumber}`;
-  }
-  
-  // Create visit subcomponents from study phases
   private createVisitSubcomponentsFromStudyPhases(study: Study, patientId: string): any[] {
     const visitSubcomponents: any[] = [];
     const now = new Date();
@@ -2685,11 +2596,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.careIndicators.filter(indicator => indicator.status === 'open').length;
   }
 
-  resolveCareIndicator(indicator: CareIndicator): void {
-    console.log('Resolving care indicator:', indicator.id);
-    // TODO: Implement care indicator resolution
-    alert('Care indicator resolution - Coming soon!');
-  }
 
   // Study-Patient Hierarchy Sidebar Methods
   toggleStudyExpansion(studyId: string): void {

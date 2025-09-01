@@ -164,7 +164,7 @@
                 </span>
                 <span class="meta-item">
                   <i class="material-icons">calendar_today</i>
-                  Enrolled: {{ selectedPatient.enrollmentDate | date:'mediumDate' }}
+                  Enrolled: {{ selectedPatient.enrollmentDate ? (selectedPatient.enrollmentDate | date:'mediumDate') : 'Not enrolled' }}
                 </span>
                 <span class="meta-item status-badge" [class]="selectedPatient.status">
                   {{ selectedPatient.status }}
@@ -198,7 +198,7 @@
                 </div>
                 
                 <div class="phase-dates">
-                  <div class="date-item">
+                  <div class="date-item" *ngIf="phase.scheduledDate">
                     <span class="date-label">Scheduled:</span>
                     <span class="date-value">{{ phase.scheduledDate | date:'shortDate' }}</span>
                   </div>
@@ -686,14 +686,169 @@
         <app-survey-management></app-survey-management>
       </div>
       
-      <!-- Other sections (Reports, Audit) -->
-      <div class="content-section" *ngIf="activeSidebarItem !== 'patients' && activeSidebarItem !== 'forms' && activeSidebarItem !== 'studies' && activeSidebarItem !== 'surveys'">
+      <!-- Audit Logs Section -->
+      <div class="content-section audit-logs-section" *ngIf="activeSidebarItem === 'audit'">
+        <div class="section-header">
+          <h2>
+            <i class="material-icons">history</i>
+            {{ 'dashboard.audit' | translate }}
+          </h2>
+          <div class="header-actions">
+            <input type="text" 
+                   class="form-control search-input" 
+                   [(ngModel)]="auditLogFilter" 
+                   (ngModelChange)="filterAuditLogs()"
+                   placeholder="Search audit logs...">
+            <button class="btn btn-secondary" (click)="loadAuditLogs()">
+              <i class="material-icons">refresh</i>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-container" *ngIf="loadingAuditLogs">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading audit logs...</p>
+        </div>
+
+        <!-- Audit Logs List -->
+        <div class="audit-logs-container" *ngIf="!loadingAuditLogs">
+          <!-- Summary Cards -->
+          <div class="audit-summary-cards">
+            <div class="summary-card">
+              <div class="card-icon">
+                <i class="material-icons">event_note</i>
+              </div>
+              <div class="card-content">
+                <h3>{{ filteredAuditLogs.length }}</h3>
+                <p>Total Events</p>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="card-icon info">
+                <i class="material-icons">info</i>
+              </div>
+              <div class="card-content">
+                <h3>{{ getAuditLogCountBySeverity('INFO') }}</h3>
+                <p>Info Events</p>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="card-icon warning">
+                <i class="material-icons">warning</i>
+              </div>
+              <div class="card-content">
+                <h3>{{ getAuditLogCountBySeverity('WARNING') }}</h3>
+                <p>Warnings</p>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="card-icon error">
+                <i class="material-icons">error</i>
+              </div>
+              <div class="card-content">
+                <h3>{{ getAuditLogCountBySeverity('ERROR_CRITICAL') }}</h3>
+                <p>Errors</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Audit Logs List -->
+          <div class="audit-logs-list" *ngIf="filteredAuditLogs.length > 0">
+            <div class="audit-log-item" 
+                 *ngFor="let log of filteredAuditLogs; trackBy: trackAuditLog"
+                 [class.expanded]="log.expanded"
+                 [ngClass]="getAuditSeverityClass(log.severity)">
+              
+              <!-- Log Header (Always Visible) -->
+              <div class="log-header" (click)="toggleAuditLogDetails(log)">
+                <div class="log-icon">
+                  <i class="material-icons">{{ getAuditActionIcon(log.action) }}</i>
+                </div>
+                
+                <div class="log-main-info">
+                  <div class="log-action">
+                    <strong>{{ log.action }}</strong>
+                    <span class="resource-type">{{ log.resourceType }}</span>
+                  </div>
+                  <div class="log-meta">
+                    <span class="log-user">
+                      <i class="material-icons">person</i>
+                      {{ log.userId || 'Unknown User' }}
+                    </span>
+                    <span class="log-timestamp">
+                      <i class="material-icons">schedule</i>
+                      {{ formatTimestamp(log.timestamp) }}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="log-severity" [ngClass]="getAuditSeverityClass(log.severity)">
+                  <span class="severity-badge">{{ log.severity }}</span>
+                </div>
+                
+                <div class="log-expand-icon">
+                  <i class="material-icons">{{ log.expanded ? 'expand_less' : 'expand_more' }}</i>
+                </div>
+              </div>
+              
+              <!-- Expandable Details -->
+              <div class="log-details" *ngIf="log.expanded">
+                <div class="detail-row" *ngIf="log.userEmail">
+                  <span class="detail-label">User Email:</span>
+                  <span class="detail-value">{{ log.userEmail }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="log.details">
+                  <span class="detail-label">Details:</span>
+                  <span class="detail-value">{{ log.details }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="log.resourceId">
+                  <span class="detail-label">Resource ID:</span>
+                  <span class="detail-value">{{ log.resourceId }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="log.ipAddress">
+                  <span class="detail-label">IP Address:</span>
+                  <span class="detail-value">{{ log.ipAddress }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="log.userAgent">
+                  <span class="detail-label">User Agent:</span>
+                  <span class="detail-value">{{ log.userAgent }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="log.metadata && Object.keys(log.metadata).length > 0">
+                  <span class="detail-label">Additional Info:</span>
+                  <div class="metadata-container">
+                    <div *ngFor="let key of Object.keys(log.metadata)" class="metadata-item">
+                      <strong>{{ key }}:</strong> {{ log.metadata[key] }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- No Logs Message -->
+          <div class="no-audit-logs" *ngIf="filteredAuditLogs.length === 0 && !loadingAuditLogs">
+            <i class="material-icons">history</i>
+            <h3>No Audit Logs Found</h3>
+            <p>{{ auditLogFilter ? 'No logs match your search criteria' : 'No audit logs available for your account' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other sections (Reports) -->
+      <div class="content-section" *ngIf="activeSidebarItem === 'reports'">
         <div class="section-header">
           <h2>{{ ('dashboard.' + activeSidebarItem) | translate }}</h2>
         </div>
         <div class="coming-soon">
           <i class="material-icons">construction</i>
-          <p>{{ ('dashboard.' + activeSidebarItem + '_coming_soon') | translate }}</p>
+          <p>{{ 'dashboard.coming_soon' | translate }}</p>
         </div>
       </div>
       
@@ -729,7 +884,7 @@
           
           <div class="phi-data">
             <p *ngIf="selectedPatientPhiData.gender"><strong>{{ 'dashboard.gender' | translate }}</strong> {{ selectedPatientPhiData.gender }}</p>
-            <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>{{ 'dashboard.birth_date' | translate }}</strong> {{ selectedPatientPhiData.dateOfBirth | date }}</p>
+            <p *ngIf="selectedPatientPhiData.dateOfBirth"><strong>{{ 'dashboard.birth_date' | translate }}</strong> {{ selectedPatientPhiData.dateOfBirth | date:'mediumDate' }}</p>
             <!-- Add more PHI fields as needed -->
           </div>
         </div>

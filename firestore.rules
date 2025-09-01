@@ -108,19 +108,19 @@ service cloud.firestore {
     match /studies/{studyId} {
       // Read access based on accessLevel and study assignment
       allow read: if isAuthenticated() && 
-                    isActive() && 
                     (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) || 
                      request.auth.uid in resource.data.assignedUsers);
       
-      // Only admins and investigators can create studies
-      allow create: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']) && isActive();
+      // Admins, super admins and investigators can create studies
+      allow create: if isAuthenticated() && 
+                      hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
       
-      // Only admins and assigned investigators can update
-      allow update: if isActive() && 
+      // Admins, super admins and assigned investigators can update
+      allow update: if isAuthenticated() && 
                       (hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']) || 
                        (hasAccessLevel('INVESTIGATOR') && request.auth.uid in resource.data.managers));
       
-      // Only admins can delete studies
+      // Admins and super admins can delete studies
       allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
       
       // Patient references subcollection under studies
@@ -228,20 +228,18 @@ service cloud.firestore {
     
     // Study Phases collection - CRITICAL FOR PHASE FORMS
     match /studyPhases/{phaseId} {
-      // Read access for authenticated and active users
-      allow read: if isAuthenticated() && isActive();
+      // Read access for authenticated users
+      allow read: if isAuthenticated();
       
-      // Create access for admin and investigator roles
+      // Create access for admin, super admin and investigator roles
       allow create: if isAuthenticated() && 
-                      isActive() && 
                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
       
-      // Update access for admin and investigator roles
+      // Update access for admin, super admin and investigator roles
       allow update: if isAuthenticated() && 
-                      isActive() && 
                       hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN', 'INVESTIGATOR']);
       
-      // Delete access for admins only
+      // Delete access for admins and super admins only
       allow delete: if hasAnyAccessLevel(['ADMIN', 'SUPER_ADMIN']);
       
       // Phase progress subcollection

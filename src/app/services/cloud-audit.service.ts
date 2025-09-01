@@ -1,8 +1,9 @@
 import { Injectable, inject, runInInjectionContext, Injector } from '@angular/core';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
-import { Observable, from } from 'rxjs';
+import { Observable, from, map } from 'rxjs';
 import { IAuditService, AuditEvent, AuditLog, AuditFilters } from '../core/interfaces';
+import { Firestore, collection, query, orderBy, limit, where, getDocs, Timestamp } from '@angular/fire/firestore';
 
 export interface AuditLogEntry {
   userId: string;
@@ -38,6 +39,7 @@ export interface ComplianceAuditEntry extends AuditLogEntry {
 export class CloudAuditService implements IAuditService {
   private functions = inject(Functions);
   private auth = inject(Auth);
+  private firestore = inject(Firestore);
   private injector: Injector = inject(Injector);
 
   /**
@@ -71,6 +73,112 @@ export class CloudAuditService implements IAuditService {
         return result.data;
       })
     );
+  }
+
+  /**
+   * Fetch audit logs directly from Firestore for the current user
+   */
+  async fetchUserAuditLogs(limitCount: number = 100, userId?: string): Promise<AuditLogEntry[]> {
+    try {
+      const user = this.auth.currentUser;
+      const targetUserId = userId || user?.uid;
+      
+      if (!targetUserId) {
+        console.error('No user ID available for fetching audit logs');
+        return [];
+      }
+
+      const auditLogsRef = collection(this.firestore, 'audit_logs');
+      let q = query(
+        auditLogsRef,
+        where('userId', '==', targetUserId),
+        orderBy('timestamp', 'desc'),
+        limit(limitCount)
+      );
+
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data['userId'],
+          userEmail: data['userEmail'],
+          action: data['action'],
+          resourceType: data['resourceType'],
+          resourceId: data['resourceId'],
+          details: data['details'],
+          ipAddress: data['ipAddress'],
+          userAgent: data['userAgent'],
+          timestamp: data['timestamp'] instanceof Timestamp ? data['timestamp'].toDate() : new Date(data['timestamp']),
+          severity: data['severity'] as 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL',
+          metadata: data['metadata'] || {},
+          actualUserId: data['actualUserId'],
+          verifiedEmail: data['verifiedEmail']
+        } as AuditLogEntry & { id: string; actualUserId?: string; verifiedEmail?: string };
+      });
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch all audit logs (admin only)
+   */
+  async fetchAllAuditLogs(limitCount: number = 100, filterOptions?: {
+    startDate?: Date;
+    endDate?: Date;
+    action?: string;
+    resourceType?: string;
+    severity?: string;
+  }): Promise<AuditLogEntry[]> {
+    try {
+      const auditLogsRef = collection(this.firestore, 'audit_logs');
+      let constraints: any[] = [orderBy('timestamp', 'desc'), limit(limitCount)];
+
+      if (filterOptions?.startDate) {
+        constraints.push(where('timestamp', '>=', Timestamp.fromDate(filterOptions.startDate)));
+      }
+      if (filterOptions?.endDate) {
+        constraints.push(where('timestamp', '<=', Timestamp.fromDate(filterOptions.endDate)));
+      }
+      if (filterOptions?.action) {
+        constraints.push(where('action', '==', filterOptions.action));
+      }
+      if (filterOptions?.resourceType) {
+        constraints.push(where('resourceType', '==', filterOptions.resourceType));
+      }
+      if (filterOptions?.severity) {
+        constraints.push(where('severity', '==', filterOptions.severity));
+      }
+
+      const q = query(auditLogsRef, ...constraints);
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data['userId'],
+          userEmail: data['userEmail'],
+          action: data['action'],
+          resourceType: data['resourceType'],
+          resourceId: data['resourceId'],
+          details: data['details'],
+          ipAddress: data['ipAddress'],
+          userAgent: data['userAgent'],
+          timestamp: data['timestamp'] instanceof Timestamp ? data['timestamp'].toDate() : new Date(data['timestamp']),
+          severity: data['severity'] as 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL',
+          metadata: data['metadata'] || {},
+          actualUserId: data['actualUserId'],
+          verifiedEmail: data['verifiedEmail']
+        } as AuditLogEntry & { id: string; actualUserId?: string; verifiedEmail?: string };
+      });
+    } catch (error) {
+      console.error('Error fetching all audit logs:', error);
+      return [];
+    }
   }
 
   /**
