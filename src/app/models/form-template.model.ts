@@ -330,49 +330,10 @@ export interface ElectronicSignature {
   documentHash: string; // Hash of the signed document
 }
 
-// Form Instance (filled form)
-export interface FormInstance {
-  id?: string;
-  templateId: string;
-  templateVersion: number;
-  studyId?: string;
-  patientId?: string;
-  visitId?: string;
-  patientVisitSubcomponentId?: string; // Links instance to patient visit subcomponent
-  
-  // Form Data
-  data: Record<string, any>; // Field ID -> Value mapping
-  phiData?: Record<string, any>; // PHI data stored separately
-  attachments: FormAttachment[];
-  
-  // Status
-  status: 'draft' | 'in_progress' | 'completed' | 'reviewed' | 'locked';
-  completionPercentage: number;
-  
-  // Workflow
-  submittedBy?: string;
-  submittedAt?: Date;
-  reviewedBy?: string;
-  reviewedAt?: Date;
-  lockedBy?: string;
-  lockedAt?: Date;
-  
-  // Signatures
-  signatures: ElectronicSignature[];
-  
-  // Nested Form Instances
-  nestedForms: Record<string, FormInstance[]>; // Field ID -> Nested form instances
-  
-  // Audit and Compliance
-  lastModifiedBy: string;
-  lastModifiedAt: Date;
-  changeHistory: FormInstanceChange[];
-  
-  // Metadata
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+// Import FormInstance from the correct model file
+export type { FormInstance, FormAttachment, AuditEntry } from './form-instance.model';
 
+// These interfaces are specific to form templates
 export interface FormInstanceChange {
   id: string;
   timestamp: Date;
@@ -391,19 +352,6 @@ export interface FieldChange {
   oldValue: any;
   newValue: any;
   changeType: 'added' | 'modified' | 'removed';
-}
-
-export interface FormAttachment {
-  id: string;
-  fieldId: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  uploadedBy: string;
-  uploadedAt: Date;
-  storageUrl: string;
-  isPhiRelated: boolean;
-  checksum: string; // For integrity verification
 }
 
 // Form Validation Result

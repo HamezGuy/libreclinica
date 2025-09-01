@@ -61,7 +61,7 @@
             <p class="form-description">{{ templates.get(instance.templateId)?.description }}</p>
             <div class="form-meta">
               <span class="status">Status: {{ instance.status }}</span>
-              <span class="completion" *ngIf="instance.status === 'draft'">
+              <span class="completion" *ngIf="instance.status === 'in_progress'">
                 {{ instance.completionPercentage }}% complete
               </span>
             </div>
@@ -70,7 +70,7 @@
           <div class="form-actions">
             <button class="btn-primary" *ngIf="instance.status !== 'completed' &amp;&amp; instance.status !== 'locked'" (click)="selectFormInstance(instance); $event.stopPropagation()">
               <span class="material-icons">edit</span>
-              {{ instance.status === 'draft' ? 'Continue' : 'Start' }}
+              {{ instance.status === 'in_progress' ? 'Continue' : 'Start' }}
             </button>
             <button class="btn-secondary" *ngIf="instance.status === 'completed'" (click)="selectFormInstance(instance); $event.stopPropagation()">
               <span class="material-icons">visibility</span>{{ 'common.view' | translate }}</button>
@@ -89,7 +89,7 @@
       </div>
       
       <div class="editor-content">
-        <app-form-viewer [template]="templates.get(selectedFormInstance.templateId)" [initialData]="selectedFormInstance.data" [readOnly]="selectedFormInstance.status === 'completed' || selectedFormInstance.status === 'locked'" (formSubmit)="onFormSubmit($event)" (formSave)="onFormSave($event)">
+        <app-form-viewer [template]="templates.get(selectedFormInstance.templateId)" [initialData]="selectedFormInstance.formData" [readOnly]="selectedFormInstance.status === 'completed' || selectedFormInstance.status === 'locked'" (formSubmit)="onFormSubmit($event)" (formSave)="onFormSave($event)">
         </app-form-viewer>
       </div>
     </div>

@@ -19,45 +19,42 @@ export class FormValidationService {
    * Validate a complete form instance against its template
    */
   validateFormInstance(instance: FormInstance, template: FormTemplate): FormValidationResult {
-    const errors: FormValidationError[] = [];
+    const allErrors: FormValidationError[] = [];
     const warnings: FormValidationWarning[] = [];
 
     // Validate each field
     template.fields.forEach(field => {
-      const value = instance.data[field.id];
-      const fieldErrors = this.validateField(field, value, instance.data, template);
-      errors.push(...fieldErrors);
+      const value = instance.formData[field.id];
+      const fieldErrors = this.validateField(field, value, instance.formData, template);
+      
+      // Add field errors to the flat array
+      allErrors.push(...fieldErrors);
 
-      const fieldWarnings = this.generateFieldWarnings(field, value, instance.data);
+      // Generate warnings for the field
+      const fieldWarnings = this.generateFieldWarnings(field, value, instance.formData);
       warnings.push(...fieldWarnings);
     });
 
-    // Validate nested forms
-    Object.entries(instance.nestedForms || {}).forEach(([fieldId, nestedInstances]) => {
-      const field = template.fields.find(f => f.id === fieldId);
-      if (field && field.type === 'nested_form' && field.nestedFormId) {
-        nestedInstances.forEach((nestedInstance, index) => {
-          // Note: Would need to load nested template for full validation
-          // For now, just check basic structure
-          if (!nestedInstance.templateId) {
-            errors.push({
-              fieldId: `${fieldId}[${index}]`,
-              fieldName: `${field.name} (Item ${index + 1})`,
-              message: 'Nested form missing template ID',
-              errorType: 'custom'
-            });
-          }
-        });
-      }
-    });
+    // Commented out nested forms validation as nestedForms property no longer exists
+    // Object.entries(instance.nestedForms || {}).forEach(([fieldId, nestedInstances]) => {
+    //   const nestedField = template.fields.find(f => f.id === fieldId);
+    //   if (nestedField && Array.isArray(nestedInstances)) {
+    //     nestedInstances.forEach((nestedInstance, index) => {
+    //       // Validate nested instance
+    //       // This would need to be implemented based on your nested form structure
+    //     });
+    //   }
+    // });
 
-    // Cross-field validation
-    const crossFieldErrors = this.validateCrossFieldRules(template, instance.data);
-    errors.push(...crossFieldErrors);
+    // Validate cross-field rules
+    const crossFieldErrors = this.validateCrossFieldRules(template, instance.formData);
+    
+    // Add cross-field errors to the flat array
+    allErrors.push(...crossFieldErrors);
 
     return {
-      isValid: errors.length === 0,
-      errors,
+      isValid: allErrors.length === 0,
+      errors: allErrors,
       warnings
     };
   }

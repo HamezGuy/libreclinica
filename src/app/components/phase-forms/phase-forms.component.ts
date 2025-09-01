@@ -126,7 +126,7 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
       await this.formInstanceService.updateFormInstance(
         this.selectedFormInstance.id!,
         {
-          data: formData,
+          formData: formData,
           status: 'completed',
           completionPercentage: 100
         },
@@ -161,11 +161,11 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
       await this.formInstanceService.updateFormInstance(
         this.selectedFormInstance.id!,
         {
-          data: formData,
-          status: 'draft',
+          formData: formData,
+          status: 'in_progress',
           completionPercentage: this.calculateCompletionPercentage(formData)
         },
-        'Form saved as draft'
+        'Form saved as in progress'
       );
       
       // Reload form instances
@@ -203,7 +203,7 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
   getFormStatusClass(instance: FormInstance): string {
     switch (instance.status) {
       case 'completed': return 'completed';
-      case 'draft': return 'in-progress';
+      case 'in_progress': return 'in-progress';
       case 'locked': return 'locked';
       default: return 'not-started';
     }
@@ -212,7 +212,7 @@ export class PhaseFormsComponent implements OnInit, OnDestroy {
   getFormStatusIcon(instance: FormInstance): string {
     switch (instance.status) {
       case 'completed': return 'check_circle';
-      case 'draft': return 'edit';
+      case 'in_progress': return 'edit';
       case 'locked': return 'lock';
       default: return 'radio_button_unchecked';
     }

@@ -174,8 +174,8 @@ export class FormPreviewComponent implements OnInit, OnDestroy, OnChanges {
 
   private getInitialValue(field: FormField): any {
     // Check if we have existing form instance data
-    if (this.formInstance && this.formInstance.data[field.id] !== undefined) {
-      return this.formInstance.data[field.id];
+    if (this.formInstance && this.formInstance.formData && this.formInstance.formData[field.id] !== undefined) {
+      return this.formInstance.formData[field.id];
     }
 
     // Use field default value
@@ -294,7 +294,7 @@ export class FormPreviewComponent implements OnInit, OnDestroy, OnChanges {
         // Update existing instance
         const updatedInstance = await this.formInstanceService.updateFormInstance(
           this.formInstance.id!,
-          { data: formData },
+          { formData: formData },
           'Form data updated'
         );
         this.currentInstance = updatedInstance;
@@ -311,7 +311,7 @@ export class FormPreviewComponent implements OnInit, OnDestroy, OnChanges {
         // Update the instance with form data
         const updatedInstance = await this.formInstanceService.updateFormInstance(
           newInstance.id!,
-          { data: formData },
+          { formData: formData },
           'Initial form data saved'
         );
         

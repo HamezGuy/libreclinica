@@ -795,37 +795,68 @@
               
               <!-- Expandable Details -->
               <div class="log-details" *ngIf="log.expanded">
-                <div class="detail-row" *ngIf="log.userEmail">
-                  <span class="detail-label">User Email:</span>
-                  <span class="detail-value">{{ log.userEmail }}</span>
+                <!-- Loading indicator -->
+                <div class="detail-loading" *ngIf="log.loadingDetails">
+                  <mat-spinner diameter="20"></mat-spinner>
+                  <span>Loading details...</span>
                 </div>
                 
-                <div class="detail-row" *ngIf="log.details">
-                  <span class="detail-label">Details:</span>
-                  <span class="detail-value">{{ log.details }}</span>
-                </div>
-                
-                <div class="detail-row" *ngIf="log.resourceId">
-                  <span class="detail-label">Resource ID:</span>
-                  <span class="detail-value">{{ log.resourceId }}</span>
-                </div>
-                
-                <div class="detail-row" *ngIf="log.ipAddress">
-                  <span class="detail-label">IP Address:</span>
-                  <span class="detail-value">{{ log.ipAddress }}</span>
-                </div>
-                
-                <div class="detail-row" *ngIf="log.userAgent">
-                  <span class="detail-label">User Agent:</span>
-                  <span class="detail-value">{{ log.userAgent }}</span>
-                </div>
-                
-                <div class="detail-row" *ngIf="log.metadata && Object.keys(log.metadata).length > 0">
-                  <span class="detail-label">Additional Info:</span>
-                  <div class="metadata-container">
-                    <div *ngFor="let key of Object.keys(log.metadata)" class="metadata-item">
-                      <strong>{{ key }}:</strong> {{ log.metadata[key] }}
+                <!-- Details content -->
+                <div *ngIf="!log.loadingDetails">
+                  <div class="detail-row" *ngIf="log.userEmail">
+                    <span class="detail-label">User Email:</span>
+                    <span class="detail-value">{{ log.userEmail }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.details">
+                    <span class="detail-label">Details:</span>
+                    <span class="detail-value">{{ log.details }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.resourceId">
+                    <span class="detail-label">Resource ID:</span>
+                    <span class="detail-value">{{ log.resourceId }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.resourceType">
+                    <span class="detail-label">Resource Type:</span>
+                    <span class="detail-value">{{ log.resourceType }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.ipAddress">
+                    <span class="detail-label">IP Address:</span>
+                    <span class="detail-value">{{ log.ipAddress }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.userAgent">
+                    <span class="detail-label">User Agent:</span>
+                    <span class="detail-value">{{ log.userAgent }}</span>
+                  </div>
+                  
+                  <div class="detail-row" *ngIf="log.metadata && Object.keys(log.metadata).length > 0">
+                    <span class="detail-label">Additional Info:</span>
+                    <div class="metadata-container">
+                      <div *ngFor="let key of objectKeys(log.metadata)" class="metadata-item">
+                        <strong>{{ key }}:</strong> {{ log.metadata[key] }}
+                      </div>
                     </div>
+                  </div>
+                  
+                  <!-- Action buttons for audit log -->
+                  <div class="detail-actions" *ngIf="log.resourceId">
+                    <button class="btn btn-sm btn-link" 
+                            (click)="viewAuditResource(log)" 
+                            [disabled]="!log.resourceId"
+                            title="View related resource">
+                      <i class="material-icons">open_in_new</i>
+                      View Resource
+                    </button>
+                    <button class="btn btn-sm btn-link" 
+                            (click)="exportAuditLog(log)"
+                            title="Export this audit log">
+                      <i class="material-icons">download</i>
+                      Export
+                    </button>
                   </div>
                 </div>
               </div>
@@ -841,15 +872,9 @@
         </div>
       </div>
 
-      <!-- Other sections (Reports) -->
+      <!-- Reports Dashboard -->
       <div class="content-section" *ngIf="activeSidebarItem === 'reports'">
-        <div class="section-header">
-          <h2>{{ ('dashboard.' + activeSidebarItem) | translate }}</h2>
-        </div>
-        <div class="coming-soon">
-          <i class="material-icons">construction</i>
-          <p>{{ 'dashboard.coming_soon' | translate }}</p>
-        </div>
+        <app-reports-dashboard></app-reports-dashboard>
       </div>
       
     </main>

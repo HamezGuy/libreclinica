@@ -19,7 +19,7 @@ import {
   Timestamp,
   addDoc
 } from '@angular/fire/firestore';
-import { Observable, from, map, switchMap, of, combineLatest } from 'rxjs';
+import { Observable, from, map, switchMap, of, combineLatest, BehaviorSubject } from 'rxjs';
 import { 
   Patient, 
   PatientStatus, 
@@ -45,6 +45,8 @@ import { PatientPhase, PatientPhaseTemplate } from '../models/patient.model';
 export class PatientService {
   private readonly COLLECTION_NAME = 'patients';
   private injector: Injector = inject(Injector);
+  private patientsSubject = new BehaviorSubject<Patient[]>([]);
+  public patients$ = this.patientsSubject.asObservable();
 
   constructor(
     private firestore: Firestore,

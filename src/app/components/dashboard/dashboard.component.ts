@@ -43,6 +43,7 @@ import { PatientPhaseProgressComponent } from '../patient-phase-progress/patient
 import { PatientFormModalComponent } from '../patient-form-modal/patient-form-modal.component';
 import { SurveyManagementComponent } from '../survey-management/survey-management.component';
 import { StudyCreationModalComponent } from '../study-creation-modal/study-creation-modal.component';
+import { ReportsDashboardComponent } from '../reports-dashboard/reports-dashboard.component';
 import { UserProfile } from '../../models/user-profile.model';
 import { FormTemplate, FormInstance as TemplateFormInstance, TemplateType, PhiFieldType, ValidationRule } from '../../models/form-template.model';
 import { PhiEncryptionService } from '../../services/phi-encryption.service';
@@ -68,7 +69,7 @@ interface FormInstance {
   id: string;
   templateId: string;
   templateName: string;
-  status: 'draft' | 'completed' | 'locked' | 'in_progress' | 'reviewed';
+  status: 'not_started' | 'in_progress' | 'completed' | 'locked' | 'missed';
   lastModified: Date;
   completionPercentage: number;
 }
@@ -132,7 +133,8 @@ export interface Patient {
     PatientFormModalComponent,
     ProfileEditPopupComponent,
     SurveyManagementComponent,
-    StudyCreationModalComponent
+    StudyCreationModalComponent,
+    ReportsDashboardComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss', './dashboard-template-fill.scss']
@@ -586,7 +588,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 templateId: instance.templateId!,
                 templateName: template?.name || 'Unknown Template',
                 status: instance.status,
-                lastModified: (instance.updatedAt as any).toDate(),
+                lastModified: (instance.lastModifiedAt as any)?.toDate ? (instance.lastModifiedAt as any).toDate() : new Date(),
                 completionPercentage: this.calculateCompletionPercentage(instance)
               };
             });
@@ -769,12 +771,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private calculateCompletionPercentage(instance: TemplateFormInstance): number {
-    if (!instance.data || !instance.templateId) return 0;
+    if (!instance.formData || !instance.templateId) return 0;
     // Simple calculation based on filled fields vs total fields
-    const filledFields = Object.keys(instance.data).filter(key =>
-      instance.data![key] !== null && instance.data![key] !== undefined && instance.data![key] !== ''
+    const filledFields = Object.keys(instance.formData).filter(key =>
+      instance.formData![key] !== null && instance.formData![key] !== undefined && instance.formData![key] !== ''
     ).length;
-    const totalFields = Object.keys(instance.data).length;
+    const totalFields = Object.keys(instance.formData).length;
     return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
   }
 
@@ -911,6 +913,68 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   toggleAuditLogDetails(log: any) {
     log.expanded = !log.expanded;
+    
+    // Load additional details if not already loaded
+    if (log.expanded && !log.detailsLoaded) {
+      this.loadAuditLogDetails(log);
+    }
+  }
+  
+  async loadAuditLogDetails(log: any) {
+    try {
+      // Mark as loading
+      log.loadingDetails = true;
+      
+      // Simulate loading additional details (in real app, this would fetch from backend)
+      // For now, we'll enhance the existing data
+      log.detailsLoaded = true;
+      
+      // Add more detailed information if not present
+      if (!log.metadata) {
+        log.metadata = {};
+      }
+      
+      // Add contextual information based on action type
+      switch(log.action) {
+        case 'CREATE':
+        case 'UPDATE':
+          if (log.resourceType === 'FORM') {
+            log.metadata['Form Status'] = log.formStatus || 'Unknown';
+            log.metadata['Fields Modified'] = log.fieldsModified || 'N/A';
+          } else if (log.resourceType === 'PATIENT') {
+            log.metadata['Patient ID'] = log.patientId || 'N/A';
+            log.metadata['Study'] = log.studyName || 'N/A';
+          }
+          break;
+        case 'DELETE':
+          log.metadata['Deleted Item'] = log.deletedItemName || 'Unknown';
+          log.metadata['Reason'] = log.deleteReason || 'Not specified';
+          break;
+        case 'LOGIN':
+        case 'LOGOUT':
+          log.metadata['Session Duration'] = log.sessionDuration || 'N/A';
+          log.metadata['Authentication Method'] = log.authMethod || 'Standard';
+          break;
+        case 'EXPORT':
+        case 'IMPORT':
+          log.metadata['File Type'] = log.fileType || 'Unknown';
+          log.metadata['Records Count'] = log.recordsCount || 'N/A';
+          break;
+      }
+      
+      // Add timestamp details
+      if (log.timestamp) {
+        const date = log.timestamp.toDate ? log.timestamp.toDate() : new Date(log.timestamp);
+        log.metadata['Date'] = date.toLocaleDateString();
+        log.metadata['Time'] = date.toLocaleTimeString();
+      }
+      
+      log.loadingDetails = false;
+    } catch (error) {
+      console.error('Error loading audit log details:', error);
+      log.loadingDetails = false;
+      log.detailsLoaded = false;
+    }
   }
 
   getAuditActionIcon(action: string): string {
@@ -957,15 +1021,85 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getAuditLogCountBySeverity(severity: string): number {
-    if (!this.filteredAuditLogs) return 0;
-    
+    // Handle both single severity and combined severity types
     if (severity === 'ERROR_CRITICAL') {
       return this.filteredAuditLogs.filter(log => 
         log.severity === 'ERROR' || log.severity === 'CRITICAL'
       ).length;
     }
-    
     return this.filteredAuditLogs.filter(log => log.severity === severity).length;
+  }
+
+  // Helper method for template to access Object.keys
+  objectKeys(obj: any): string[] {
+    return Object.keys(obj || {});
+  }
+
+  // View the resource associated with an audit log
+  viewAuditResource(log: any): void {
+    if (!log.resourceId) return;
+    
+    // Navigate based on resource type
+    switch(log.resourceType) {
+      case 'PATIENT':
+        this.router.navigate(['/patient-detail', log.resourceId]);
+        break;
+      case 'FORM':
+        // Find and open the form
+        const form = this.formInstances.find((f: any) => f.id === log.resourceId);
+        if (form) {
+          console.log('Opening form:', form);
+          // You can implement form preview modal here
+        }
+        break;
+      case 'STUDY':
+        // Navigate to study details
+        this.activeSidebarItem = 'studies';
+        break;
+      case 'TEMPLATE':
+        // Open template in form builder
+        this.editingTemplateId = log.resourceId;
+        this.showFormBuilderModal = true;
+        break;
+      default:
+        console.log('Resource type not handled:', log.resourceType);
+    }
+  }
+
+  // Export a single audit log
+  exportAuditLog(log: any): void {
+    try {
+      // Create a formatted version of the log
+      const exportData = {
+        timestamp: this.formatTimestamp(log.timestamp),
+        action: log.action,
+        resourceType: log.resourceType,
+        resourceId: log.resourceId,
+        userId: log.userId,
+        userEmail: log.userEmail,
+        severity: log.severity,
+        details: log.details,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        metadata: log.metadata || {}
+      };
+      
+      // Convert to JSON and download
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = `audit-log-${log.id || Date.now()}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      this.toastService.success('Audit log exported successfully');
+    } catch (error) {
+      console.error('Error exporting audit log:', error);
+      this.toastService.error('Failed to export audit log');
+    }
   }
 
   async loadStudiesData() {

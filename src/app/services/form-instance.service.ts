@@ -1,5 +1,5 @@
-import { Injectable, inject, Inject, runInInjectionContext, Injector } from '@angular/core';
-import { Observable, from, BehaviorSubject, combineLatest } from 'rxjs';
+import { Injectable, inject, Inject, runInInjectionContext, Injector, NgZone } from '@angular/core';
+import { Observable, from, BehaviorSubject, combineLatest, of } from 'rxjs';
 import { map, switchMap, tap, catchError } from 'rxjs/operators';
 import { 
   Firestore, 
@@ -12,18 +12,20 @@ import {
   query, 
   where, 
   orderBy,
+  limit,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  Timestamp
 } from '@angular/fire/firestore';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 
 import { 
-  FormInstance,
   FormTemplate, 
   FormValidationResult, 
   ElectronicSignature,
   FormAttachment 
 } from '../models/form-template.model';
+import { FormInstance, AuditEntry } from '../models/form-instance.model';
 import { UserProfile } from '../models/user-profile.model';
 import { EdcCompliantAuthService } from './edc-compliant-auth.service';
 import { FormTemplateService } from './form-template.service';
@@ -47,6 +49,7 @@ export class FormInstanceService {
   private dataSeparationService = inject(DataSeparationService);
   private injector = inject(Injector);
   private eventBus = inject(EventBusService);
+  private ngZone = inject(NgZone);
 
   
   private instancesSubject = new BehaviorSubject<FormInstance[]>([]);
@@ -68,40 +71,43 @@ export class FormInstanceService {
     if (!template) throw new Error('Form template not found');
 
     try {
-      const instanceData: Omit<FormInstance, 'id'> = {
+      const now = serverTimestamp();
+      const instanceData: any = {
         templateId,
+        templateName: template.name,
         templateVersion: template.version,
-        studyId,
-        patientId,
-        visitId,
-        data: {},
-        phiData: {},
-        attachments: [],
-        status: 'draft',
+        patientId: patientId || '',
+        studyId: studyId || '',
+        phaseId: '',
+        phaseCode: '',
+        visitSubcomponentId: visitId || '',
+        formData: {},
+        status: 'not_started',
         completionPercentage: 0,
-        signatures: [],
-        nestedForms: {},
+        isRequired: false,
+        isValid: true,
+        validationErrors: [],
+        createdAt: now,
+        lastModifiedAt: now,
+        createdBy: currentUser.uid,
         lastModifiedBy: currentUser.uid,
-        lastModifiedAt: new Date(),
-        changeHistory: [{
+        attachments: [],
+        auditTrail: [{
           id: crypto.randomUUID(),
-          timestamp: new Date(),
+          status: 'submitted',
+          submittedAt: serverTimestamp(),
+          completionPercentage: 100,
           userId: currentUser.uid,
           userEmail: currentUser.email,
-          action: 'created',
-          fieldChanges: [],
           reason: 'Form instance created'
-        }],
-        createdAt: new Date(),
-        updatedAt: new Date()
+        }]
       };
 
       const instancesRef = collection(this.firestore, 'formInstances');
       const docRef = await runInInjectionContext(this.injector, async () => {
         return await addDoc(instancesRef, {
           ...instanceData,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          formData: this.serializeFieldValue(instanceData.formData),
           lastModifiedAt: serverTimestamp()
         });
       });
@@ -153,37 +159,35 @@ export class FormInstanceService {
       if (!template) throw new Error('Form template not found');
 
       // Separate PHI and non-PHI data
-      const { phiData, nonPhiData } = this.separateFormData(updates.data || {}, template);
+      const { phiData, nonPhiData } = this.separateFormData(updates.formData || {}, template);
 
       // Calculate completion percentage
       const completionPercentage = this.calculateCompletionPercentage(
-        { ...existingInstance.data, ...nonPhiData },
+        { ...existingInstance.formData, ...nonPhiData },
         template
       );
 
-      // Create change history entry
-      const changeEntry = {
+      // Create audit entry
+      const auditEntry: AuditEntry = {
         id: crypto.randomUUID(),
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         userId: currentUser.uid,
-        userEmail: currentUser.email,
-        action: 'modified' as const,
-        fieldChanges: this.calculateFieldChanges(existingInstance.data, nonPhiData),
+        userName: currentUser.displayName || currentUser.email,
+        action: 'updated' as const,
+        changes: this.calculateFieldChanges(existingInstance.formData, nonPhiData),
         reason: reason || 'Form data updated'
       };
 
       // Prepare data for Firestore (with serverTimestamp)
       const firestoreUpdateData = {
         ...updates,
-        data: { ...existingInstance.data, ...nonPhiData },
-        phiData: { ...existingInstance.phiData, ...phiData },
+        formData: { ...existingInstance.formData, ...nonPhiData },
         completionPercentage,
         lastModifiedBy: currentUser.uid,
         lastModifiedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        changeHistory: [
-          ...(existingInstance.changeHistory || []),
-          changeEntry
+        auditTrail: [
+          ...(existingInstance.auditTrail || []),
+          auditEntry
         ]
       };
 
@@ -192,25 +196,17 @@ export class FormInstanceService {
         await updateDoc(instanceRef, firestoreUpdateData);
       });
 
-      // Store PHI data separately if present
-      if (Object.keys(phiData).length > 0) {
-        await this.storePhiData(instanceId, phiData);
-      }
-
-      // Return local instance with Date objects
-      const now = new Date();
+      // Return updated instance
       const updatedInstance: FormInstance = {
         ...existingInstance,
         ...updates,
-        data: { ...existingInstance.data, ...nonPhiData },
-        phiData: { ...existingInstance.phiData, ...phiData },
+        formData: { ...existingInstance.formData, ...nonPhiData },
         completionPercentage,
         lastModifiedBy: currentUser.uid,
-        lastModifiedAt: now,
-        updatedAt: now,
-        changeHistory: [
-          ...(existingInstance.changeHistory || []),
-          changeEntry
+        lastModifiedAt: firestoreUpdateData.lastModifiedAt as any,
+        auditTrail: [
+          ...(existingInstance.auditTrail || []),
+          auditEntry
         ]
       };
 
@@ -242,41 +238,38 @@ export class FormInstanceService {
 
     try {
       const updates: Partial<FormInstance> = {
-        status: template.requiresReview ? 'completed' : 'completed',
-        submittedBy: currentUser.uid,
-        submittedAt: new Date()
+        status: 'completed',
+        completedAt: serverTimestamp() as any,
+        completionPercentage: 100
       };
 
       const updatedInstance = await this.updateFormInstance(instanceId, updates, 'Form submitted');
 
       // Emit event for phase completion status update
-      if (instance.patientId && instance.studyId && instance.patientVisitSubcomponentId) {
-        try {
-          // Get the visit subcomponent to find the phaseId
-          const subcomponentDoc = await getDoc(
-            doc(this.firestore, 'patients', instance.patientId, 'visitSubcomponents', instance.patientVisitSubcomponentId)
-          );
-          
-          if (subcomponentDoc.exists()) {
-            const subcomponent = subcomponentDoc.data();
-            if (subcomponent['phaseId']) {
-              // Emit event instead of direct call to avoid circular dependency
-              const event: FormCompletionStatusChangedEvent = {
-                type: 'FORM_COMPLETION_STATUS_CHANGED',
-                timestamp: new Date(),
-                userId: currentUser.uid,
-                patientId: instance.patientId,
-                studyId: instance.studyId,
-                phaseId: subcomponent['phaseId'],
-                templateId: instance.templateId,
-                isCompleted: true
-              };
-              this.eventBus.publish(event);
-            }
+      if (instance.visitSubcomponentId) {
+        // Update visit subcomponent status
+
+        // Get the visit subcomponent to find the phaseId
+        const subcomponentDoc = await getDoc(
+          doc(this.firestore, 'patients', instance.patientId, 'visitSubcomponents', instance.visitSubcomponentId)
+        );
+        
+        if (subcomponentDoc.exists()) {
+          const subcomponent = subcomponentDoc.data();
+          if (subcomponent['phaseId']) {
+            // Emit event instead of direct call to avoid circular dependency
+            const event: FormCompletionStatusChangedEvent = {
+              type: 'FORM_COMPLETION_STATUS_CHANGED',
+              timestamp: new Date(),
+              userId: currentUser.uid,
+              patientId: instance.patientId,
+              studyId: instance.studyId,
+              phaseId: subcomponent['phaseId'],
+              templateId: instance.templateId,
+              isCompleted: true
+            };
+            this.eventBus.publish(event);
           }
-        } catch (error) {
-          console.error('Failed to emit phase completion status event:', error);
-          // Don't fail the submission if event emission fails
         }
       }
 
@@ -326,8 +319,22 @@ export class FormInstanceService {
         documentHash: await this.calculateDocumentHash(instance)
       };
 
+      // Add signature to audit trail
+      const signatureAudit: AuditEntry = {
+        id: crypto.randomUUID(),
+        timestamp: Timestamp.now(),
+        userId: currentUser.uid,
+        userName: currentUser.displayName || currentUser.email,
+        action: 'completed' as const,
+        reason: `Electronic signature added: ${signatureMeaning}`,
+        changes: { signature }
+      };
+
       const updates: Partial<FormInstance> = {
-        signatures: [...(instance.signatures || []), signature],
+        auditTrail: [
+          ...(instance.auditTrail || []),
+          signatureAudit
+        ],
         status: 'completed'
       };
 
@@ -371,15 +378,25 @@ export class FormInstanceService {
           id: instanceSnap.id,
           ...rawData,
           // Ensure timestamps are converted to Date objects
-          createdAt: rawData['createdAt']?.toDate?.() || rawData['createdAt'] || new Date(),
-          updatedAt: rawData['updatedAt']?.toDate?.() || rawData['updatedAt'] || new Date(),
-          lastModifiedAt: rawData['lastModifiedAt']?.toDate?.() || rawData['lastModifiedAt'] || new Date()
-        } as FormInstance;
+          createdAt: rawData['createdAt']?.toDate ? rawData['createdAt'].toDate() : rawData['createdAt'],
+          lastModifiedAt: rawData['lastModifiedAt']?.toDate ? rawData['lastModifiedAt'].toDate() : rawData['lastModifiedAt']
+        } as unknown as FormInstance;
 
-        // Load PHI data if user has permissions
+        // Check PHI permissions
         const currentUser = await this.authService.getCurrentUserProfile();
-        if (currentUser && this.canViewPhiData(currentUser)) {
-          instance.phiData = await this.loadPhiData(instanceId);
+        const hasPhiAccess = currentUser && this.canViewPhiData(currentUser);
+        
+        // Mask PHI fields if user doesn't have permission
+        if (!hasPhiAccess && instance.formData) {
+          // Mask PHI data by removing sensitive fields
+          const maskedData = { ...instance.formData };
+          // Remove PHI fields from the data
+          Object.keys(maskedData).forEach(key => {
+            if (key.includes('phi') || key.includes('ssn') || key.includes('dob')) {
+              maskedData[key] = '[REDACTED]';
+            }
+          });
+          instance.formData = maskedData;
         }
 
         return instance;
@@ -711,8 +728,8 @@ export class FormInstanceService {
   private async calculateDocumentHash(instance: FormInstance): Promise<string> {
     const documentData = JSON.stringify({
       templateId: instance.templateId,
-      data: instance.data,
-      timestamp: instance.updatedAt
+      data: instance.formData,
+      timestamp: instance.lastModifiedAt
     });
     
     const encoder = new TextEncoder();

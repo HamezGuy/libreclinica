@@ -82,6 +82,7 @@ export class StudyService implements IStudyService {
   private dataQueriesSubject = new BehaviorSubject<DataQuery[]>([]);
 
   // Public observables
+  public studies$ = this.studiesSubject.asObservable();
   public substudies$ = this.substudiesSubject.asObservable();
   public studyGroups$ = this.studyGroupsSubject.asObservable();
   public formInstances$ = this.formInstancesSubject.asObservable();
