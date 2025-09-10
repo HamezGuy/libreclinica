@@ -1,0 +1,124 @@
+<div class="image-recognition-container">
+  <div class="header">
+    <h1>🤖 AI Image Recognition</h1>
+    <div class="api-status" [ngClass]="{'online': apiStatus === 'online', 'offline': apiStatus === 'offline', 'checking': apiStatus === 'checking'}">
+      <span *ngIf="apiStatus === 'online'">✅ API Online</span>
+      <span *ngIf="apiStatus === 'offline'">❌ API Offline</span>
+      <span *ngIf="apiStatus === 'checking'">🔄 Checking API...</span>
+    </div>
+    <button class="close-btn" (click)="closeDialog()" title="Close">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div *ngIf="!results" class="upload-section">
+    <div 
+      *ngIf="!imagePreview"
+      class="upload-area" 
+      [ngClass]="{'drag-active': dragActive}"
+      (click)="triggerFileInput()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)">
+      
+      <div class="upload-icon">📸</div>
+      <p class="upload-text">Click to upload or drag & drop an image</p>
+      <p class="upload-hint">Supports JPG, PNG, BMP, TIFF (Max 10MB)</p>
+    </div>
+    
+    <input 
+      #fileInput
+      type="file" 
+      accept="image/*" 
+      (change)="onFileSelected($event)"
+      style="display: none">
+
+    <div *ngIf="imagePreview" class="preview-section">
+      <img [src]="imagePreview" alt="Preview" class="preview-image">
+      <button class="btn btn-primary" (click)="uploadImage()" [disabled]="loading">
+        <span *ngIf="!loading">🚀 Process Image</span>
+        <span *ngIf="loading">Processing...</span>
+      </button>
+      <button class="btn btn-secondary" (click)="reset()">Clear</button>
+    </div>
+
+    <div *ngIf="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Analyzing image with AI...</p>
+    </div>
+
+    <div *ngIf="error" class="error">
+      <span>⚠️ {{ error }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="results" class="results-section">
+    <div class="results-header">
+      <h2>Detection Results</h2>
+      <button class="btn btn-secondary" (click)="reset()">↩️ New Image</button>
+    </div>
+
+    <div class="results-summary">
+      <div class="summary-card">
+        <div class="summary-value">{{ results.detection_count || 0 }}</div>
+        <div class="summary-label">Objects Detected</div>
+      </div>
+      <div class="summary-card" *ngIf="results.processing_time">
+        <div class="summary-value">{{ (results.processing_time * 1000).toFixed(0) }}ms</div>
+        <div class="summary-label">Processing Time</div>
+      </div>
+      <div class="summary-card" *ngIf="results.measurements?.ruler_detected">
+        <div class="summary-value">✅</div>
+        <div class="summary-label">Ruler Detected</div>
+      </div>
+    </div>
+
+    <div class="detections-list" *ngIf="results.detections && results.detections.length > 0">
+      <h3>Detected Objects:</h3>
+      <div class="detection-item" *ngFor="let detection of results.detections">
+        <div class="detection-info">
+          <div class="detection-class">{{ detection.class_name }}</div>
+          <div class="detection-details">
+            <span class="detail-item" *ngIf="detection.bbox">
+              📍 Position: [{{ detection.bbox[0]?.toFixed(0) }}, {{ detection.bbox[1]?.toFixed(0) }}]
+            </span>
+            <span class="detail-item" *ngIf="detection.bbox">
+              📐 Size: {{ (detection.bbox[2] - detection.bbox[0])?.toFixed(0) }}x{{ (detection.bbox[3] - detection.bbox[1])?.toFixed(0) }}px
+            </span>
+          </div>
+        </div>
+        <div class="detection-confidence">
+          <span class="confidence">{{ formatConfidence(detection.confidence) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="measurements" *ngIf="results.measurements?.wound_measurements">
+      <h3>Wound Measurements:</h3>
+      <div class="measurement-grid">
+        <div class="measurement-item">
+          <span class="measurement-label">Area:</span>
+          <span class="measurement-value">{{ results.measurements.wound_measurements.area_mm2?.toFixed(2) }} mm²</span>
+        </div>
+        <div class="measurement-item">
+          <span class="measurement-label">Width:</span>
+          <span class="measurement-value">{{ results.measurements.wound_measurements.width_mm?.toFixed(2) }} mm</span>
+        </div>
+        <div class="measurement-item">
+          <span class="measurement-label">Height:</span>
+          <span class="measurement-value">{{ results.measurements.wound_measurements.height_mm?.toFixed(2) }} mm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotated-image" *ngIf="results.annotated_image && results.annotated_image.length > 0">
+      <h3>Annotated Image:</h3>
+      <img [src]="getSafeImageUrl(results.annotated_image)" alt="Annotated result" (error)="handleImageError($event)">
+    </div>
+
+    <details class="raw-data">
+      <summary>View Raw JSON</summary>
+      <pre>{{ results | json }}</pre>
+    </details>
+  </div>
+</div>
