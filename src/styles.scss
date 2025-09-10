@@ -1,6 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Global Styles for Electronic Data Capture System */
+/* You can add global styles to this file, and also import other style files */
+
+/* Image Recognition Dialog Styles */
+.image-recognition-dialog {
+  .mat-mdc-dialog-container {
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  .mdc-dialog__surface {
+    overflow: hidden;
+    max-width: 95vw !important;
+    max-height: 95vh !important;
+  }
+  
+  .mat-mdc-dialog-content {
+    padding: 0;
+    margin: 0;
+    max-height: none;
+  }
+}
 
 * {
   box-sizing: border-box;

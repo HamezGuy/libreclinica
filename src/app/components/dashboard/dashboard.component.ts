@@ -35,6 +35,7 @@ import { ProfileEditPopupComponent } from '../profile-edit-popup/profile-edit-po
 import { TemplateManagementComponent } from '../template-management/template-management.component';
 import { OcrTemplateBuilderComponent } from '../ocr-template-builder/ocr-template-builder.component';
 import { ExcelConversionDialogComponent } from '../excel-conversion-dialog/excel-conversion-dialog.component';
+import { ImageRecognitionComponent } from '../image-recognition/image-recognition.component';
 import { LanguageSelectorComponent } from '../language-selector/language-selector.component';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { PatientDetailComponent } from '../patient-detail/patient-detail.component';
@@ -2956,6 +2957,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Open Image Recognition Dialog for AI image processing
+   */
+  openImageRecognition(): void {
+    const dialogRef = this.dialog.open(ImageRecognitionComponent, {
+      width: '98vw',
+      height: '98vh',
+      maxWidth: '1800px',
+      maxHeight: '98vh',
+      panelClass: 'image-recognition-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('Image recognition completed', result);
+      }
+    });
+  }
+
+  /**
+   * Open Excel Import Dialog
+   */
   openExcelImport(): void {
     const dialogRef = this.dialog.open(ExcelConversionDialogComponent, {
       width: '80%',

@@ -41,6 +41,11 @@
           <i class="material-icons">table_chart</i>
           Excel Import/Export
         </button>
+
+        <button class="btn btn-purple" (click)="openImageRecognition()" [disabled]="!permissions.canCreate" [title]="permissions.canCreate ? 'AI Image Recognition & Processing' : 'Insufficient permissions'">
+          <i class="material-icons">image_search</i>
+          Image Processing
+        </button>
       </div>
       
       <!-- User Profile -->

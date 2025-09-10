@@ -1,6 +1,6 @@
 /* EDC Dashboard Component Styles */
-@import './dashboard-patient-detail.scss';
-@import './dashboard-audit-logs.scss';
+@use './dashboard-patient-detail.scss';
+@use './dashboard-audit-logs.scss';
 
 .edc-dashboard {
   height: 100vh;
@@ -223,6 +223,24 @@
           &:hover:not(:disabled) {
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+          }
+          
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #cbd5e1;
+          }
+        }
+        
+        &.btn-purple {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          border: none;
+          
+          &:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+            background: linear-gradient(135deg, #9333ea 0%, #8b5cf6 100%);
           }
           
           &:disabled {
