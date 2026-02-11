@@ -1,8 +1,0 @@
-{
-  "patient-phase-progress": {
-    "study_phase_progress": "Study Phase Progress",
-    "loading_phase_progress": "Loading phase progress...",
-    "hourglassempty": "hourglass_empty",
-    "ready_to_progress": "Ready to progress"
-  }
-}

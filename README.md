@@ -1,59 +1,25 @@
-# ElectronicDataCapture
+# LibreClinica - Reference & OCR Backend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.1.5.
+## Status
 
-## Development server
+The Angular frontend that was previously in this directory has been **removed** 
+(it was superseded by `ElectronicDataCaptureReal`).
 
-To start a local development server, run:
+## What Remains
 
-```bash
-ng serve
-```
+### `backend/` - OCR/Textract Proxy Server
+An Express.js proxy server (port 3001) for Amazon Textract OCR requests.
+This is a standalone service that can be used for document OCR if needed.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+### `tools/` - i18n Utility Scripts
+Translation extraction and verification tools.
 
-## Code scaffolding
+## Architecture Context
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+The LibreClinica **business layer** is provided by:
+- **`libreclinica-core/`** - Java/Tomcat application that creates the PostgreSQL 
+  schema (100+ tables) and provides SOAP web services
+- **`libreclinicaapi/`** - Node.js REST API that bridges the Angular frontend 
+  with LibreClinica Core via SOAP and direct database access
 
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+See `ARCHITECTURE.md` in the project root for the full system architecture.
